@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.24.0",
   "scripts": {
+    "dev": "pnpm --parallel --filter api --filter web dev",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api dev",
     "dev:mobile": "pnpm --filter mobile start",
