@@ -18,10 +18,10 @@ Citizen reporting platform. The plan, user stories and clickable prototypes live
 ```sh
 pnpm install          # installs all workspaces from pnpm-lock.yaml
 pnpm db:up            # starts PostgreSQL, MinIO and Mailpit in Docker (builds the database image the first time)
-cp .env.example .env  # then fill in secrets
-export DATABASE_URL=postgres://kiezruf:kiezruf@localhost:5432/kiezruf
+cp .env.example .env  # the API, migrations and seed read it
 pnpm --filter api db:migrate   # applies the SQL migrations in apps/api/drizzle
 pnpm --filter api db:seed      # loads the tenant tree: Berlin and its 12 Bezirke
+# MinIO: create the buckets photos-private and photos-public once in the console (http://localhost:9001)
 pnpm dev:api          # http://localhost:4000/health
 pnpm dev:web          # http://localhost:3000
 pnpm dev:mobile       # Expo dev server
@@ -53,8 +53,22 @@ How the suites map to the plan:
 
 - Tables are defined in `apps/api/src/db/schema.ts`. After changing it, run `pnpm --filter api db:generate` and commit the new file in `apps/api/drizzle`. drizzle-kit puts quotes around `geography(Point,4326)`; remove them in the generated SQL.
 - Triggers, database roles, row-level security policies and views are hand-written SQL migrations (`pnpm --filter api exec drizzle-kit generate --custom --name=<name>`).
-- Staff queries go through `withStaffScope` (`apps/api/src/db/scope.ts`), never through the plain connection. It limits the transaction to the caller's tenant subtree.
+- Every API query runs under one database role (`apps/api/src/db/scope.ts`): `withStaffScope` for staff (tenant subtree), `withCitizenSession` for a signed-in citizen (public data plus their own rows), `withCitizenAccess` for anonymous reads, `withAuthAccess` for sign-in. Never query through the plain connection in a route.
 - Berlin Bezirk boundaries in `apps/api/src/db/seed/berlin-bezirke.geojson` come from Geoportal Berlin (ALKIS Bezirke) through the Technologiestiftung Berlin open-data copy.
+
+## API (citizen core)
+
+Sign in with an email code, then send `Authorization: Bearer <token>`. Errors are `{ "error": "<code>" }`; the apps translate the codes.
+
+| Endpoint | What |
+| --- | --- |
+| `POST /auth/code` · `POST /auth/verify` · `POST /auth/logout` · `GET /me` | Email one-time code (6 digits, 10 min, 5 tries), 30-day session (US-01) |
+| `GET /public/route?lat&lon` | Receiving office for a point, or not live (US-41, US-44) |
+| `GET /public/reports?lat&lon[&radiusM&category&status&maxAgeDays]` · `GET /public/reports/:publicId` | Map, list and detail without an account. No score, level or capture data (US-15, US-24) |
+| `POST /uploads` | Presigned PUT URL for one original photo in the private bucket (US-06) |
+| `POST /reports` | Post on-site: 1–3 photos, accuracy ≤ 100 m, capture ≤ 48 h old (US-03, US-41). Starts as `processing` |
+| `GET /me/reports` | The citizen's own reports (US-11) |
+| `PUT` / `DELETE /reports/:publicId/me-too` | Me too, on-site within 150 m; undo (US-18, D-03) |
 
 ## Not yet decided
 

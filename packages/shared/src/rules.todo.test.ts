@@ -1,19 +1,9 @@
 // Domain rules that belong in packages/shared but are not written yet.
 // Each `it.todo` becomes a real test in the same PR that adds the rule (Definition of Done: unit tests for new domain logic).
+// Done so far: report IDs (ids.test.ts) and the location gate (location-gate.test.ts). Me too votes are API
+// behaviour, tested in apps/api/test/integration/citizen-api.int.test.ts.
 // Source: product plan stories and the engineering plan's Gherkin scenarios.
 import { describe, it } from 'vitest';
-
-describe('report IDs (US-41)', () => {
-  it.todo('formats as <Land>-<tenant>-<year>-<4-digit sequence>, e.g. BE-NK-2026-0118');
-  it.todo('pads the sequence to 4 digits and rejects sequences above 9999');
-});
-
-describe('on-site location gate (US-03, US-32)', () => {
-  it.todo('allows posting at 100 m accuracy');
-  it.todo('blocks posting at 101 m accuracy');
-  it.todo('accepts a gallery photo taken on-site within the last 48 h');
-  it.todo('rejects a gallery photo older than 48 h or without location and time metadata');
-});
 
 describe('spike detection (US-26, US-37)', () => {
   it.todo('flags 19 votes in 40 min when 15 come from accounts younger than 7 days');
@@ -40,9 +30,4 @@ describe('pseudonymisation before AI calls (D-13)', () => {
 describe('forward links (US-45)', () => {
   it.todo('creates a link that opens the report without a login');
   it.todo('expires the link after 90 days');
-});
-
-describe('Me too votes (US-18)', () => {
-  it.todo('allows one vote per account per report');
-  it.todo('removes the vote when the same account votes again (undo)');
 });

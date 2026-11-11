@@ -150,7 +150,8 @@ describe('row-level security (US-42)', () => {
     expect(await withStaffScope(db, scopes.noGrants, (tx) => tx.select().from(photo))).toEqual([]);
   });
 
-  it.todo('comment and vote rows follow the scope of their report (tables arrive in Phase 1)');
+  // Vote rows: test/integration/citizen-api.int.test.ts.
+  it.todo('comment rows follow the scope of their report (the comment table arrives with US-19)');
 
   it('staff cannot move a report to another tenant', async () => {
     const spandau = await tenantId(SP);
@@ -183,14 +184,14 @@ describe('row-level security (US-42)', () => {
 });
 
 describe('citizen access (US-24, US-31)', () => {
-  it('citizens cannot read the report table', async () => {
-    await expectDbError(withCitizenAccess(db, (tx) => tx.select().from(report)), /permission denied/);
+  it('an anonymous citizen reads no rows from the report table', async () => {
+    expect(await withCitizenAccess(db, (tx) => tx.select().from(report))).toEqual([]);
   });
 
   it('public_report has no capture location, capture time or author', async () => {
     const rows = await withCitizenAccess(db, (tx) => tx.execute(sql`SELECT * FROM public_report LIMIT 1`));
     expect(Object.keys(rows[0]!).sort()).toEqual(
-      ['category', 'created_at', 'dangerous', 'description', 'id', 'location', 'public_id', 'status', 'tenant_id', 'updated_at'],
+      ['category', 'created_at', 'dangerous', 'description', 'id', 'location', 'me_too_count', 'public_id', 'status', 'tenant_id', 'updated_at'],
     );
   });
 
@@ -246,5 +247,5 @@ describe('routing (US-41, US-44)', () => {
     expect(await routeTenant(db, MARIENPLATZ_MUNICH)).toEqual({ live: false, tenant: null });
   });
 
-  it.todo('creates no report and records one demand signal inside a not-live tenant (POST /reports, Phase 1)');
+  // POST /reports in a not-live tenant (no report, one demand signal): citizen-api.int.test.ts and routing.feature.
 });

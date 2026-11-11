@@ -22,6 +22,20 @@
       "when": 1794411057935,
       "tag": "0002_tenant_isolation",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794412127287,
+      "tag": "0003_citizen_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794412127684,
+      "tag": "0004_citizen_access",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import {
   check,
   customType,
   index,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -50,6 +51,8 @@ export const reportStatus = pgEnum('report_status', [
   'forwarded',
 ]);
 export const blurStatus = pgEnum('blur_status', ['pending', 'done', 'failed']);
+export const reactionKind = pgEnum('reaction_kind', ['co_reporter', 'comment', 'me_too', 'danger']);
+export const sessionKind = pgEnum('session_kind', ['citizen', 'staff']);
 
 export const tenant = pgTable(
   'tenant',
@@ -179,6 +182,83 @@ export const photo = pgTable(
     index('photo_report_idx').on(t.reportId),
     check('photo_public_only_when_blurred', sql`${t.publicKey} IS NULL OR ${t.blurStatus} = 'done'`),
   ],
+);
+
+// --- Phase 1: sign-in, posting, votes -------------------------------------------------------------
+
+// One-time sign-in codes (US-01): 6 digits, valid 10 minutes, 5 tries. Only an HMAC of the code is stored.
+export const loginCode = pgTable(
+  'login_code',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Normalised: trimmed and lower-case.
+    email: text('email').notNull(),
+    codeHash: text('code_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    // Set when the code is used, replaced by a newer code, or locked after too many tries.
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('login_code_email_idx').on(t.email, t.createdAt)],
+);
+
+// Opaque session tokens, stored as SHA-256 hashes (engineering plan, Security: "Sessions").
+export const session = pgTable(
+  'session',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    kind: sessionKind('kind').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('session_account_idx').on(t.accountId)],
+);
+
+// Report ID sequence per tenant and year (US-41). Advanced only by the next_report_sequence() function.
+export const reportSequence = pgTable(
+  'report_sequence',
+  {
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    year: integer('year').notNull(),
+    lastValue: integer('last_value').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.year] })],
+);
+
+// An attempt to post where Kiezruf is not live (US-44), counted per area as demand for onboarding.
+// No account and no exact location: only the deepest tenant at the point, or null outside every boundary.
+export const demandSignal = pgTable(
+  'demand_signal',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenant.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('demand_signal_tenant_idx').on(t.tenantId)],
+);
+
+// Citizen reactions that feed the score (US-18, US-22). One per account, report and kind.
+// A spike discount sets the weight to 0.5 (US-26).
+export const reaction = pgTable(
+  'reaction',
+  {
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    kind: reactionKind('kind').notNull(),
+    weight: real('weight').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.reportId, t.accountId, t.kind] }), index('reaction_account_idx').on(t.accountId)],
 );
 
 export type StaffRoleKind = (typeof staffRoleKind.enumValues)[number];

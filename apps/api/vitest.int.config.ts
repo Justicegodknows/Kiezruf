@@ -1,12 +1,19 @@
 import { defineConfig } from 'vitest/config';
 
-// Integration tests against a real PostgreSQL 16 + PostGIS started by Testcontainers (needs Docker).
+// Integration tests against a real PostgreSQL 16 (PostGIS, ltree, pgvector) started by Testcontainers (needs Docker).
+// Most API code is reached only through these tests, so API coverage is measured here (`pnpm --filter api test:int:coverage`).
 export default defineConfig({
   test: {
     include: ['test/integration/**/*.int.test.ts'],
     globalSetup: ['test/integration/global-setup.ts'],
     testTimeout: 30_000,
-    hookTimeout: 120_000,
+    hookTimeout: 300_000,
     fileParallelism: false,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/server.ts', 'src/db/seed/run.ts', 'src/db/migrate.ts'],
+      reportsDirectory: 'coverage/integration',
+    },
   },
 });
