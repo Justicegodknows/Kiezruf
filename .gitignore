@@ -11,3 +11,8 @@ dist/
 .npm-cache/
 .expo-home/
 .progress/
+coverage/
+apps/api/reports/
+apps/web/.features-gen/
+apps/web/playwright-report/
+apps/web/test-results/

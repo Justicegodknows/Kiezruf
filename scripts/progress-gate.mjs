@@ -54,10 +54,18 @@ function fail(msg, code = 1) {
 }
 
 // Compare real paths, so symlinked checkouts (e.g. /tmp -> /private/tmp) cannot slip past the gate.
+// A path that does not exist yet (a new file in a new folder) is resolved through its nearest existing ancestor.
 const canon = (p) => {
   const abs = resolve(ROOT, p);
-  try { return realpathSync(abs); } catch {}
-  try { return join(realpathSync(dirname(abs)), basename(abs)); } catch { return abs; }
+  const rest = [];
+  let dir = abs;
+  for (;;) {
+    try { return join(realpathSync(dir), ...rest); } catch {}
+    const parent = dirname(dir);
+    if (parent === dir) return abs;
+    rest.unshift(basename(dir));
+    dir = parent;
+  }
 };
 const REAL_ROOT = canon(ROOT);
 const isProgressFile = (p) => !!p && canon(p) === canon(FILE);

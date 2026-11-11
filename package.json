@@ -11,6 +11,14 @@
     "typecheck": "pnpm -r typecheck",
     "prepare": "git config core.hooksPath .githooks || true",
     "progress:read": "node scripts/progress-gate.mjs read",
-    "progress:check": "node scripts/progress-gate.mjs check"
+    "progress:check": "node scripts/progress-gate.mjs check",
+    "test": "pnpm test:gate && pnpm -r --if-present test",
+    "test:gate": "node --test \"scripts/*.test.mjs\"",
+    "test:coverage": "pnpm -r --if-present test:coverage",
+    "test:int": "pnpm --filter api test:int",
+    "test:features": "pnpm --filter api test:features && pnpm --filter web test:e2e",
+    "test:mobile": "pnpm --filter mobile test",
+    "test:maestro": "pnpm --filter mobile test:maestro",
+    "audit": "pnpm audit --audit-level high"
   }
 }

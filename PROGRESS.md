@@ -39,26 +39,26 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | `apps/api` | Fastify stub with `GET /health` only. Dependencies installed: Drizzle, pg-boss, S3 SDK, sharp, exifr, nodemailer, zod. No schema, no migrations, no routes. |
 | `apps/web` | Fresh Next.js template. No Kiezruf screens. |
 | `apps/mobile` | Fresh Expo template. No Kiezruf screens. |
-| `packages/shared` | `priorityScore` and `priorityLevel` (US-22, US-23). No tests yet. |
+| `packages/shared` | `priorityScore` and `priorityLevel` (US-22, US-23), with 38 unit tests. 23 `it.todo` tests list the shared rules still to write (IDs, location gate, spike detection, briefing validation, pseudonymisation, forward links, votes). |
 | `infra` | `docker-compose.yml` with PostGIS, MinIO and Mailpit. |
-| Governance | GOV-01 progress gate: `PROGRESS.md`, `AGENTS.md`, hooks, CI check. |
-| CI | Only the `progress-gate` workflow. No typecheck or test pipeline yet. |
+| Governance | GOV-01 progress gate: `PROGRESS.md`, `AGENTS.md`, hooks, CI check. 27 tests in `scripts/progress-gate.test.mjs`. |
+| Tests | Vitest unit tests (shared, api, web). API integration tests on Postgres + PostGIS via Testcontainers (`apps/api/test/integration`). The 8 Gherkin features from the engineering plan in `apps/api/features` (cucumber-js) and `apps/web/features` (playwright-bdd), tagged `@wip` with pending steps. Axe check for web pages. Jest (jest-expo) for mobile. Maestro flows in `apps/mobile/.maestro` (`wip`). |
+| CI | `progress-gate` workflow, plus `ci` workflow: typecheck, lint, gate tests, unit with coverage, integration, features, axe, dependency audit. |
 
 ## In progress
 
 | Item | Owner | Story / ref | Notes |
 | --- | --- | --- | --- |
 | Progress gate (GOV-01) | — | — | Done once a collaborator runs `pnpm install` (sets the hooks path) and CI runs on GitHub |
+| Test tooling install | — | — | New dev dependencies are in `package.json` files and `pnpm-lock.yaml` but not installed yet. Run `pnpm install`, then `pnpm test`. First green `ci` run on GitHub still pending. |
 
 ## Next up (Phase 0, in order)
 
-1. CI pipeline: typecheck, lint, Vitest on every PR.
-2. Schema v1 in Drizzle: `tenant` (ltree path, boundary geometry), `account`, `staff_role`, `report`, `photo`. Enable the PostGIS, ltree and pgvector extensions.
-3. Row-level security policies and the cross-tenant isolation test (US-42).
-4. Tenant tree seed: Berlin → Neukölln and Spandau from Berlin open data; VG250 import script (needs `ogr2ogr`).
-5. Auth with email one-time codes (US-01).
-6. Unit tests for `priorityScore` and `priorityLevel`.
-7. Agree the vlincta.com API contract (E-01) and start the DPAs.
+1. Schema v1 in Drizzle: `tenant` (ltree path, boundary geometry), `account`, `staff_role`, `report`, `photo`. Enable the PostGIS, ltree and pgvector extensions. The `postgis/postgis` image has no pgvector (see E-05).
+2. Row-level security policies; turn the `it.todo` tests in `apps/api/test/integration/tenant-isolation.int.test.ts` into real tests (US-42).
+3. Tenant tree seed: Berlin → Neukölln and Spandau from Berlin open data; VG250 import script (needs `ogr2ogr`).
+4. Auth with email one-time codes (US-01).
+5. Agree the vlincta.com API contract (E-01) and start the DPAs.
 
 ## Blockers and open questions
 
@@ -70,6 +70,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | E-02 | SMS one-time codes cost money per message. Do we offer email only during the pilot? | Phase 0 auth |
 | E-03 | Which BSI C5 hosting provider (STACKIT, IONOS Cloud, Open Telekom Cloud)? | Staging environment |
 | E-04 | Mobile map library: react-native-maps or MapLibre? | Phase 1 map |
+| E-05 | Which Postgres image gives PostGIS, ltree and pgvector together, for local dev, Testcontainers and the hosting provider? | Schema v1, US-13 duplicates |
 
 ## Engineering decisions
 
@@ -78,6 +79,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | GOV-01 | Everyone reads `PROGRESS.md` before writing code and before committing. Enforced by hooks and CI. | 2026-11-11 |
 | ENG-01 | The ORM is Drizzle (already installed in `apps/api`). This replaces Kysely, which the engineering plan proposed. | 2026-11-11 |
 | ENG-02 | Background jobs use pg-boss, so no Redis is needed. | 2026-11-11 |
+| ENG-03 | Gherkin features live in `apps/*/features` and carry `@wip` until their story is built. CI runs every feature without `@wip` and fails on undefined or pending steps. Removing `@wip` is part of a story's Definition of Done. | 2026-11-11 |
 
 ## Change log
 
@@ -85,6 +87,7 @@ Newest first. Add one line per commit that changes project state.
 
 | Date | Change | By |
 | --- | --- | --- |
+| 2026-11-11 | Added the test suites and the `ci` workflow (see *Tests* above). Split `apps/api` into `app.ts` (buildApp) and `server.ts`. Fixed a gate bug found by the new tests: a new file in a new folder under a symlinked checkout path was not seen as inside the repo, so the edit was not blocked. | Claude |
 | 2026-11-11 | Added `PROGRESS.md` and the GOV-01 progress gate (AGENTS.md, CLAUDE.md, git hooks, Claude Code hooks, CI) | Claude |
 | 2026-11-11 | First commit: monorepo scaffold, API stub, shared score function, infra compose | — |
 

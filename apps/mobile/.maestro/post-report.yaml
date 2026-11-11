@@ -1,0 +1,37 @@
+# Maestro flow: camera and post path (engineering plan, "Tests"). Runs on a simulator or emulator with a dev build.
+# The testIDs below must be set on the matching components when the screens are built (see the prototype's "Citizen app" tab).
+appId: ${APP_ID}
+name: Post a report inside Neukölln
+tags:
+  - wip
+  - US-06
+  - US-11
+  - US-41
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+# Karl-Marx-Straße 100, Neukölln (pilot tenant)
+- setLocation:
+    latitude: 52.4795
+    longitude: 13.4365
+- tapOn:
+    id: "nav-new-report"
+- assertVisible:
+    id: "camera-viewfinder"
+- tapOn:
+    id: "camera-shutter"
+- assertVisible: "Goes to Bezirksamt Neukölln"
+- tapOn:
+    id: "report-description"
+- inputText: "Pedestrian light dark since this morning"
+- tapOn:
+    id: "report-post"
+- runFlow:
+    when:
+      visible: "Sign in to post"
+    file: subflows/sign-in.yaml
+- assertVisible: "Report posted"
+- assertVisible:
+    text: "#BE-NK-2026-\\d{4}"

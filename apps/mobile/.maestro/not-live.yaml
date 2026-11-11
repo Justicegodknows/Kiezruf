@@ -1,0 +1,22 @@
+# Maestro flow: reporting where Kiezruf is not live (US-44).
+appId: ${APP_ID}
+name: Camera in a not-live tenant
+tags:
+  - wip
+  - US-44
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+# Oranienplatz, Friedrichshain-Kreuzberg (not live)
+- setLocation:
+    latitude: 52.5023
+    longitude: 13.4185
+- tapOn:
+    id: "nav-new-report"
+- tapOn:
+    id: "camera-shutter"
+- assertVisible: "Kiezruf isn't live in Friedrichshain-Kreuzberg yet"
+- tapOn: "Tell me when it starts here"
+- assertVisible: "We will tell you"

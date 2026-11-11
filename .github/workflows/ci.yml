@@ -1,0 +1,81 @@
+name: ci
+# Engineering plan, "Quality and operations": typecheck, lint, unit, integration, features, axe and a dependency audit on every PR.
+# The GOV-01 trailer check runs separately in progress-gate.yml.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck, lint, gate tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm -r --if-present lint
+      - run: pnpm test:gate
+
+  unit:
+    name: Unit tests (shared, api, web, mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @kiezruf/shared test:coverage
+      - run: pnpm --filter api test:coverage
+      - run: pnpm --filter web test
+      - run: pnpm --filter mobile test --ci
+
+  integration:
+    name: API integration (Postgres + PostGIS via Testcontainers)
+    runs-on: ubuntu-latest # Docker is preinstalled on GitHub's Ubuntu runners
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:int
+
+  features:
+    name: Gherkin features and accessibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api test:features
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter web test:e2e
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            apps/api/reports/
+            apps/web/playwright-report/
+          if-no-files-found: ignore
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm audit --audit-level high
