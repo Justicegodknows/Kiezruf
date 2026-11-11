@@ -1,0 +1,25 @@
+name: progress-gate
+# GOV-01: every commit must carry a Progress-Read trailer that matches PROGRESS.md before or at that commit.
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  progress-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check every commit read PROGRESS.md
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+            if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then BASE="$(git rev-list --max-parents=0 HEAD | tail -1)"; fi
+          fi
+          node scripts/progress-gate.mjs ci "$BASE"

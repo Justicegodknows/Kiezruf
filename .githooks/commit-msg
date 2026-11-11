@@ -1,0 +1,3 @@
+#!/bin/sh
+# GOV-01: block the commit unless PROGRESS.md was read, then stamp the Progress-Read trailer.
+exec node "$(git rev-parse --show-toplevel)/scripts/progress-gate.mjs" commit-msg "$1"

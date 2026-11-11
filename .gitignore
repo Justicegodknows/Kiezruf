@@ -10,3 +10,4 @@ dist/
 .pnpm-cache/
 .npm-cache/
 .expo-home/
+.progress/

@@ -8,6 +8,9 @@
     "dev:mobile": "pnpm --filter mobile start",
     "db:up": "docker compose -f infra/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker-compose.yml down",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "progress:read": "node scripts/progress-gate.mjs read",
+    "progress:check": "node scripts/progress-gate.mjs check"
   }
 }
