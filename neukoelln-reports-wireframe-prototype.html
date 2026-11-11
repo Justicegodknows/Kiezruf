@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neuk&#246;lln Reports Prototype</title>
+<style>
+:root{
+  --bg:#efeee9; --panel:#ffffff; --ink:#1f2126; --muted:#6b7079; --line:#c9c7bf; --soft:#e6e4dd;
+  --wf:#fbfbf9; --wf-ink:#2b2d31; --wf-line:#8d8f94; --wf-fill:#dcdcd8;
+  --accent:#c2410c; --accent-soft:#fde8dc; --hot:rgba(194,65,12,.18);
+  --must:#b91c1c; --should:#b45309; --could:#2563eb;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141619; --panel:#1d2025; --ink:#eceae4; --muted:#a2a7b0; --line:#3a3e46; --soft:#262a30;
+    --wf:#22252b; --wf-ink:#e4e3de; --wf-line:#7c8089; --wf-fill:#353941;
+    --accent:#fb923c; --accent-soft:#3a2417; --hot:rgba(251,146,60,.22);
+    --must:#fca5a5; --should:#fcd34d; --could:#93c5fd;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141619; --panel:#1d2025; --ink:#eceae4; --muted:#a2a7b0; --line:#3a3e46; --soft:#262a30;
+  --wf:#22252b; --wf-ink:#e4e3de; --wf-line:#7c8089; --wf-fill:#353941;
+  --accent:#fb923c; --accent-soft:#3a2417; --hot:rgba(251,146,60,.22);
+  --must:#fca5a5; --should:#fcd34d; --could:#93c5fd;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header.top h1{font-size:1.05rem;margin:0}
+header.top .sp{flex:1}
+.tbtn{font:inherit;font-size:.85rem;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.tbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.app{display:grid;grid-template-columns:230px 1fr 340px;min-height:calc(100vh - 56px)}
+aside.nav{border-right:1px solid var(--line);background:var(--panel);padding:12px 10px;overflow-y:auto}
+aside.nav h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 8px 6px}
+aside.nav a{display:flex;gap:8px;padding:6px 8px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:.88rem}
+aside.nav a span{font-family:ui-monospace,Menlo,monospace;color:var(--muted);font-size:.75rem;min-width:30px;padding-top:2px}
+aside.nav a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+main.stage{display:flex;flex-direction:column;align-items:center;padding:24px 16px;overflow-x:auto}
+.crumb{font-size:.85rem;color:var(--muted);margin-bottom:12px;text-align:center}
+.crumb b{color:var(--ink)}
+/* device frames */
+.phone{width:340px;height:690px;border:2px solid var(--wf-line);border-radius:34px;background:var(--wf);color:var(--wf-ink);padding:14px 12px;position:relative;display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.phone .notch{width:110px;height:18px;border-radius:0 0 12px 12px;background:var(--wf-line);opacity:.35;margin:-14px auto 8px}
+.desk{width:min(900px,100%);min-width:680px;height:600px;border:2px solid var(--wf-line);border-radius:10px;background:var(--wf);color:var(--wf-ink);display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,.08);overflow:hidden}
+.desk .bar{height:28px;border-bottom:1.5px solid var(--wf-line);display:flex;align-items:center;gap:6px;padding:0 10px}
+.desk .bar i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--wf-line)}
+.desk .bar .url{flex:1;margin-left:10px;height:16px;border:1.5px solid var(--wf-line);border-radius:4px;font-size:.68rem;padding:0 6px;line-height:13px;color:var(--muted)}
+.scr{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px;font-size:.88rem}
+.desk .scr{padding:12px 14px}
+/* wireframe primitives */
+.wtitle{font-weight:700;font-size:1.05rem}
+.wsub{color:var(--muted);font-size:.8rem}
+.box{border:1.5px solid var(--wf-line);border-radius:8px;padding:9px 10px}
+.dash{border:1.5px dashed var(--wf-line);border-radius:8px}
+.img{background:repeating-linear-gradient(45deg,var(--wf-fill) 0 6px,transparent 6px 12px);border:1.5px solid var(--wf-line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem;text-align:center}
+.field{border:1.5px solid var(--wf-line);border-radius:6px;padding:8px 9px;color:var(--muted);font-size:.82rem;background:transparent}
+.lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:-4px}
+.btn{border:1.5px solid var(--wf-ink);border-radius:8px;padding:9px;text-align:center;font-weight:700;background:var(--wf-ink);color:var(--wf);cursor:pointer;user-select:none}
+.btn.ghost{background:transparent;color:var(--wf-ink)}
+.btn.sm{padding:5px 9px;font-size:.78rem;display:inline-block}
+.row{display:flex;gap:8px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1}
+.pill{border:1.5px solid var(--wf-line);border-radius:999px;padding:3px 9px;font-size:.75rem;white-space:nowrap}
+.pill.on{background:var(--wf-ink);color:var(--wf);border-color:var(--wf-ink)}
+.line{height:8px;border-radius:4px;background:var(--wf-fill)}
+.check{width:16px;height:16px;border:1.5px solid var(--wf-line);border-radius:4px;flex:none}
+.toggle{width:34px;height:19px;border:1.5px solid var(--wf-line);border-radius:999px;position:relative;flex:none}
+.toggle::after{content:"";position:absolute;width:13px;height:13px;border-radius:50%;background:var(--wf-line);top:1.5px;left:2px}
+.toggle.on::after{left:16px;background:var(--wf-ink)}
+.tabbar{display:flex;justify-content:space-around;border-top:1.5px solid var(--wf-line);padding-top:8px;margin-top:6px;font-size:.72rem;text-align:center}
+.tabbar div{cursor:pointer;padding:2px 6px;border-radius:6px}
+.tabbar div.on{font-weight:700;text-decoration:underline}
+.fab{width:54px;height:54px;border-radius:50%;background:var(--wf-ink);color:var(--wf);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;cursor:pointer;margin-top:-34px;border:3px solid var(--wf)}
+.pin{position:absolute;width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:1.5px solid var(--wf-ink);background:var(--wf);cursor:pointer}
+.pin.hi{background:var(--wf-ink)}
+.mapbox{position:relative;background:linear-gradient(var(--wf-fill) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(90deg,var(--wf-fill) 1px,transparent 1px) 0 0/22px 22px;border:1.5px solid var(--wf-line);border-radius:8px}
+.banner{border:1.5px solid var(--wf-ink);border-radius:8px;padding:8px 10px;font-size:.8rem;font-weight:600}
+.note{font-size:.74rem;color:var(--muted);font-style:italic}
+table.wt{width:100%;border-collapse:collapse;font-size:.8rem}
+table.wt th,table.wt td{border-bottom:1.5px solid var(--wf-fill);padding:6px 6px;text-align:left}
+table.wt th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+table.wt tr.click{cursor:pointer}
+.lvl{border:1.5px solid var(--wf-ink);border-radius:4px;padding:1px 6px;font-size:.7rem;font-weight:700}
+.lvl.c{background:var(--wf-ink);color:var(--wf)}
+.dside{display:flex;gap:12px;flex:1;min-height:0}
+.dside .snav{width:130px;border-right:1.5px solid var(--wf-fill);padding-right:10px;display:flex;flex-direction:column;gap:6px;font-size:.8rem}
+.dside .snav div{padding:5px 7px;border-radius:6px;cursor:pointer}
+.dside .snav div.on{background:var(--wf-fill);font-weight:700}
+.dside .dmain{flex:1;display:flex;flex-direction:column;gap:9px;overflow-y:auto;min-width:0}
+/* hotspots */
+[data-go]{cursor:pointer}
+body.hints [data-go]{outline:2px dashed var(--accent);outline-offset:2px;background-color:var(--hot)}
+/* story panel */
+aside.stories{border-left:1px solid var(--line);background:var(--panel);padding:14px 14px 40px;overflow-y:auto}
+aside.stories h2{font-size:.95rem;margin:0 0 4px}
+aside.stories .desc{font-size:.85rem;color:var(--muted);margin:0 0 12px}
+.st{border:1px solid var(--line);border-radius:10px;margin:8px 0;overflow:hidden;background:var(--panel)}
+.st summary{list-style:none;cursor:pointer;padding:9px 11px;display:flex;gap:8px;align-items:flex-start;font-size:.86rem}
+.st summary::-webkit-details-marker{display:none}
+.st .id{font-family:ui-monospace,Menlo,monospace;font-size:.74rem;color:var(--muted);min-width:44px;padding-top:1px}
+.st .t{flex:1;font-weight:600}
+.bd{font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:5px;border:1px solid currentColor}
+.Must{color:var(--must)} .Should{color:var(--should)} .Could{color:var(--could)}
+.st .b{padding:0 11px 10px;font-size:.83rem}
+.st .b .as{font-style:italic;margin:2px 0 6px}
+.st .b ul{margin:4px 0;padding-left:18px}
+.st .b .also{font-size:.76rem;color:var(--muted);margin-top:6px}
+.st .b .also a{color:var(--accent);cursor:pointer;text-decoration:underline}
+.prop{font-size:.7rem;color:var(--accent);font-weight:700}
+/* index view */
+.index{width:min(900px,100%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.index table{width:100%;border-collapse:collapse;font-size:.85rem}
+.index th,.index td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+.index a{color:var(--accent);cursor:pointer;text-decoration:underline;margin-right:6px;white-space:nowrap}
+.index .warn{color:var(--must);font-weight:600}
+@media (max-width:1100px){ .app{grid-template-columns:200px 1fr} aside.stories{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)} }
+@media (max-width:700px){
+  .app{grid-template-columns:1fr} aside.nav{border-right:0;border-bottom:1px solid var(--line);max-height:220px}
+  .phone{width:100%;max-width:340px} main.stage{padding:16px}
+}
+</style>
+</head>
+<body>
+<noscript><div style="max-width:640px;margin:40px auto;padding:20px;border:2px solid #c2410c;border-radius:12px;font-family:sans-serif">
+<b>This prototype needs JavaScript.</b><br>Preview windows in email, chat apps and some phones don't run it, so the screens can't be drawn there.
+Save the file and open it in a web browser (Chrome, Edge, Firefox or Safari).</div></noscript>
+<header class="top">
+  <h1>Neuk&#246;lln Resident Reports &#8212; Clickable Wireframe</h1>
+  <span class="sp"></span>
+  <button class="tbtn" id="hintBtn" aria-pressed="false">Show clickable areas</button>
+  <button class="tbtn" id="idxBtn" aria-pressed="false">Story &#8594; screen index</button>
+</header>
+<div class="app">
+  <aside class="nav" id="nav"></aside>
+  <main class="stage" id="stage"></main>
+  <aside class="stories" id="stories"></aside>
+</div>
+
+<script>
+/* ---------------- USER STORIES (same as v0.1 document) ---------------- */
+const P = "<span class='prop'>PROPOSED</span>";
+const S = {
+"US-01":{p:"Must",t:"Sign up",as:"As a Neuk\u00f6lln resident, I want to create an account with my email or phone number so that my reports are linked to me.",ac:["Sign-up with email or phone; one-time code confirms ownership.","Password or passkey login on mobile and web.","Privacy notice and location-use explanation shown before the account is created.","New accounts start as unverified (read-only)."]},
+"US-02":{p:"Must",t:"Verify I live in Neuk\u00f6lln",as:"As a resident, I want to verify my Neuk\u00f6lln address so that I can post and interact.",ac:["Address is checked against the Neuk\u00f6lln boundary.","Outside addresses rejected with a clear message.","Status shown as Pending / Verified / Rejected (method still open).","Only verified accounts can post, like, comment or join a report."]},
+"US-03":{p:"Must",t:"Post only while I\u2019m in Neuk\u00f6lln",as:"As district office staff, I want reports to be created only on-site so that they are first-hand.",ac:["Location requested at the moment of posting, not in the background.","Outside the boundary \u2192 posting blocked with explanation.","Accuracy worse than 100 m "+P+" \u2192 ask to wait or move outdoors.","Permission denied \u2192 draft only."]},
+"US-04":{p:"Should",t:"Use the same account on the web",as:"As a resident at my computer, I want to log in on the website so that I can browse and follow reports.",ac:["Same credentials as mobile.","Web posting needs browser geolocation passing the same on-site check.","Desktop media without valid location/time metadata \u2192 draft only."]},
+"US-05":{p:"Could",t:"Add more districts later",as:"As the admin, I want district boundaries to be configurable so that we can expand beyond Neuk\u00f6lln.",ac:["Boundary polygons stored as data, not hard-coded.","Each report and account tagged with its district."]},
+"US-06":{p:"Must",t:"Take or attach photos",as:"As a resident, I want to take a photo in the app or pick a recent one so that I can show the problem.",ac:["In-app camera opens in one tap.","Gallery photos only if taken in Neuk\u00f6lln within 48 h "+P+".","Up to 5 photos "+P+".","Blurred preview before posting."]},
+"US-07":{p:"Must",t:"Record a short video",as:"As a resident, I want to record a short video so that I can show things a photo can\u2019t.",ac:["Max 30 s "+P+"; auto-stops.","Compressed on device; progress bar.","Upload resumes after a dropped connection."]},
+"US-08":{p:"Must",t:"Choose a category",as:"As a resident, I want to pick what kind of problem it is so that the right team sees it.",ac:["Groups: Traffic / Community facilities with admin-managed sub-categories.","AI suggestion pre-selected when confident; changeable.","\u201cOther\u201d requires a description."]},
+"US-09":{p:"Must",t:"Add a comment",as:"As a resident, I want to describe the problem in my own words so that staff understand the context.",ac:["10\u2013500 characters "+P+".","Optional \u201cIs this dangerous right now?\u201d toggle.","Toggle on \u2192 emergency banner (112/110)."]},
+"US-10":{p:"Must",t:"Confirm the location",as:"As a resident, I want the location filled in automatically but adjustable so that the pin is exact.",ac:["Pin from capture-time GPS with street address.","Draggable up to 50 m "+P+".","Facility picker for facility reports."]},
+"US-11":{p:"Must",t:"Review and post",as:"As a resident, I want to review my report before posting so that I don\u2019t send mistakes.",ac:["Summary: media, category, comment, location.","On post: report ID, appears on map and in \u201cMy reports\u201d.","Duplicate check runs before this screen."]},
+"US-12":{p:"Should",t:"Save drafts offline",as:"As a resident with weak signal, I want to save my report and send it later so that I don\u2019t lose it.",ac:["Draft keeps capture-time location and time.","Prompt to post on reconnect.","Drafts older than 48 h "+P+" can\u2019t be posted."]},
+"US-13":{p:"Must",t:"\u201cAlready reported?\u201d suggestions",as:"As a resident, I want to be told if my problem was already reported so that I can support it instead of duplicating it.",ac:["Search: 50 m, 30 days "+P+", related category, visual similarity.","Up to 3 matches with photo, distance, age.","\u201cAdd to this report\u201d \u2192 co-reporter.","\u201cMine is different\u201d \u2192 new report; choice logged."]},
+"US-14":{p:"Should",t:"Suggest a category from the image",as:"As a resident, I want the app to suggest a category so that reporting is faster.",ac:["Shown only above a confidence threshold (TBD).","Confirmations/corrections logged as feedback."]},
+"US-15":{p:"Should",t:"See reports near me",as:"As a resident, I want a feed and map of reports near me so that I can support issues I also see.",ac:["Map and list, sorted by distance.","Current location or user-saved places only.","Filters: category, status, age."]},
+"US-16":{p:"Must",t:"Extract and protect metadata",as:"As the system, I want to read location/time from each capture and remove it from public files.",ac:["Capture-time GPS and timestamp stored.","Gallery fallback to file metadata; reject if both missing.","Public files have metadata removed."]},
+"US-17":{p:"Should",t:"Merge and split duplicates (staff)",as:"As district office staff, I want to merge or split clustered reports so that one issue equals one ticket.",ac:["System proposes clusters; one-click confirm.","No double-counting of the same account.","Logged and reversible."]},
+"US-18":{p:"Must",t:"Like / \u201cMe too\u201d",as:"As a resident, I want to show I\u2019m also affected so that the issue gets attention.",ac:["One per verified account; undoable.","Disabled with explanation for unverified accounts."]},
+"US-19":{p:"Must",t:"Comment on a report",as:"As a resident, I want to add information to an existing report so that staff get the full picture.",ac:["Flat list; 500 chars max "+P+".","\u201cFlag\u201d on every comment.","Offensive-language filter holds for review."]},
+"US-20":{p:"Should",t:"Follow a report",as:"As a resident, I want to follow a report so that I hear when it\u2019s fixed.",ac:["Follow toggle; reporters auto-follow.","Notified on status change."]},
+"US-21":{p:"Could",t:"Post a \u201cstill broken\u201d or \u201cfixed\u201d update",as:"As a resident, I want to add a new on-site photo so that staff know the current state.",ac:["Same on-site rules as a new report.","\u201cFixed\u201d from 2+ residents "+P+" prompts staff check."]},
+"US-22":{p:"Must",t:"Calculate a priority score",as:"As district office staff, I want each report to have a priority score so that I can decide what to handle first.",ac:["Weighted model (co-reporter 5, commenter 2, like 1 "+P+") with recency decay and multipliers.","Unique verified accounts only.","Breakdown visible to staff."]},
+"US-23":{p:"Must",t:"See priority levels",as:"As district office staff, I want scores grouped into Critical / High / Medium / Low so that triage is quick.",ac:["Thresholds configurable by admin.","Level changes timestamped."]},
+"US-24":{p:"Must",t:"Hide score from residents",as:"As the district office, I want the score visible only to staff so that residents don\u2019t compete for ranking.",ac:["Resident apps never receive score or level.","Staff role required for score endpoints."]},
+"US-25":{p:"Must",t:"Triage dashboard (web)",as:"As district office staff, I want a dashboard of all reports sorted by priority so that I can plan work.",ac:["List and map; default sort by score.","Filters: category, level, status, locality, age.","CSV export."]},
+"US-26":{p:"Should",t:"Flag suspicious activity",as:"As a moderator, I want unusual spikes flagged so that the ranking isn\u2019t manipulated.",ac:["Spike rule flags reports on dashboard.","Moderator can discount interactions with a reason."]},
+"US-27":{p:"Should",t:"Override priority",as:"As district office staff, I want to set a priority manually so that local knowledge can correct the algorithm.",ac:["Reason required.","Logged and revertible."]},
+"US-28":{p:"Must",t:"Update report status",as:"As district office staff, I want to change a report\u2019s status so that residents know what\u2019s happening.",ac:["Open \u2192 Acknowledged \u2192 In progress \u2192 Resolved; Rejected (reason); Forwarded.","Status and public note visible to residents."]},
+"US-29":{p:"Must",t:"Get notified",as:"As a reporter or follower, I want a notification when the status changes so that I don\u2019t have to keep checking.",ac:["Push on mobile, email option.","Per-type on/off settings."]},
+"US-30":{p:"Could",t:"Archive resolved reports",as:"As the admin, I want resolved reports archived so that the map stays relevant.",ac:["Hidden from main map after 30 days "+P+"; searchable by staff."]},
+"US-31":{p:"Must",t:"Blur faces and licence plates",as:"As a passer-by caught in a photo, I want my face and plate blurred so that I\u2019m not exposed publicly.",ac:["Automatic blur before publishing.","Reporter can blur extra areas.","Only the blurred version stored "+P+"."]},
+"US-32":{p:"Must",t:"Location only when posting",as:"As a resident, I want the app to use my location only when I post so that I\u2019m not tracked.",ac:["No background location.","Explanation screen before OS prompt."]},
+"US-33":{p:"Must",t:"Moderation queue",as:"As a moderator, I want flagged content in one queue so that I can remove abuse quickly.",ac:["Flagged reports, comments, media with reason.","Keep / hide / remove / warn / suspend."]},
+"US-34":{p:"Should",t:"Delete my account and data",as:"As a resident, I want to delete my account and download my data so that I stay in control.",ac:["Self-service delete; reports anonymised "+P+".","Data export file."]},
+"US-35":{p:"Should",t:"Use the app in my language",as:"As a resident who doesn\u2019t speak German well, I want the app in my language so that I can report too.",ac:["German and English at launch; more TBD.","Follows device setting; changeable."]},
+"US-36":{p:"Should",t:"Accessible to everyone",as:"As a resident using a screen reader, I want all screens labelled so that I can report independently.",ac:["Accessible labels; colour never the only signal.","Target WCAG 2.1 AA (to confirm)."]}
+};
+
+/* ---------------- SCREENS ---------------- */
+const tabbar = (on) => `<div class="tabbar">
+  <div class="${on==='map'?'on':''}" data-go="M04">Map</div>
+  <div class="${on==='mine'?'on':''}" data-go="M12">My reports</div>
+  <div><div class="fab" data-go="M05" title="New report">+</div></div>
+  <div class="${on==='alerts'?'on':''}" data-go="M12">Alerts</div>
+  <div class="${on==='me'?'on':''}" data-go="M14">Profile</div></div>`;
+
+const back = (to,title) => `<div class="row"><span data-go="${to}" style="font-weight:700">\u2039 Back</span><span class="grow" style="text-align:center;font-weight:700">${title}</span><span style="width:40px"></span></div>`;
+
+const deskNav = (on) => `<div class="snav">
+  <div class="${on==='W01'?'on':''}" data-go="W01">Triage</div>
+  <div class="${on==='W02'?'on':''}" data-go="W02">Report detail</div>
+  <div class="${on==='W03'?'on':''}" data-go="W03">Moderation</div>
+  <div class="${on==='W04'?'on':''}" data-go="W04">Settings</div>
+  <div style="margin-top:auto" class="note">Staff only \u00b7 Bezirksamt</div></div>`;
+
+const SCREENS = [
+/* ===== Resident mobile ===== */
+{id:"M01",group:"Resident \u00b7 Mobile",name:"Welcome & sign up",dev:"phone",stories:["US-01","US-04","US-35"],
+ desc:"Entry point. Same account works on web (US-04). Language picker in the top corner.",
+ html:()=>`<div class="row"><span class="grow"></span><span class="pill">DE / EN \u25be</span></div>
+  <div class="img" style="height:150px">App logo / illustration</div>
+  <div class="wtitle" style="text-align:center">Report problems in your Kiez</div>
+  <div class="wsub" style="text-align:center">Traffic issues and community facilities in Neuk\u00f6lln</div>
+  <div class="lbl">Email or phone</div><div class="field">name@example.de</div>
+  <div class="lbl">Password</div><div class="field">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</div>
+  <div class="row"><div class="check"></div><span class="wsub">I\u2019ve read the privacy notice and how location is used</span></div>
+  <div class="btn" data-go="M02">Create account</div>
+  <div class="btn ghost">Sign in with passkey</div>
+  <div class="note" style="text-align:center">Already have an account? Sign in \u2014 also works on the website.</div>`},
+
+{id:"M02",group:"Resident \u00b7 Mobile",name:"Verify residency",dev:"phone",stories:["US-02"],
+ desc:"Address check against the Neuk\u00f6lln boundary. The exact verification method is still an open question, so this shows a generic \u2018code by letter\u2019 placeholder.",
+ html:()=>`${back("M01","Verify address")}
+  <div class="box"><b>Step 1 of 2</b><div class="wsub">Only verified Neuk\u00f6lln residents can post, like and comment.</div></div>
+  <div class="lbl">Street and number</div><div class="field">Sonnenallee 1</div>
+  <div class="lbl">Postcode</div><div class="field">12xxx</div>
+  <div class="mapbox" style="height:120px"><div class="pin hi" style="left:48%;top:40%"></div><div class="note" style="position:absolute;bottom:6px;left:8px">Boundary: Neuk\u00f6lln \u2713 inside</div></div>
+  <div class="box"><b>Step 2 \u00b7 Confirm</b><div class="wsub">[Method TBD \u2014 e.g. enter code from letter]</div><div class="field" style="margin-top:6px">_ _ _ _ _ _</div></div>
+  <div class="row"><span class="pill">Status: Pending</span><span class="grow"></span></div>
+  <div class="btn" data-go="M03">Continue</div>
+  <div class="btn ghost" data-go="M04">Skip \u2013 browse read-only</div>`},
+
+{id:"M03",group:"Resident \u00b7 Mobile",name:"Location permission explainer",dev:"phone",stories:["US-32","US-03"],
+ desc:"Shown before the operating-system permission prompt. Explains location is used only when posting.",
+ html:()=>`<div style="height:30px"></div>
+  <div class="img" style="height:140px">Illustration: pin + phone</div>
+  <div class="wtitle">Why we need your location</div>
+  <div class="box">\u2022 Only when you post a report<br>\u2022 To check you\u2019re in Neuk\u00f6lln<br>\u2022 To place the pin on the map<br>\u2022 Never tracked in the background</div>
+  <div class="grow"></div>
+  <div class="btn" data-go="M04">Allow while using the app</div>
+  <div class="btn ghost" data-go="M04">Not now (drafts only)</div>`},
+
+{id:"M04",group:"Resident \u00b7 Mobile",name:"Home \u00b7 Nearby map & feed",dev:"phone",stories:["US-15","US-18","US-24"],
+ desc:"Reports near the user. Residents see like/comment counts, never the priority score (US-24). Tap a pin or card to open a report.",
+ html:()=>`<div class="row"><b class="grow">Near you</b><span class="pill on">Map</span><span class="pill">List</span></div>
+  <div class="row wrap"><span class="pill on">All</span><span class="pill">Traffic</span><span class="pill">Facilities</span><span class="pill">Open</span><span class="pill">Last 7 days</span></div>
+  <div class="mapbox" style="height:240px">
+    <div class="pin hi" style="left:30%;top:30%" data-go="M11" title="Report"></div>
+    <div class="pin" style="left:62%;top:45%" data-go="M11"></div>
+    <div class="pin" style="left:45%;top:70%" data-go="M11"></div>
+    <div style="position:absolute;left:50%;top:52%;width:12px;height:12px;border-radius:50%;border:2px solid var(--wf-ink)"></div>
+    <div class="note" style="position:absolute;bottom:6px;left:8px">\u25cf you</div>
+  </div>
+  <div class="box row" data-go="M11"><div class="img" style="width:54px;height:54px">img</div><div class="grow"><b>Traffic light out</b><div class="wsub">Traffic \u00b7 80 m \u00b7 2 h ago \u00b7 Open</div><div class="wsub">\ud83d\udc4d 20 \u00b7 \ud83d\udcac 5 \u00b7 4 reporters</div></div></div>
+  <div class="box row" data-go="M11"><div class="img" style="width:54px;height:54px">img</div><div class="grow"><b>Broken swing</b><div class="wsub">Playground \u00b7 300 m \u00b7 1 d \u00b7 Acknowledged</div><div class="wsub">\ud83d\udc4d 7 \u00b7 \ud83d\udcac 2</div></div></div>
+  <div class="grow"></div>${tabbar('map')}`},
+
+{id:"M05",group:"Resident \u00b7 Mobile",name:"Capture photo / video",dev:"phone",stories:["US-06","US-07","US-16","US-03"],
+ desc:"In-app camera. Records device GPS and time at capture (US-16). Location check runs here; outside Neuk\u00f6lln \u2192 blocked screen (US-03).",
+ html:()=>`${back("M04","New report")}
+  <div class="img" style="height:330px;position:relative">Camera viewfinder
+    <span class="pill" style="position:absolute;top:8px;left:8px;background:var(--wf)">\ud83d\udccd Inside Neuk\u00f6lln \u00b7 \u00b112 m</span></div>
+  <div class="row" style="justify-content:center"><span class="pill on">Photo</span><span class="pill">Video \u00b7 max 30 s</span></div>
+  <div class="row" style="justify-content:space-around">
+    <div class="img" style="width:46px;height:46px">Gallery</div>
+    <div style="width:64px;height:64px;border-radius:50%;border:3px solid var(--wf-ink)" data-go="M06" title="Shutter"></div>
+    <div class="wsub" style="width:46px;text-align:center">1/5</div></div>
+  <div class="note" style="text-align:center">Gallery: only photos taken in Neuk\u00f6lln within 48 h</div>
+  <div class="btn ghost sm" data-go="M13" style="align-self:center">Demo: what if I\u2019m outside Neuk\u00f6lln?</div>`},
+
+{id:"M06",group:"Resident \u00b7 Mobile",name:"\u201cAlready reported?\u201d suggestions",dev:"phone",stories:["US-13","US-16"],
+ desc:"Duplicate detection using location radius, time window, category and visual similarity. User either joins an existing report or continues.",
+ html:()=>`${back("M05","Already reported?")}
+  <div class="banner">We found 2 similar reports nearby. Join one to give it more weight.</div>
+  <div class="box"><div class="row"><div class="img" style="width:70px;height:70px">match</div><div class="grow"><b>Traffic light out</b><div class="wsub">35 m away \u00b7 2 h ago \u00b7 4 reporters</div><div class="wsub">Similarity: high</div></div></div>
+    <div class="btn sm" data-go="M10" style="margin-top:8px">Add my photo to this report</div></div>
+  <div class="box"><div class="row"><div class="img" style="width:70px;height:70px">match</div><div class="grow"><b>Signal flickering</b><div class="wsub">48 m \u00b7 6 d ago \u00b7 1 reporter</div><div class="wsub">Similarity: medium</div></div></div>
+    <div class="btn sm ghost" data-go="M10" style="margin-top:8px">Add my photo to this report</div></div>
+  <div class="grow"></div>
+  <div class="btn ghost" data-go="M07">Mine is different \u2013 continue</div>`},
+
+{id:"M07",group:"Resident \u00b7 Mobile",name:"Category & description",dev:"phone",stories:["US-08","US-14","US-09"],
+ desc:"AI-suggested category is pre-selected (US-14). Danger toggle shows emergency banner (US-09).",
+ html:()=>`${back("M06","Describe it")}
+  <div class="row"><div class="img" style="width:60px;height:60px">photo</div><div class="img" style="width:60px;height:60px">+</div></div>
+  <div class="lbl">Category</div>
+  <div class="row wrap"><span class="pill on">Traffic</span><span class="pill">Community facility</span></div>
+  <div class="box row"><span class="grow"><b>Traffic light</b> <span class="wsub">\u00b7 suggested from photo</span></span><span class="wsub">Change \u25be</span></div>
+  <div class="lbl">What\u2019s wrong? (10\u2013500)</div>
+  <div class="field" style="height:80px">Pedestrian light at the crossing has been dark since this morning\u2026</div>
+  <div class="row"><span class="grow">Is this dangerous right now?</span><div class="toggle on"></div></div>
+  <div class="banner">If someone is in danger, call 112 / 110 first.</div>
+  <div class="grow"></div>
+  <div class="btn" data-go="M08">Next: location</div>
+  <div class="btn ghost" data-go="M12">Save as draft</div>`},
+
+{id:"M08",group:"Resident \u00b7 Mobile",name:"Confirm location",dev:"phone",stories:["US-10"],
+ desc:"Pin from capture-time GPS, draggable within a small radius. Facility picker for facility reports.",
+ html:()=>`${back("M07","Location")}
+  <div class="mapbox" style="height:280px">
+    <div style="position:absolute;left:calc(50% - 60px);top:calc(50% - 60px);width:120px;height:120px;border-radius:50%;border:1.5px dashed var(--wf-ink)"></div>
+    <div class="pin hi" style="left:calc(50% - 10px);top:calc(50% - 18px)"></div>
+    <div class="note" style="position:absolute;bottom:6px;left:8px">Drag pin \u00b7 max 50 m</div></div>
+  <div class="box"><b>Sonnenallee / Example Str.</b><div class="wsub">12xxx Berlin-Neuk\u00f6lln</div></div>
+  <div class="lbl">Facility (optional)</div>
+  <div class="field">Select nearby facility \u25be</div>
+  <div class="grow"></div>
+  <div class="btn" data-go="M09">Next: review</div>`},
+
+{id:"M09",group:"Resident \u00b7 Mobile",name:"Review, blur check & post",dev:"phone",stories:["US-11","US-31","US-16"],
+ desc:"Final review. Shows the blurred version that will be public, with option to blur more.",
+ html:()=>`${back("M08","Review")}
+  <div class="img" style="height:160px;position:relative">Photo (public version)
+    <span style="position:absolute;left:20%;top:30%;width:40px;height:40px;border-radius:50%;background:var(--wf-line);opacity:.6"></span>
+    <span style="position:absolute;right:18%;bottom:20%;width:56px;height:18px;background:var(--wf-line);opacity:.6"></span></div>
+  <div class="wsub">Faces and licence plates blurred automatically \u00b7 location data removed from file</div>
+  <div class="btn ghost sm">\u270e Blur another area</div>
+  <div class="box"><div class="wsub">Category</div><b>Traffic \u203a Traffic light</b> \u00b7 \u26a0 dangerous</div>
+  <div class="box"><div class="wsub">Description</div>Pedestrian light at the crossing\u2026</div>
+  <div class="box"><div class="wsub">Location</div>Sonnenallee / Example Str.</div>
+  <div class="grow"></div>
+  <div class="btn" data-go="M10">Post report</div>`},
+
+{id:"M10",group:"Resident \u00b7 Mobile",name:"Posted confirmation",dev:"phone",stories:["US-11","US-20"],
+ desc:"Confirms posting (or joining an existing report). User auto-follows the report.",
+ html:()=>`<div style="height:60px"></div>
+  <div style="width:80px;height:80px;border-radius:50%;border:3px solid var(--wf-ink);align-self:center;display:flex;align-items:center;justify-content:center;font-size:2rem">\u2713</div>
+  <div class="wtitle" style="text-align:center">Thanks \u2014 your report is live</div>
+  <div class="wsub" style="text-align:center">Report #NK-2026-01842 \u00b7 You\u2019re following it</div>
+  <div class="box">You\u2019ll get a notification when the district office changes its status.</div>
+  <div class="grow"></div>
+  <div class="btn" data-go="M11">View report</div>
+  <div class="btn ghost" data-go="M04">Back to map</div>`},
+
+{id:"M11",group:"Resident \u00b7 Mobile",name:"Report detail (resident view)",dev:"phone",stories:["US-18","US-19","US-20","US-21","US-28","US-24"],
+ desc:"Public report page: like, comment, follow, add an update photo. Shows status set by staff; no priority score.",
+ html:()=>`${back("M04","Report")}
+  <div class="img" style="height:150px">Photo carousel \u00b7 1/3</div>
+  <div class="row"><b class="grow">Traffic light out</b><span class="pill">In progress</span></div>
+  <div class="wsub">Traffic \u203a Traffic light \u00b7 Sonnenallee \u00b7 2 h ago \u00b7 4 reporters</div>
+  <div class="box"><div class="wsub">Update from district office</div>Forwarded to the responsible team, repair scheduled.</div>
+  <div class="row"><div class="btn sm grow">\ud83d\udc4d Me too \u00b7 20</div><div class="btn sm ghost grow">\u2606 Follow</div><div class="btn sm ghost grow" data-go="M05">\ud83d\udcf7 Update</div></div>
+  <div class="lbl">Comments (5)</div>
+  <div class="box"><b>Neighbour</b> <span class="wsub">\u00b7 1 h</span><div>Same at the other side of the street.</div><div class="wsub" style="text-align:right">\u2691 Flag</div></div>
+  <div class="field">Write a comment\u2026</div>
+  <div class="grow"></div>${tabbar('map')}`},
+
+{id:"M12",group:"Resident \u00b7 Mobile",name:"My reports, drafts & alerts",dev:"phone",stories:["US-12","US-29","US-20"],
+ desc:"Own reports, followed reports, offline drafts and status notifications in one place.",
+ html:()=>`<div class="row"><span class="pill on">My reports</span><span class="pill">Following</span><span class="pill">Drafts (1)</span><span class="pill">Alerts</span></div>
+  <div class="banner">Draft saved offline \u00b7 3 h left to post <span class="btn sm" data-go="M09" style="margin-left:6px">Post now</span></div>
+  <div class="box row" data-go="M11"><div class="grow"><b>Traffic light out</b><div class="wsub">In progress \u00b7 updated 20 min ago</div></div>\u203a</div>
+  <div class="box row" data-go="M11"><div class="grow"><b>Broken bench, park</b><div class="wsub">Resolved \u00b7 3 d ago</div></div>\u203a</div>
+  <div class="lbl">Recent alerts</div>
+  <div class="box"><div class="wsub">Push \u00b7 20 min</div>\u201cTraffic light out\u201d is now <b>In progress</b></div>
+  <div class="box"><div class="wsub">Push \u00b7 3 d</div>\u201cBroken bench\u201d was <b>Resolved</b></div>
+  <div class="grow"></div>${tabbar('mine')}`},
+
+{id:"M13",group:"Resident \u00b7 Mobile",name:"Blocked: outside Neuk\u00f6lln",dev:"phone",stories:["US-03","US-12"],
+ desc:"Edge case when the device location fails the on-site check.",
+ html:()=>`${back("M05","New report")}
+  <div style="height:40px"></div>
+  <div class="img" style="height:130px">Map: you are outside the boundary</div>
+  <div class="wtitle">You\u2019re outside Neuk\u00f6lln</div>
+  <div class="wsub">Reports can only be posted on site, so they stay first-hand. Your location: ~1.2 km outside the district boundary.</div>
+  <div class="box">Location too imprecise? Move outdoors and try again.</div>
+  <div class="grow"></div>
+  <div class="btn" data-go="M05">Try again</div>
+  <div class="btn ghost" data-go="M12">Save as draft</div>`},
+
+{id:"M14",group:"Resident \u00b7 Mobile",name:"Profile & settings",dev:"phone",stories:["US-35","US-36","US-29","US-34","US-02"],
+ desc:"Language, accessibility, notification and data controls.",
+ html:()=>`<div class="row"><div class="img" style="width:52px;height:52px;border-radius:50%">\ud83d\udc64</div><div class="grow"><b>Display name</b><div class="wsub">Verified resident \u2713 Neuk\u00f6lln</div></div></div>
+  <div class="lbl">Language</div><div class="field">English \u25be (follows device)</div>
+  <div class="lbl">Notifications</div>
+  <div class="box row"><span class="grow">Push \u2013 status changes</span><div class="toggle on"></div></div>
+  <div class="box row"><span class="grow">Email \u2013 status changes</span><div class="toggle"></div></div>
+  <div class="lbl">Accessibility</div>
+  <div class="box row"><span class="grow">Larger text</span><div class="toggle"></div></div>
+  <div class="lbl">Your data</div>
+  <div class="btn ghost sm">Download my data</div>
+  <div class="btn ghost sm">Delete account</div>
+  <div class="grow"></div>${tabbar('me')}`},
+
+/* ===== Staff web ===== */
+{id:"W01",group:"District office \u00b7 Web",name:"Triage dashboard",dev:"desk",stories:["US-25","US-22","US-23","US-24","US-26"],
+ desc:"Staff-only list sorted by priority score, with levels, filters and spike flags. Click a row for detail.",
+ html:()=>`<div class="dside">${deskNav('W01')}<div class="dmain">
+  <div class="row"><b class="grow" style="font-size:1rem">Triage \u00b7 Neuk\u00f6lln</b><span class="btn sm ghost">Map view</span><span class="btn sm ghost">Export CSV</span></div>
+  <div class="row wrap"><span class="pill">Category \u25be</span><span class="pill on">Level: all</span><span class="pill">Status: open \u25be</span><span class="pill">Locality \u25be</span><span class="pill">Age \u25be</span></div>
+  <table class="wt"><tr><th>Level</th><th>Score</th><th>Report</th><th>Category</th><th>Locality</th><th>Signals</th><th>Status</th></tr>
+   <tr class="click" data-go="W02"><td><span class="lvl c">CRITICAL</span></td><td>112.5</td><td>Traffic light out</td><td>Traffic</td><td>Neuk\u00f6lln</td><td>4 rep \u00b7 5 com \u00b7 20 \ud83d\udc4d \u00b7 \u26a0</td><td>Open</td></tr>
+   <tr class="click" data-go="W02"><td><span class="lvl">HIGH</span></td><td>41.0</td><td>Pothole on bike lane</td><td>Traffic</td><td>Britz</td><td>3 rep \u00b7 2 com \u00b7 11 \ud83d\udc4d</td><td>Acknowledged</td></tr>
+   <tr class="click" data-go="W02"><td><span class="lvl">HIGH</span></td><td>33.2 \u2691</td><td>Youth centre door broken</td><td>Facility</td><td>Gropiusstadt</td><td>1 rep \u00b7 1 com \u00b7 26 \ud83d\udc4d <i>spike</i></td><td>Open</td></tr>
+   <tr class="click" data-go="W02"><td><span class="lvl">MEDIUM</span></td><td>14.0</td><td>Broken swing</td><td>Facility</td><td>Rudow</td><td>2 rep \u00b7 1 com \u00b7 2 \ud83d\udc4d</td><td>Open</td></tr>
+   <tr class="click" data-go="W02"><td><span class="lvl">LOW</span></td><td>6.5</td><td>Faded crossing paint</td><td>Traffic</td><td>Buckow</td><td>1 rep \u00b7 1 \ud83d\udc4d</td><td>Open</td></tr></table>
+  <div class="note">\u2691 = suspicious activity flag (US-26). Scores and levels exist only in this staff view (US-24).</div>
+ </div></div>`},
+
+{id:"W02",group:"District office \u00b7 Web",name:"Report detail (staff)",dev:"desk",stories:["US-22","US-27","US-28","US-17","US-21"],
+ desc:"Score breakdown, manual override, status update with public note, and duplicate cluster merge/split.",
+ html:()=>`<div class="dside">${deskNav('W02')}<div class="dmain">
+  <div class="row"><span data-go="W01" style="font-weight:700">\u2039 Triage</span><b class="grow">Traffic light out \u00b7 #NK-2026-01842</b><span class="lvl c">CRITICAL</span></div>
+  <div class="row" style="align-items:stretch;gap:10px">
+   <div class="grow" style="display:flex;flex-direction:column;gap:8px">
+    <div class="row"><div class="img" style="height:90px;flex:1">photo 1</div><div class="img" style="height:90px;flex:1">photo 2</div><div class="img" style="height:90px;flex:1">video</div></div>
+    <div class="box"><div class="wsub">Description (original reporter)</div>Pedestrian light at the crossing has been dark since this morning\u2026</div>
+    <div class="box"><b>Duplicate cluster (3)</b><div class="wsub">2 reports auto-merged \u00b7 1 suggested</div>
+      <div class="row" style="margin-top:6px"><span class="grow">\u201cSignal flickering\u201d \u00b7 48 m \u00b7 6 d</span><span class="btn sm">Merge</span><span class="btn sm ghost">Split</span></div></div>
+   </div>
+   <div style="width:250px;display:flex;flex-direction:column;gap:8px">
+    <div class="box"><b>Score breakdown \u00b7 112.5</b>
+     <div class="wsub">4 co-reporters \u00d7 5 = 20</div><div class="wsub">5 commenters \u00d7 2 = 10</div><div class="wsub">20 likes \u00d7 1 = 20</div>
+     <div class="wsub">Category (traffic safety) \u00d7 1.5</div><div class="wsub">Hazard (3 flags) \u00d7 1.5</div></div>
+    <div class="box"><b>Override level</b><div class="field" style="margin-top:4px">Keep calculated \u25be</div><div class="field" style="margin-top:4px">Reason (required)</div></div>
+    <div class="box"><b>Status</b><div class="field" style="margin-top:4px">In progress \u25be</div><div class="field" style="margin-top:4px;height:44px">Public note to residents\u2026</div><div class="btn sm" style="margin-top:6px">Save & notify followers</div></div>
+   </div></div>
+ </div></div>`},
+
+{id:"W03",group:"District office \u00b7 Web",name:"Moderation queue",dev:"desk",stories:["US-33","US-26","US-19","US-31"],
+ desc:"Flagged comments, media and spike alerts with moderation actions.",
+ html:()=>`<div class="dside">${deskNav('W03')}<div class="dmain">
+  <div class="row"><b class="grow" style="font-size:1rem">Moderation queue \u00b7 4</b><span class="pill on">All</span><span class="pill">Comments</span><span class="pill">Media</span><span class="pill">Spikes</span></div>
+  <div class="box row"><div class="grow"><b>Comment flagged</b> \u00b7 offensive language filter<div class="wsub">On \u201cBroken swing\u201d \u00b7 2 user flags</div></div><span class="btn sm ghost">Keep</span><span class="btn sm ghost">Hide</span><span class="btn sm">Remove</span></div>
+  <div class="box row"><div class="img" style="width:60px;height:46px">media</div><div class="grow"><b>Media flagged</b> \u00b7 \u201cface not blurred\u201d<div class="wsub">On \u201cPothole on bike lane\u201d</div></div><span class="btn sm ghost">Re-blur</span><span class="btn sm">Remove</span></div>
+  <div class="box row"><div class="grow"><b>Spike alert</b> \u00b7 19 likes in 40 min, 15 from accounts &lt; 7 days<div class="wsub">On \u201cYouth centre door broken\u201d</div></div><span class="btn sm ghost" data-go="W02">Open</span><span class="btn sm">Discount</span></div>
+  <div class="box row"><div class="grow"><b>User reported</b> \u00b7 repeated spam<div class="wsub">Account: neighbour-4821</div></div><span class="btn sm ghost">Warn</span><span class="btn sm">Suspend</span></div>
+ </div></div>`},
+
+{id:"W04",group:"District office \u00b7 Web",name:"Admin settings",dev:"desk",stories:["US-05","US-23","US-22","US-30","US-08"],
+ desc:"Configurable boundaries, categories, scoring weights, thresholds and archive rules. All values shown are placeholders.",
+ html:()=>`<div class="dside">${deskNav('W04')}<div class="dmain">
+  <b style="font-size:1rem">Settings</b>
+  <div class="row" style="align-items:stretch;gap:10px">
+   <div class="box grow"><b>Districts</b><div class="mapbox" style="height:90px;margin:6px 0"></div><div class="row"><span class="pill on">Neuk\u00f6lln \u00b7 live</span><span class="pill">+ Add district</span></div></div>
+   <div class="box grow"><b>Categories</b><div class="wsub">Traffic: lights, potholes, signs, bike lanes, crossings\u2026</div><div class="wsub">Facilities: playgrounds, parks, centres, toilets\u2026</div><div class="btn sm ghost" style="margin-top:6px">Edit categories</div></div>
+  </div>
+  <div class="row" style="align-items:stretch;gap:10px">
+   <div class="box grow"><b>Scoring weights</b> <span class="note">placeholders</span>
+    <div class="row" style="margin-top:4px"><span class="grow wsub">Co-reporter</span><div class="field" style="width:60px">5</div></div>
+    <div class="row"><span class="grow wsub">Commenter</span><div class="field" style="width:60px">2</div></div>
+    <div class="row"><span class="grow wsub">Like</span><div class="field" style="width:60px">1</div></div>
+    <div class="row"><span class="grow wsub">Half-life (days)</span><div class="field" style="width:60px">14</div></div></div>
+   <div class="box grow"><b>Level thresholds</b>
+    <div class="row" style="margin-top:4px"><span class="grow wsub">Critical \u2265</span><div class="field" style="width:60px">60</div></div>
+    <div class="row"><span class="grow wsub">High \u2265</span><div class="field" style="width:60px">30</div></div>
+    <div class="row"><span class="grow wsub">Medium \u2265</span><div class="field" style="width:60px">10</div></div>
+    <div class="row"><span class="grow wsub">Archive resolved after (days)</span><div class="field" style="width:60px">30</div></div></div>
+  </div>
+  <div class="btn sm" style="align-self:flex-start">Save changes</div>
+ </div></div>`}
+];
+
+/* ---------------- RENDERING ---------------- */
+const byId = Object.fromEntries(SCREENS.map(s=>[s.id,s]));
+const screensFor = sid => SCREENS.filter(s=>s.stories.includes(sid));
+const nav = document.getElementById("nav"), stage = document.getElementById("stage"), side = document.getElementById("stories");
+let current = "M01", indexMode = false;
+
+function renderNav(){
+  let g = "", out = "";
+  SCREENS.forEach(s=>{
+    if(s.group!==g){ g=s.group; out += `<h2>${g}</h2>`; }
+    out += `<a href="#${s.id}" data-jump="${s.id}" class="${(!indexMode && s.id===current)?'on':''}"><span>${s.id}</span>${s.name}</a>`;
+  });
+  nav.innerHTML = out;
+}
+
+function storyCard(id, open){
+  const s = S[id];
+  const others = screensFor(id).filter(x=>x.id!==current).map(x=>`<a data-jump="${x.id}">${x.id} ${x.name}</a>`).join(", ");
+  return `<details class="st" ${open?'open':''}><summary><span class="id">${id}</span><span class="t">${s.t}</span><span class="bd ${s.p}">${s.p}</span></summary>
+   <div class="b"><p class="as">${s.as}</p><ul>${s.ac.map(a=>`<li>${a}</li>`).join("")}</ul>
+   ${others?`<div class="also">Also on: ${others}</div>`:""}</div></details>`;
+}
+
+function renderScreen(){
+  const s = byId[current];
+  const frame = s.dev==="phone"
+    ? `<div class="phone"><div class="notch"></div><div class="scr">${s.html()}</div></div>`
+    : `<div class="desk"><div class="bar"><i></i><i></i><i></i><div class="url">staff.reports.example / ${s.name.toLowerCase()}</div></div><div class="scr">${s.html()}</div></div>`;
+  stage.innerHTML = `<div class="crumb">${s.group} \u00b7 <b>${s.id} ${s.name}</b></div>${frame}`;
+  side.innerHTML = `<h2>${s.id} \u00b7 ${s.name}</h2><p class="desc">${s.desc}</p>
+    <div class="lbl" style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Linked user stories (${s.stories.length})</div>
+    ${s.stories.map((id,i)=>storyCard(id,i===0)).join("")}`;
+}
+
+function renderIndex(){
+  const ids = Object.keys(S);
+  const rows = ids.map(id=>{
+    const sc = screensFor(id);
+    return `<tr><td style="font-family:ui-monospace,Menlo,monospace">${id}</td><td>${S[id].t}</td><td><span class="bd ${S[id].p}">${S[id].p}</span></td>
+     <td>${sc.length?sc.map(x=>`<a data-jump="${x.id}">${x.id}</a>`).join(""):'<span class="warn">No screen</span>'}</td></tr>`;
+  }).join("");
+  const missing = ids.filter(id=>!screensFor(id).length).length;
+  stage.innerHTML = `<div class="index"><h2 style="margin:0 0 4px;font-size:1.05rem">Story \u2192 screen coverage</h2>
+    <p style="margin:0 0 10px;color:var(--muted);font-size:.85rem">${ids.length} stories \u00b7 ${SCREENS.length} screens \u00b7 ${missing} without a screen</p>
+    <div style="overflow-x:auto"><table><tr><th>ID</th><th>Story</th><th>Priority</th><th>Screens</th></tr>${rows}</table></div></div>`;
+  side.innerHTML = `<h2>How to use</h2><p class="desc">Click a screen ID to jump to it. Every story is linked to at least one screen; the panel on each screen lists the stories it covers and where else they appear.</p>`;
+}
+
+function go(id){
+  if(!byId[id]) id = "M01";
+  current = id; indexMode = false;
+  document.getElementById("idxBtn").setAttribute("aria-pressed","false");
+  renderNav(); renderScreen();
+  stage.scrollTop = 0; window.scrollTo({top:0});
+  // Updating the URL is optional: sandboxed previews (about:srcdoc) block it.
+  try { if(location.hash.slice(1)!==id) history.replaceState(null,"","#"+id); } catch(_) {}
+}
+
+document.addEventListener("click", e=>{
+  const j = e.target.closest("[data-jump]");
+  if(j){ e.preventDefault(); go(j.dataset.jump); return; }
+  const g = e.target.closest("[data-go]");
+  if(g && stage.contains(g)){ e.preventDefault(); go(g.dataset.go); }
+});
+window.addEventListener("hashchange", ()=>{ const h=location.hash.slice(1); if(h && h!==current) go(h); });
+document.getElementById("hintBtn").addEventListener("click", e=>{
+  const on = document.body.classList.toggle("hints");
+  e.currentTarget.setAttribute("aria-pressed", on?"true":"false");
+});
+document.getElementById("idxBtn").addEventListener("click", e=>{
+  indexMode = !indexMode;
+  e.currentTarget.setAttribute("aria-pressed", indexMode?"true":"false");
+  renderNav(); indexMode ? renderIndex() : renderScreen();
+});
+
+let startId = "M01";
+try { startId = location.hash.slice(1) || "M01"; } catch(_) {}
+go(startId);
+</script>
+</body>
+</html>

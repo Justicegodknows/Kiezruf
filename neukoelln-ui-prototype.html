@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Neuk&#246;lln Resident Reports</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: street-sign clarity. One screen, one job, one signal-yellow action. Prototype shell around a phone and a staff desk. */
+:root{
+  --bg:#e9eeeb; --surface:#ffffff; --sunk:#f3f6f4; --ink:#14212c; --muted:#56646f; --line:#d3dbd7;
+  --signal:#f4c430; --signal-ink:#14212c; --tram:#0d6b5b; --tram-soft:#dcefea;
+  --crit:#c4382e; --crit-soft:#f9e1de; --high:#b45f06; --high-soft:#fbead6; --med:#2f6fa8; --med-soft:#dfeaf5; --low:#6a7782; --low-soft:#e8ecef; --ok:#2c7a4b; --ok-soft:#dcf0e3;
+  --scene-sky:#cfe0e8; --scene-ground:#9aa8b0; --scene-obj:#3b4954; --scene-hi:#f4c430;
+  --map-bg:#dde6e1; --map-road:#ffffff; --map-park:#c4dcc8; --map-water:#bcd6e6;
+  --shadow:0 1px 2px rgba(20,33,44,.06),0 8px 28px rgba(20,33,44,.10);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1217; --surface:#151e26; --sunk:#111920; --ink:#e7edf0; --muted:#9aa8b2; --line:#26333d;
+    --signal:#f4c430; --signal-ink:#14212c; --tram:#53c4ad; --tram-soft:#173a34;
+    --crit:#f07a6f; --crit-soft:#3d1d1a; --high:#eaa456; --high-soft:#3a2a14; --med:#7fb3e6; --med-soft:#172b3e; --low:#a2aeb8; --low-soft:#222c34; --ok:#6fcb93; --ok-soft:#173226;
+    --scene-sky:#243845; --scene-ground:#3a4852; --scene-obj:#c9d3d9; --scene-hi:#f4c430;
+    --map-bg:#18232b; --map-road:#2c3a45; --map-park:#1f3a2c; --map-water:#1b3446;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1217; --surface:#151e26; --sunk:#111920; --ink:#e7edf0; --muted:#9aa8b2; --line:#26333d;
+  --signal:#f4c430; --signal-ink:#14212c; --tram:#53c4ad; --tram-soft:#173a34;
+  --crit:#f07a6f; --crit-soft:#3d1d1a; --high:#eaa456; --high-soft:#3a2a14; --med:#7fb3e6; --med-soft:#172b3e; --low:#a2aeb8; --low-soft:#222c34; --ok:#6fcb93; --ok-soft:#173226;
+  --scene-sky:#243845; --scene-ground:#3a4852; --scene-obj:#c9d3d9; --scene-hi:#f4c430;
+  --map-bg:#18232b; --map-road:#2c3a45; --map-park:#1f3a2c; --map-water:#1b3446;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--tram);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- prototype shell ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.shell-top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.shell-top .in{max-width:1240px;margin:0 auto;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.brand{font-family:var(--f-display);font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.brand i{width:22px;height:22px;border-radius:6px;background:var(--signal);display:inline-block;position:relative}
+.brand i::after{content:"";position:absolute;left:6px;top:4px;width:10px;height:10px;border:2.5px solid var(--signal-ink);border-radius:50% 50% 50% 0;transform:rotate(-45deg)}
+.brand small{font-family:var(--f-mono);font-weight:500;font-size:.68rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.sp{flex:1}
+.seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-weight:700;font-size:.88rem;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.linkbtn{border:0;background:none;color:var(--tram);font-weight:700;font-size:.88rem;padding:6px 4px;text-decoration:underline;text-underline-offset:3px}
+.stage-wrap{max-width:1240px;margin:0 auto;padding-block:24px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:24px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+.stage{min-width:0;display:flex;justify-content:center}
+.stories{width:320px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stories h2{font-family:var(--f-display);font-size:1rem;margin:0 0 2px}
+.stories p{margin:0 0 10px;color:var(--muted);font-size:.85rem}
+.stories ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.stories li{display:flex;gap:10px;font-size:.88rem;align-items:baseline}
+.stories li code{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);min-width:44px}
+.stories .chg{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;font-size:.8rem;color:var(--muted)}
+.stories .chg b{color:var(--ink)}
+
+/* ---------- phone ---------- */
+.phone{width:390px;max-width:100%;border-radius:40px;padding:10px;background:var(--ink);box-shadow:var(--shadow)}
+.screen{position:relative;height:760px;border-radius:31px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+@media (max-width:520px){
+  .phone{width:100%;padding:0;border-radius:18px;background:transparent;box-shadow:none}
+  .screen{border-radius:18px;border:1px solid var(--line);height:min(760px,calc(100vh - 120px))}
+}
+.scroll{flex:1;overflow-y:auto;min-height:0}
+.pad{padding:16px}
+.col{display:flex;flex-direction:column}
+.g8{gap:8px}.g12{gap:12px}.g16{gap:16px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+h1.t,h2.t{font-family:var(--f-display);margin:0;line-height:1.15;text-wrap:balance}
+h1.t{font-size:1.55rem}
+h2.t{font-size:1.2rem}
+.meta{color:var(--muted);font-size:.86rem}
+.label{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.top{display:flex;align-items:center;gap:10px;padding:14px 16px 6px}
+.iconbtn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.iconbtn svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 16px 10px;scrollbar-width:none}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:700;font-size:.88rem;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.chip .sug{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-left:6px;opacity:.75}
+
+.guest{margin:0 16px 10px;font-size:.84rem;color:var(--muted);display:flex;gap:8px;align-items:flex-start}
+.guest svg{width:16px;height:16px;flex:none;margin-top:3px;stroke:var(--tram);fill:none;stroke-width:2}
+
+/* map */
+.map{position:relative;margin:0 16px;border-radius:18px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/10;max-width:100%;background:var(--map-bg)}
+.map svg{position:absolute;inset:0;width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,-100%);border:0;background:none;padding:0}
+.pin span{display:block;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.pin.traffic span{background:var(--signal)} .pin.facility span{background:var(--tram)}
+.pin span::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:var(--surface);left:8px;top:8px}
+.me-dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--med);border:3px solid var(--surface);box-shadow:0 0 0 6px color-mix(in srgb,var(--med) 25%,transparent);transform:translate(-50%,-50%)}
+.legend{position:absolute;left:10px;bottom:10px;display:flex;gap:10px;background:var(--surface);border-radius:999px;padding:4px 10px;font-size:.72rem;font-weight:700}
+.legend b{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+
+/* cards */
+.list{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px}
+.card{display:flex;gap:12px;align-items:stretch;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px}
+.thumb{width:76px;height:76px;flex:none;border-radius:12px;overflow:hidden;background:var(--scene-sky)}
+.thumb svg,.hero svg{width:100%;height:100%;display:block}
+.card .ttl{font-weight:700;line-height:1.25}
+.counts{display:flex;gap:12px;font-size:.82rem;color:var(--muted);margin-top:auto}
+.counts span{display:inline-flex;gap:4px;align-items:center}
+.counts svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.status{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.st-Open{background:var(--low-soft);color:var(--low)}
+.st-Acknowledged{background:var(--med-soft);color:var(--med)}
+.st-Inprogress{background:var(--high-soft);color:var(--high)}
+.st-Resolved{background:var(--ok-soft);color:var(--ok)}
+
+/* nav */
+.nav{display:flex;align-items:center;justify-content:space-around;background:var(--surface);border-top:1px solid var(--line);padding:8px 12px 12px}
+.nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.75rem;font-weight:700;color:var(--muted);min-width:64px}
+.nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav button[aria-current="page"]{color:var(--ink)}
+.nav .fab{width:62px;height:62px;border-radius:50%;background:var(--signal);color:var(--signal-ink);margin-top:-30px;box-shadow:0 4px 14px rgba(0,0,0,.22);justify-content:center;border:4px solid var(--surface)}
+.nav .fab svg{width:26px;height:26px;stroke-width:2.6}
+
+/* buttons */
+.primary{border:0;background:var(--signal);color:var(--signal-ink);font-weight:700;font-size:1.02rem;border-radius:14px;padding:15px 18px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.primary svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.primary.on{background:var(--ink);color:var(--surface)}
+.quiet{border:0;background:none;color:var(--tram);font-weight:700;padding:10px;text-decoration:underline;text-underline-offset:3px}
+.dock{padding:12px 16px 16px;background:linear-gradient(to top,var(--bg) 70%,transparent);display:flex;flex-direction:column;gap:6px}
+.hint{font-size:.8rem;color:var(--muted);text-align:center}
+
+/* detail */
+.hero{position:relative;height:230px;background:var(--scene-sky)}
+.hero .iconbtn{position:absolute;top:14px;left:14px}
+.steps{display:flex;gap:4px;margin-top:4px}
+.steps div{flex:1}
+.steps i{display:block;height:5px;border-radius:3px;background:var(--line)}
+.steps div.on i{background:var(--tram)}
+.steps span{display:block;font-size:.68rem;font-weight:700;color:var(--muted);margin-top:4px}
+.steps div.cur span{color:var(--ink)}
+.officenote{background:var(--tram-soft);border-radius:14px;padding:12px 14px;font-size:.92rem}
+.officenote .label{color:var(--tram)}
+.cmt{display:flex;gap:10px}
+.av{width:34px;height:34px;border-radius:50%;background:var(--sunk);border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;color:var(--muted)}
+.cmt .b{background:var(--surface);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:8px 12px;font-size:.92rem;min-width:0}
+.composer{display:flex;gap:8px;padding:10px 16px 14px;background:var(--surface);border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:999px;padding:11px 16px;background:var(--bg)}
+.send{width:46px;height:46px;border-radius:50%;border:0;background:var(--ink);flex:none;display:flex;align-items:center;justify-content:center}
+.send svg{width:20px;height:20px;stroke:var(--surface);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* camera */
+.cam{flex:1;position:relative;background:#0b0f12;display:flex;flex-direction:column}
+.cam .view{flex:1;position:relative;margin:0;overflow:hidden}
+.cam .view svg{width:100%;height:100%;display:block}
+.cam .x{position:absolute;top:14px;left:14px;background:rgba(255,255,255,.92)}
+.cam .x svg{stroke:#14212c}
+.locpill{position:absolute;top:18px;right:14px;left:68px;display:flex;justify-content:flex-end}
+.locpill span{background:rgba(255,255,255,.94);color:#14212c;border-radius:999px;padding:6px 12px;font-size:.8rem;font-weight:700;display:inline-flex;gap:6px;align-items:center}
+.locpill span.bad{background:#fde2df;color:#8d2219}
+.locpill i{width:8px;height:8px;border-radius:50%;background:#2c7a4b;display:inline-block}
+.locpill .bad i{background:#c4382e}
+.cam .bar{padding:18px 16px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;background:#0b0f12}
+.shutter{width:78px;height:78px;border-radius:50%;border:5px solid #ffffff;background:#f4c430}
+.cam .bar p{margin:0;color:#c9d3d9;font-size:.82rem;text-align:center}
+
+/* compose */
+.photo-row{display:flex;gap:12px;align-items:center}
+.photo-row .thumb{width:96px;height:96px}
+textarea.field,input.field{width:100%;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface);resize:none}
+textarea.field{min-height:84px}
+.switch{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.switch input{appearance:none;width:48px;height:28px;border-radius:999px;background:var(--line);position:relative;flex:none;margin:0;cursor:pointer;transition:background .15s}
+.switch input::after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;background:var(--surface);top:3px;left:3px;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch input:checked{background:var(--crit)}
+.switch input:checked::after{left:23px}
+.warnbox{background:var(--crit-soft);color:var(--crit);border-radius:12px;padding:10px 12px;font-size:.86rem;font-weight:700}
+.locrow{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.locrow svg{width:22px;height:22px;stroke:var(--tram);fill:none;stroke-width:2;flex:none}
+.ok{color:var(--ok);font-weight:700}
+.bad{color:var(--crit);font-weight:700}
+
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(8,14,18,.45);z-index:20;display:flex;align-items:flex-end;animation:fade .18s ease-out}
+.sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:10px 18px 22px;display:flex;flex-direction:column;gap:14px;animation:up .22s ease-out;max-height:92%;overflow-y:auto}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line);align-self:center}
+.sheet-head{display:flex;align-items:flex-start;gap:10px}
+.sheet .close{width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);flex:none;display:flex;align-items:center;justify-content:center}
+.sheet .close svg{width:16px;height:16px;stroke:var(--ink);stroke-width:2.4;fill:none;stroke-linecap:round}
+.why{background:var(--sunk);border-radius:12px;padding:10px 12px;font-size:.86rem;color:var(--muted)}
+.dots{display:flex;gap:6px}
+.dots i{width:22px;height:5px;border-radius:3px;background:var(--line)}
+.dots i.on{background:var(--tram)}
+@keyframes up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+.toast{position:absolute;left:16px;right:16px;top:16px;z-index:30;background:var(--ink);color:var(--surface);border-radius:14px;padding:12px 16px;font-weight:700;font-size:.92rem;display:flex;gap:10px;align-items:center;animation:up .2s ease-out}
+.toast svg{width:18px;height:18px;stroke:var(--signal);fill:none;stroke-width:2.6;flex:none}
+
+.big-check{width:96px;height:96px;border-radius:50%;background:var(--ok-soft);display:flex;align-items:center;justify-content:center;align-self:center}
+.big-check svg{width:46px;height:46px;stroke:var(--ok);fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.setrow{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.verified{display:inline-flex;gap:6px;align-items:center;background:var(--ok-soft);color:var(--ok);font-weight:700;font-size:.78rem;padding:3px 10px;border-radius:999px}
+
+/* ---------- staff desk ---------- */
+.desk{width:1100px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.desk-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.desk-top h2{font-family:var(--f-display);margin:0;font-size:1.15rem}
+.tabs{display:flex;gap:4px}
+.tabs button{border:0;background:none;padding:8px 12px;border-radius:10px;font-weight:700;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--sunk);color:var(--ink)}
+.tabs .n{font-family:var(--f-mono);font-size:.74rem;margin-left:4px}
+.levels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.lvlcard{border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.lvlcard b{font-family:var(--f-display);font-size:1.5rem;line-height:1;font-variant-numeric:tabular-nums}
+.lvlcard span{font-size:.76rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.L-Critical{background:var(--crit-soft);color:var(--crit)} .L-High{background:var(--high-soft);color:var(--high)}
+.L-Medium{background:var(--med-soft);color:var(--med)} .L-Low{background:var(--low-soft);color:var(--low)}
+.desk-body{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);min-height:560px}
+@media (max-width:860px){.desk-body{grid-template-columns:1fr}.levels{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.queue{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.qfilters{display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap}
+.qrow{display:grid;grid-template-columns:6px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;width:100%;border:0;border-top:1px solid var(--line);background:transparent;padding:12px 18px 12px 0}
+.qrow[aria-current="true"]{background:var(--sunk)}
+.qrow .stripe{align-self:stretch;border-radius:0 4px 4px 0}
+.S-Critical{background:var(--crit)} .S-High{background:var(--high)} .S-Medium{background:var(--med)} .S-Low{background:var(--low)}
+.qrow .ttl{font-weight:700}
+.qrow .right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.score{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:1.02rem}
+.lvl{font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+.flagtag{font-size:.7rem;font-weight:700;color:var(--high)}
+.detail{padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.dhead{display:flex;gap:14px;align-items:flex-start}
+.dhead .thumb{width:92px;height:92px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:140px minmax(0,1fr) 48px;gap:10px;align-items:center;font-size:.86rem}
+.bar .track{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.bar .fill{height:100%;background:var(--tram);border-radius:5px}
+.bar .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;font-size:.82rem}
+.mult{display:flex;gap:8px;flex-wrap:wrap}
+.mult span{font-family:var(--f-mono);font-size:.76rem;background:var(--sunk);border-radius:8px;padding:4px 8px}
+.statusseg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.statusseg label{position:relative}
+.statusseg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.statusseg span{display:block;text-align:center;border:1.5px solid var(--line);border-radius:10px;padding:8px 4px;font-weight:700;font-size:.8rem}
+.statusseg input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.statusseg input:focus-visible+span{outline:3px solid var(--tram);outline-offset:2px}
+details.more{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+details.more summary{cursor:pointer;font-weight:700}
+details.more[open] summary{margin-bottom:10px}
+.flagitem{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:14px 18px;flex-wrap:wrap}
+.smallbtn{border:1.5px solid var(--ink);background:var(--surface);border-radius:10px;padding:8px 12px;font-weight:700;font-size:.86rem}
+.smallbtn.solid{background:var(--ink);color:var(--surface)}
+.desk .toast{position:fixed;top:auto;left:50%;right:auto;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px)}
+.sample{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+</style>
+<script>document.documentElement.classList.add("js");</script>
+<style>
+html:not(.js) .shell-top,html:not(.js) .stage-wrap{display:none}
+html.js #static{display:none}
+#static{max-width:1240px;margin:0 auto;padding-block:16px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sbanner{border:2px solid var(--signal);background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.snav{display:flex;flex-wrap:wrap;gap:6px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.snav a,.ss-h a{color:var(--tram);font-weight:700;font-size:.88rem}
+.ss{border-top:1px solid var(--line);padding:24px 0}
+.ss-h{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.ss-row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.ss-dev{min-width:0;max-width:100%;overflow-x:auto}
+#static .toast{position:absolute}
+</style>
+</head>
+<body>
+<div id="static"><a id="static-top"></a><div class="sbanner"><b>Preview mode.</b> This app's preview doesn't run JavaScript, so every screen is shown below as one page. For the clickable prototype, save the file and open it in Chrome, Edge, Firefox or Safari.</div>
+<h1 class="t" style="font-size:1.6rem;margin:6px 0 12px">Neuk&ouml;lln Resident Reports &middot; UI prototype</h1><nav class="snav"><a href="#v0">Map and nearby reports (guest)</a> <a href="#v1">Report detail (guest)</a> <a href="#v2">Sign-in sheet, step 1 (after tapping Me too)</a> <a href="#v3">Sign-in sheet, step 2: code</a> <a href="#v4">Sign-in sheet, step 3: one-time Neukoelln check</a> <a href="#v5">Report detail after voting (signed in)</a> <a href="#v6">Camera</a> <a href="#v7">New report</a> <a href="#v8">Already reported?</a> <a href="#v9">Outside Neukoelln</a> <a href="#v10">Report posted</a> <a href="#v11">Account (guest)</a> <a href="#v12">Account (signed in)</a> <a href="#v13">Priority queue and report detail</a> <a href="#v14">Flagged items</a></nav><section class="ss" id="v0"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Map and nearby reports (guest)</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="top"><div class="grow"><div class="label">Reports near you</div><h1 class="t">Neuk&#246;lln</h1></div></div>
+   <div class="chips" role="group" aria-label="Filter">
+     <button class="chip" data-act="filter:all" aria-pressed="true">All</button><button class="chip" data-act="filter:traffic" aria-pressed="false">Traffic</button><button class="chip" data-act="filter:facility" aria-pressed="false">Facilities</button>
+   </div>
+   <div class="scroll">
+     <p class="guest"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg><span>You're browsing as a guest. You only sign in when you post, comment or vote.</span></p>
+     <div class="map" aria-label="Map of nearby reports">
+   <svg viewBox="0 0 360 225" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect width="360" height="225" style="fill:var(--map-bg)"></rect>
+    <path d="M250 0h110v70c-30 10-60 4-110-20z" style="fill:var(--map-park)"></path>
+    <path d="M0 190c60-10 110 0 160 20v15H0z" style="fill:var(--map-water)"></path>
+    <path d="M120 0L150 225M0 95L360 120M230 0L200 225M0 40L360 30M40 225L90 0M300 225L330 0" style="fill:none;stroke:var(--map-road);stroke-width:9"></path>
+    <path d="M0 160L360 175" style="fill:none;stroke:var(--map-road);stroke-width:14"></path>
+   </svg>
+   <button class="pin traffic" style="left:38%;top:42%" data-act="open:r1" aria-label="Pedestrian light not working"><span></span></button><button class="pin traffic" style="left:62%;top:30%" data-act="open:r2" aria-label="Deep pothole in the bike lane"><span></span></button><button class="pin facility" style="left:24%;top:68%" data-act="open:r3" aria-label="Swing seat broken at playground"><span></span></button><button class="pin facility" style="left:80%;top:78%" data-act="open:r4" aria-label="Front door of youth centre broken"><span></span></button><button class="pin traffic" style="left:70%;top:58%" data-act="open:r5" aria-label="Bike lane blocked by parked van"><span></span></button><button class="pin facility" style="left:52%;top:16%" data-act="open:r6" aria-label="Public toilet closed for weeks"><span></span></button>
+   <div class="me-dot" style="left:46%;top:55%" aria-label="You are here"></div>
+   <div class="legend"><span><b style="background:var(--signal)"></b>Traffic</span><span><b style="background:var(--tram)"></b>Facilities</span></div>
+  </div>
+     <div class="list"><button class="card" data-act="open:r1">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Pedestrian light not working</span><span class="status st-Acknowledged">Acknowledged</span></div>
+      <div class="meta">Traffic light &#183; 80 m &#183; 2 h ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>20</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>7</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>4</span></div>
+    </div></button><button class="card" data-act="open:r2">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="0" y="92" width="160" height="4" style="fill:var(--scene-hi)"></rect><ellipse cx="88" cy="104" rx="30" ry="9" style="fill:var(--scene-obj)"></ellipse><path d="M30 60h20l6-8h10l-4 8" style="fill:none;stroke:var(--scene-obj);stroke-width:3"></path></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Deep pothole in the bike lane</span><span class="status st-Open">Open</span></div>
+      <div class="meta">Pothole &#183; 350 m &#183; 1 d ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>11</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>3</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>3</span></div>
+    </div></button><button class="card" data-act="open:r3">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><path d="M40 86L60 20h40l20 66" style="fill:none;stroke:var(--scene-obj);stroke-width:5;stroke-linejoin:round"></path><path d="M72 22l-4 46M92 22l8 40" style="stroke:var(--scene-obj);stroke-width:2"></path><rect x="62" y="64" width="40" height="6" rx="2" transform="rotate(14 82 67)" style="fill:var(--scene-hi)"></rect></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Swing seat broken at playground</span><span class="status st-Inprogress">In progress</span></div>
+      <div class="meta">Playground &#183; 600 m &#183; 2 d ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>2</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>2</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>2</span></div>
+    </div></button><button class="card" data-act="open:r4">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="24" y="16" width="112" height="70" style="fill:var(--scene-obj)"></rect><rect x="62" y="40" width="36" height="46" style="fill:var(--scene-sky)"></rect><path d="M80 40l-6 14 8 8-6 10 4 14" style="fill:none;stroke:var(--scene-obj);stroke-width:2.5"></path><rect x="36" y="26" width="16" height="10" style="fill:var(--scene-sky);opacity:.6"></rect><rect x="108" y="26" width="16" height="10" style="fill:var(--scene-sky);opacity:.6"></rect></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Front door of youth centre broken</span><span class="status st-Open">Open</span></div>
+      <div class="meta">Youth centre &#183; 4.1 km &#183; 3 d ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>26</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>2</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>1</span></div>
+    </div></button><button class="card" data-act="open:r5">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="0" y="90" width="160" height="12" style="fill:var(--scene-sky);opacity:.5"></rect><rect x="40" y="70" width="70" height="28" rx="8" style="fill:var(--scene-obj)"></rect><circle cx="56" cy="100" r="7" style="fill:var(--scene-obj)"></circle><circle cx="96" cy="100" r="7" style="fill:var(--scene-obj)"></circle><rect x="128" y="84" width="20" height="4" style="fill:var(--scene-hi)"></rect></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Bike lane blocked by parked van</span><span class="status st-Open">Open</span></div>
+      <div class="meta">Bike lane &#183; 900 m &#183; 5 h ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>3</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>0</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>1</span></div>
+    </div></button><button class="card" data-act="open:r6">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="50" y="24" width="60" height="62" rx="6" style="fill:var(--scene-obj)"></rect><rect x="60" y="38" width="40" height="40" style="fill:var(--scene-sky)"></rect><rect x="50" y="52" width="60" height="8" style="fill:var(--scene-hi)" transform="rotate(-12 80 56)"></rect></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Public toilet closed for weeks</span><span class="status st-Open">Open</span></div>
+      <div class="meta">Public toilet &#183; 1.2 km &#183; 4 d ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>6</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>4</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>2</span></div>
+    </div></button></div>
+   </div><nav class="nav" aria-label="Main">
+    <button data-act="nav:home" aria-current="page"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>Map</button>
+    <button class="fab" data-act="new" aria-label="Report a problem"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></button>
+    <button data-act="nav:me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Sign in</button>
+  </nav></div></div></div><aside class="stories"><h2>Map and nearby reports</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-01</code><span>Browse freely, sign in only to act</span></li><li><code>US-15</code><span>See reports near me</span></li><li><code>US-24</code><span>Score hidden from residents</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v1"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Report detail (guest)</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="scroll">
+    <div class="hero"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg><button class="iconbtn" data-act="nav:home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+    <div class="pad col g16">
+      <div class="col g8">
+        <span class="label">Traffic &#183; Traffic light</span>
+        <h1 class="t">Pedestrian light not working</h1>
+        <div class="meta">Karl-Marx-Strasse, near Rathaus Neuk&#246;lln &#183; 2 h ago</div>
+      </div>
+      <div class="steps" aria-label="Status: Acknowledged"><div class="on "><i></i><span>Open</span></div><div class="on cur"><i></i><span>Acknowledged</span></div><div class=" "><i></i><span>In progress</span></div><div class=" "><i></i><span>Resolved</span></div></div>
+      <div class="officenote"><div class="label">District office</div>Thanks. The fault has been passed to the team responsible for traffic signals.</div>
+      <p style="margin:0">The pedestrian signal has been dark since this morning. Cars do not stop.</p>
+      <button class="primary " data-act="vote:r1" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>Me too &#183; 20</button>
+      <div class="meta" style="text-align:center;margin-top:-8px">4 neighbours reported this</div>
+      <div class="col g12">
+        <span class="label">Comments</span>
+        <div class="cmt"><div class="av">L</div><div class="b">Same on the other side of the street.<div class="meta" style="font-size:.74rem">1 h</div></div></div><div class="cmt"><div class="av">M</div><div class="b">Kids from the school cross here at 8.<div class="meta" style="font-size:.74rem">40 min</div></div></div>
+      </div>
+    </div></div>
+    <form class="composer" data-form="comment"><label class="sr" hidden="">Comment</label>
+      <input placeholder="Add a comment" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></form></div></div></div><aside class="stories"><h2>Report detail</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-18</code><span>Vote "Me too"</span></li><li><code>US-19</code><span>Comment on a report</span></li><li><code>US-20</code><span>Follow a report</span></li><li><code>US-28</code><span>Update report status</span></li><li><code>US-24</code><span>Score hidden from residents</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v2"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Sign-in sheet, step 1 (after tapping Me too)</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="scroll">
+    <div class="hero"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg><button class="iconbtn" data-act="nav:home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+    <div class="pad col g16">
+      <div class="col g8">
+        <span class="label">Traffic &#183; Traffic light</span>
+        <h1 class="t">Pedestrian light not working</h1>
+        <div class="meta">Karl-Marx-Strasse, near Rathaus Neuk&#246;lln &#183; 2 h ago</div>
+      </div>
+      <div class="steps" aria-label="Status: Acknowledged"><div class="on "><i></i><span>Open</span></div><div class="on cur"><i></i><span>Acknowledged</span></div><div class=" "><i></i><span>In progress</span></div><div class=" "><i></i><span>Resolved</span></div></div>
+      <div class="officenote"><div class="label">District office</div>Thanks. The fault has been passed to the team responsible for traffic signals.</div>
+      <p style="margin:0">The pedestrian signal has been dark since this morning. Cars do not stop.</p>
+      <button class="primary " data-act="vote:r1" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>Me too &#183; 20</button>
+      <div class="meta" style="text-align:center;margin-top:-8px">4 neighbours reported this</div>
+      <div class="col g12">
+        <span class="label">Comments</span>
+        <div class="cmt"><div class="av">L</div><div class="b">Same on the other side of the street.<div class="meta" style="font-size:.74rem">1 h</div></div></div><div class="cmt"><div class="av">M</div><div class="b">Kids from the school cross here at 8.<div class="meta" style="font-size:.74rem">40 min</div></div></div>
+      </div>
+    </div></div>
+    <form class="composer" data-form="comment"><label class="sr" hidden="">Comment</label>
+      <input placeholder="Add a comment" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></form><div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="sheet-head"><div class="grow col g8"><h2 class="t">Sign in to vote</h2><span class="meta">Takes about a minute, and only once.</span></div><button class="close" data-act="sheet-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div><div class="dots" aria-label="Step 1 of 3"><i class="on"></i><i class=""></i><i class=""></i></div>
+      <label class="label">Email or phone number</label><input class="field" inputmode="email" value="name@example.de">
+      <button class="primary" data-act="auth-next">Send me a code</button></div></div></div></div></div><aside class="stories"><h2>Sign-in sheet</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-01</code><span>Browse freely, sign in only to act</span></li><li><code>US-02</code><span>One-time Neuk&#246;lln resident check</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v3"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Sign-in sheet, step 2: code</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="scroll">
+    <div class="hero"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg><button class="iconbtn" data-act="nav:home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+    <div class="pad col g16">
+      <div class="col g8">
+        <span class="label">Traffic &#183; Traffic light</span>
+        <h1 class="t">Pedestrian light not working</h1>
+        <div class="meta">Karl-Marx-Strasse, near Rathaus Neuk&#246;lln &#183; 2 h ago</div>
+      </div>
+      <div class="steps" aria-label="Status: Acknowledged"><div class="on "><i></i><span>Open</span></div><div class="on cur"><i></i><span>Acknowledged</span></div><div class=" "><i></i><span>In progress</span></div><div class=" "><i></i><span>Resolved</span></div></div>
+      <div class="officenote"><div class="label">District office</div>Thanks. The fault has been passed to the team responsible for traffic signals.</div>
+      <p style="margin:0">The pedestrian signal has been dark since this morning. Cars do not stop.</p>
+      <button class="primary " data-act="vote:r1" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>Me too &#183; 20</button>
+      <div class="meta" style="text-align:center;margin-top:-8px">4 neighbours reported this</div>
+      <div class="col g12">
+        <span class="label">Comments</span>
+        <div class="cmt"><div class="av">L</div><div class="b">Same on the other side of the street.<div class="meta" style="font-size:.74rem">1 h</div></div></div><div class="cmt"><div class="av">M</div><div class="b">Kids from the school cross here at 8.<div class="meta" style="font-size:.74rem">40 min</div></div></div>
+      </div>
+    </div></div>
+    <form class="composer" data-form="comment"><label class="sr" hidden="">Comment</label>
+      <input placeholder="Add a comment" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></form><div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="sheet-head"><div class="grow col g8"><h2 class="t">Enter your code</h2><span class="meta">We sent 6 digits to name@example.de</span></div><button class="close" data-act="sheet-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div><div class="dots" aria-label="Step 2 of 3"><i class="on"></i><i class="on"></i><i class=""></i></div>
+      <label class="label">Code</label><input class="field mono" inputmode="numeric" value="482913" style="letter-spacing:.3em;font-size:1.2rem">
+      <span class="meta" style="margin-top:-6px">Prototype: any 6 digits work.</span>
+      <button class="primary" data-act="auth-next">Confirm</button></div></div></div></div></div><aside class="stories"><h2>Sign-in sheet</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-01</code><span>Browse freely, sign in only to act</span></li><li><code>US-02</code><span>One-time Neuk&#246;lln resident check</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v4"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Sign-in sheet, step 3: one-time Neukoelln check</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="scroll">
+    <div class="hero"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg><button class="iconbtn" data-act="nav:home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+    <div class="pad col g16">
+      <div class="col g8">
+        <span class="label">Traffic &#183; Traffic light</span>
+        <h1 class="t">Pedestrian light not working</h1>
+        <div class="meta">Karl-Marx-Strasse, near Rathaus Neuk&#246;lln &#183; 2 h ago</div>
+      </div>
+      <div class="steps" aria-label="Status: Acknowledged"><div class="on "><i></i><span>Open</span></div><div class="on cur"><i></i><span>Acknowledged</span></div><div class=" "><i></i><span>In progress</span></div><div class=" "><i></i><span>Resolved</span></div></div>
+      <div class="officenote"><div class="label">District office</div>Thanks. The fault has been passed to the team responsible for traffic signals.</div>
+      <p style="margin:0">The pedestrian signal has been dark since this morning. Cars do not stop.</p>
+      <button class="primary " data-act="vote:r1" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>Me too &#183; 20</button>
+      <div class="meta" style="text-align:center;margin-top:-8px">4 neighbours reported this</div>
+      <div class="col g12">
+        <span class="label">Comments</span>
+        <div class="cmt"><div class="av">L</div><div class="b">Same on the other side of the street.<div class="meta" style="font-size:.74rem">1 h</div></div></div><div class="cmt"><div class="av">M</div><div class="b">Kids from the school cross here at 8.<div class="meta" style="font-size:.74rem">40 min</div></div></div>
+      </div>
+    </div></div>
+    <form class="composer" data-form="comment"><label class="sr" hidden="">Comment</label>
+      <input placeholder="Add a comment" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></form><div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="sheet-head"><div class="grow col g8"><h2 class="t">Do you live in Neuk&#246;lln?</h2><span class="meta">We check this once so reports come from neighbours.</span></div><button class="close" data-act="sheet-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div><div class="dots" aria-label="Step 3 of 3"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+      <label class="label">Street and house number</label><input class="field" value="Weserstrasse 1">
+      <label class="label">Postcode</label><input class="field mono" inputmode="numeric" value="12045">
+      <div class="why">Your address is never shown to anyone. How we confirm it (for example a letter with a code) is still being decided.</div>
+      <button class="primary" data-act="auth-next">Confirm and vote</button></div></div></div></div></div><aside class="stories"><h2>Sign-in sheet</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-01</code><span>Browse freely, sign in only to act</span></li><li><code>US-02</code><span>One-time Neuk&#246;lln resident check</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v5"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Report detail after voting (signed in)</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="scroll">
+    <div class="hero"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg><button class="iconbtn" data-act="nav:home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+    <div class="pad col g16">
+      <div class="col g8">
+        <span class="label">Traffic &#183; Traffic light</span>
+        <h1 class="t">Pedestrian light not working</h1>
+        <div class="meta">Karl-Marx-Strasse, near Rathaus Neuk&#246;lln &#183; 2 h ago</div>
+      </div>
+      <div class="steps" aria-label="Status: Acknowledged"><div class="on "><i></i><span>Open</span></div><div class="on cur"><i></i><span>Acknowledged</span></div><div class=" "><i></i><span>In progress</span></div><div class=" "><i></i><span>Resolved</span></div></div>
+      <div class="officenote"><div class="label">District office</div>Thanks. The fault has been passed to the team responsible for traffic signals.</div>
+      <p style="margin:0">The pedestrian signal has been dark since this morning. Cars do not stop.</p>
+      <button class="primary on" data-act="vote:r1" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>You and 20 others</button>
+      <div class="meta" style="text-align:center;margin-top:-8px">4 neighbours reported this &#183; you follow this report</div>
+      <div class="col g12">
+        <span class="label">Comments</span>
+        <div class="cmt"><div class="av">L</div><div class="b">Same on the other side of the street.<div class="meta" style="font-size:.74rem">1 h</div></div></div><div class="cmt"><div class="av">M</div><div class="b">Kids from the school cross here at 8.<div class="meta" style="font-size:.74rem">40 min</div></div></div>
+      </div>
+    </div></div>
+    <form class="composer" data-form="comment"><label class="sr" hidden="">Comment</label>
+      <input placeholder="Add a comment" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></form></div></div></div><aside class="stories"><h2>Report detail</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-18</code><span>Vote "Me too"</span></li><li><code>US-19</code><span>Comment on a report</span></li><li><code>US-20</code><span>Follow a report</span></li><li><code>US-28</code><span>Update report status</span></li><li><code>US-24</code><span>Score hidden from residents</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v6"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Camera</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="cam">
+    <div class="view"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg>
+      <button class="iconbtn x" data-act="nav:home" aria-label="Close camera"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      <div class="locpill"><span><i></i>Inside Neuk&#246;lln &#183; &#177;12 m</span></div>
+    </div>
+    <div class="bar"><button class="shutter" data-act="shutter" aria-label="Take photo"></button>
+      <p>Tap for a photo &#183; hold for a video up to 30 s</p></div>
+  </div></div></div></div><aside class="stories"><h2>Camera</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-06</code><span>Take or attach photos</span></li><li><code>US-07</code><span>Record a short video</span></li><li><code>US-16</code><span>Capture and protect metadata</span></li><li><code>US-03</code><span>Post only while in Neuk&#246;lln</span></li><li><code>US-32</code><span>Location only when posting</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v7"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">New report</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="top"><button class="iconbtn" data-act="new" aria-label="Retake"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button><h2 class="t grow">New report</h2></div>
+   <div class="scroll"><div class="pad col g16" style="padding-top:6px">
+    <div class="photo-row"><div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div><div class="col g8"><span class="meta">Faces and number plates are blurred automatically before anyone sees the photo.</span></div></div>
+    <div class="col g8"><span class="label">What is it?</span>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       <button class="chip" data-act="cat:traffic" aria-pressed="true">Traffic</button><button class="chip" data-act="cat:facility" aria-pressed="false">Community facility</button>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       <button class="chip" data-act="sub:Traffic light" aria-pressed="true">Traffic light<span class="sug">suggested</span></button><button class="chip" data-act="sub:Pothole" aria-pressed="false">Pothole</button><button class="chip" data-act="sub:Bike lane" aria-pressed="false">Bike lane</button><button class="chip" data-act="sub:Crossing" aria-pressed="false">Crossing</button><button class="chip" data-act="sub:Sign" aria-pressed="false">Sign</button>
+      </div></div>
+    <div class="col g8"><label class="label">Anything to add? (optional)</label>
+      <textarea class="field" placeholder="e.g. Dark since this morning"></textarea></div>
+    <label class="switch"><span class="grow"><b>Dangerous right now?</b><br><span class="meta">Helps the district office act faster</span></span><input type="checkbox" checked=""></label>
+    <div class="warnbox">If someone is in danger, call 112 or 110 first.</div>
+    <div class="locrow"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg><div class="grow"><b>Karl-Marx-Strasse</b><div class="meta">Taken here &#183; <span class="ok">inside Neuk&#246;lln</span></div></div></div>
+   </div></div>
+   <div class="dock"><button class="primary" data-act="post"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Post report</button>
+     </div></div></div></div><aside class="stories"><h2>New report</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-08</code><span>Choose a category</span></li><li><code>US-14</code><span>Suggested category from photo</span></li><li><code>US-09</code><span>Add a description</span></li><li><code>US-10</code><span>Confirm the location</span></li><li><code>US-11</code><span>Review and post</span></li><li><code>US-31</code><span>Blur faces and plates</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v8"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Already reported?</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="top"><button class="iconbtn" data-act="new" aria-label="Retake"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button><h2 class="t grow">New report</h2></div>
+   <div class="scroll"><div class="pad col g16" style="padding-top:6px">
+    <div class="photo-row"><div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div><div class="col g8"><span class="meta">Faces and number plates are blurred automatically before anyone sees the photo.</span></div></div>
+    <div class="col g8"><span class="label">What is it?</span>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       <button class="chip" data-act="cat:traffic" aria-pressed="true">Traffic</button><button class="chip" data-act="cat:facility" aria-pressed="false">Community facility</button>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       <button class="chip" data-act="sub:Traffic light" aria-pressed="true">Traffic light<span class="sug">suggested</span></button><button class="chip" data-act="sub:Pothole" aria-pressed="false">Pothole</button><button class="chip" data-act="sub:Bike lane" aria-pressed="false">Bike lane</button><button class="chip" data-act="sub:Crossing" aria-pressed="false">Crossing</button><button class="chip" data-act="sub:Sign" aria-pressed="false">Sign</button>
+      </div></div>
+    <div class="col g8"><label class="label">Anything to add? (optional)</label>
+      <textarea class="field" placeholder="e.g. Dark since this morning"></textarea></div>
+    <label class="switch"><span class="grow"><b>Dangerous right now?</b><br><span class="meta">Helps the district office act faster</span></span><input type="checkbox" checked=""></label>
+    <div class="warnbox">If someone is in danger, call 112 or 110 first.</div>
+    <div class="locrow"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg><div class="grow"><b>Karl-Marx-Strasse</b><div class="meta">Taken here &#183; <span class="ok">inside Neuk&#246;lln</span></div></div></div>
+   </div></div>
+   <div class="dock"><button class="primary" data-act="post"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Post report</button>
+     </div><div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="sheet-head"><div class="grow col g8"><h2 class="t">Already reported?</h2><span class="meta">A similar report is 35 m away. Adding to it gives it more weight.</span></div><button class="close" data-act="sheet-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+      <div class="card" style="cursor:default"><div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div><div class="col g8 grow"><span class="ttl">Pedestrian light not working</span><span class="meta">4 neighbours &#183; 2 h ago</span><span class="status st-Acknowledged" style="align-self:flex-start">Acknowledged</span></div></div>
+      <button class="primary" data-act="dup-join">Add my photo to this report</button>
+      <button class="quiet" data-act="dup-new" style="align-self:center">Mine is different, post it</button></div></div></div></div></div><aside class="stories"><h2>Already reported?</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-13</code><span>"Already reported?" suggestions</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v9"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Outside Neukoelln</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="top"><button class="iconbtn" data-act="new" aria-label="Retake"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></button><h2 class="t grow">New report</h2></div>
+   <div class="scroll"><div class="pad col g16" style="padding-top:6px">
+    <div class="photo-row"><div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div><div class="col g8"><span class="meta">Faces and number plates are blurred automatically before anyone sees the photo.</span></div></div>
+    <div class="col g8"><span class="label">What is it?</span>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       <button class="chip" data-act="cat:traffic" aria-pressed="true">Traffic</button><button class="chip" data-act="cat:facility" aria-pressed="false">Community facility</button>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       <button class="chip" data-act="sub:Traffic light" aria-pressed="true">Traffic light<span class="sug">suggested</span></button><button class="chip" data-act="sub:Pothole" aria-pressed="false">Pothole</button><button class="chip" data-act="sub:Bike lane" aria-pressed="false">Bike lane</button><button class="chip" data-act="sub:Crossing" aria-pressed="false">Crossing</button><button class="chip" data-act="sub:Sign" aria-pressed="false">Sign</button>
+      </div></div>
+    <div class="col g8"><label class="label">Anything to add? (optional)</label>
+      <textarea class="field" placeholder="e.g. Dark since this morning"></textarea></div>
+    <label class="switch"><span class="grow"><b>Dangerous right now?</b><br><span class="meta">Helps the district office act faster</span></span><input type="checkbox" checked=""></label>
+    <div class="warnbox">If someone is in danger, call 112 or 110 first.</div>
+    <div class="locrow"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg><div class="grow"><b>Karl-Marx-Strasse</b><div class="meta">Taken here &#183; <span class="bad">outside Neuk&#246;lln</span></div></div></div>
+   </div></div>
+   <div class="dock"><button class="primary" data-act="post"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Post report</button>
+     </div><div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="sheet-head"><div class="grow col g8"><h2 class="t">You're outside Neuk&#246;lln</h2><span class="meta">Reports can only be posted on the spot, so they stay first-hand.</span></div><button class="close" data-act="sheet-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+      <div class="why">We'll keep your report as a draft for 48 hours. Post it when you're back in the district.</div>
+      <button class="primary" data-act="save-draft">Keep as draft</button></div></div></div></div></div><aside class="stories"><h2>Outside Neuk&#246;lln</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-03</code><span>Post only while in Neuk&#246;lln</span></li><li><code>US-12</code><span>Save drafts</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v10"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Report posted</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="scroll"><div class="pad col g16" style="padding-top:90px;text-align:center">
+     <div class="big-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+     <h1 class="t">Report posted</h1>
+     <p class="meta" style="margin:0"><span class="mono">#NK-2026-01843</span><br>We'll tell you when the district office responds.</p>
+   </div></div>
+   <div class="dock"><button class="primary" data-act="open:r1">See your report</button></div></div></div></div><aside class="stories"><h2>Posted</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-11</code><span>Review and post</span></li><li><code>US-20</code><span>Follow a report</span></li><li><code>US-29</code><span>Get notified</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v11"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Account (guest)</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="top"><h1 class="t grow">Your account</h1></div>
+    <div class="scroll"><div class="pad col g16">
+      <p style="margin:0">You can read every report without an account.</p>
+      <p class="meta" style="margin:0">Sign in when you want to post, comment or vote. We check once that you live in Neuk&#246;lln, so reports come from neighbours.</p>
+    </div></div>
+    <div class="dock"><button class="primary" data-act="signin">Sign in</button></div><nav class="nav" aria-label="Main">
+    <button data-act="nav:home"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>Map</button>
+    <button class="fab" data-act="new" aria-label="Report a problem"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></button>
+    <button data-act="nav:me" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Sign in</button>
+  </nav></div></div></div><aside class="stories"><h2>Account</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-01</code><span>Browse freely, sign in only to act</span></li><li><code>US-29</code><span>Get notified</span></li><li><code>US-35</code><span>Language</span></li><li><code>US-36</code><span>Accessibility</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v12"><div class="ss-h"><span class="label">Resident app</span><h2 class="t">Account (signed in)</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="phone"><div class="screen"><div class="top"><div class="av" style="width:46px;height:46px">Y</div><div class="grow"><h2 class="t">You</h2><span class="verified"><svg width="12" height="12" style="stroke:currentColor;fill:none;stroke-width:3" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Neuk&#246;lln resident</span></div></div>
+   <div class="scroll"><div class="pad col g12">
+     <span class="label">Reports you follow</span>
+     <button class="card" data-act="open:r1">
+    <div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">Pedestrian light not working</span><span class="status st-Acknowledged">Acknowledged</span></div>
+      <div class="meta">Traffic light &#183; 80 m &#183; 2 h ago</div>
+      <div class="counts"><span><svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"></path></svg>21</span><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"></path></svg>7</span><span><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M17 14c2.5 0 4 1.3 4.8 4"></path></svg>4</span></div>
+    </div></button>
+     <span class="label" style="margin-top:8px">Settings</span>
+     <label class="switch"><span class="grow"><b>Status updates</b><br><span class="meta">Push notification when a report you follow changes</span></span><input type="checkbox" checked=""></label>
+     <div class="setrow"><label class="grow"><b>Language</b></label><select style="border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--surface)"><option>English</option><option>Deutsch</option></select></div>
+     <button class="quiet" data-act="signout" style="align-self:flex-start">Sign out</button>
+   </div></div><nav class="nav" aria-label="Main">
+    <button data-act="nav:home"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>Map</button>
+    <button class="fab" data-act="new" aria-label="Report a problem"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></button>
+    <button data-act="nav:me" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Me</button>
+  </nav></div></div></div><aside class="stories"><h2>Account</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-01</code><span>Browse freely, sign in only to act</span></li><li><code>US-29</code><span>Get notified</span></li><li><code>US-35</code><span>Language</span></li><li><code>US-36</code><span>Accessibility</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v13"><div class="ss-h"><span class="label">District office</span><h2 class="t">Priority queue and report detail</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="desk">
+    <div class="desk-top"><h2>District office &#183; Neuk&#246;lln</h2><span class="sample">Staff only</span><span class="sp"></span>
+     <div class="tabs" role="group" aria-label="View"><button data-act="stab:queue" aria-pressed="true">Queue<span class="n">6</span></button><button data-act="stab:flagged" aria-pressed="false">Flagged<span class="n">2</span></button></div></div>
+    <div class="levels"><div class="lvlcard L-Critical"><b>1</b><span>Critical</span></div><div class="lvlcard L-High"><b>2</b><span>High</span></div><div class="lvlcard L-Medium"><b>2</b><span>Medium</span></div><div class="lvlcard L-Low"><b>1</b><span>Low</span></div></div>
+    <div class="desk-body">
+     <div class="queue">
+      <div class="qfilters"><button class="chip" data-act="sfilter:all" aria-pressed="true">All</button><button class="chip" data-act="sfilter:traffic" aria-pressed="false">Traffic</button><button class="chip" data-act="sfilter:facility" aria-pressed="false">Facilities</button><span class="sp"></span><span class="sample" style="align-self:center">Sorted by priority</span></div>
+      <button class="qrow" data-act="ssel:r1" aria-current="true">
+        <span class="stripe S-Critical"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">Pedestrian light not working</span><span class="meta">Traffic light &#183; Neuk&#246;lln &#183; Acknowledged</span></span>
+        <span class="right"><span class="score">112.5</span><span class="lvl L-Critical">Critical</span></span></button><button class="qrow" data-act="ssel:r2" aria-current="false">
+        <span class="stripe S-High"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">Deep pothole in the bike lane</span><span class="meta">Pothole &#183; Neuk&#246;lln &#183; Open</span></span>
+        <span class="right"><span class="score">45.0</span><span class="lvl L-High">High</span></span></button><button class="qrow" data-act="ssel:r4" aria-current="false">
+        <span class="stripe S-High"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">Front door of youth centre broken</span><span class="meta">Youth centre &#183; Gropiusstadt &#183; Open</span><span class="flagtag">Unusual voting, check Flagged</span></span>
+        <span class="right"><span class="score">33.0</span><span class="lvl L-High">High</span></span></button><button class="qrow" data-act="ssel:r6" aria-current="false">
+        <span class="stripe S-Medium"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">Public toilet closed for weeks</span><span class="meta">Public toilet &#183; Neuk&#246;lln &#183; Open</span></span>
+        <span class="right"><span class="score">22.0</span><span class="lvl L-Medium">Medium</span></span></button><button class="qrow" data-act="ssel:r3" aria-current="false">
+        <span class="stripe S-Medium"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">Swing seat broken at playground</span><span class="meta">Playground &#183; Neuk&#246;lln &#183; In progress</span></span>
+        <span class="right"><span class="score">18.2</span><span class="lvl L-Medium">Medium</span></span></button><button class="qrow" data-act="ssel:r5" aria-current="false">
+        <span class="stripe S-Low"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">Bike lane blocked by parked van</span><span class="meta">Bike lane &#183; Neuk&#246;lln &#183; Open</span></span>
+        <span class="right"><span class="score">8.0</span><span class="lvl L-Low">Low</span></span></button>
+     </div>
+     <div class="detail">
+      <div class="dhead"><div class="thumb"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="76" y="30" width="6" height="58" style="fill:var(--scene-obj)"></rect><rect x="66" y="14" width="26" height="44" rx="5" style="fill:var(--scene-obj)"></rect><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"></circle><rect x="14" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="38" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="62" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="86" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="110" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect><rect x="134" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"></rect></svg></div><div class="col g8 grow"><span class="lvl L-Critical" style="align-self:flex-start">Critical &#183; <span class="mono">112.5</span></span><h2 class="t">Pedestrian light not working</h2><span class="meta">Karl-Marx-Strasse, near Rathaus Neuk&#246;lln &#183; 2 h ago</span></div></div>
+      <p style="margin:0">The pedestrian signal has been dark since this morning. Cars do not stop.</p>
+      <div class="col g8"><span class="label">Why this score</span>
+        <div class="bars"><div class="bar"><span>Reporters <span class="mono meta">4&#215;5</span></span><div class="track"><div class="fill" style="width:100%"></div></div><span class="v">20</span></div><div class="bar"><span>Commenters <span class="mono meta">5&#215;2</span></span><div class="track"><div class="fill" style="width:50%"></div></div><span class="v">10</span></div><div class="bar"><span>Votes <span class="mono meta">20&#215;1</span></span><div class="track"><div class="fill" style="width:100%"></div></div><span class="v">20</span></div></div>
+        <div class="mult"><span>traffic safety &#215;1.5</span><span>danger flagged by 3 &#215;1.5</span></div>
+        <span class="meta" style="font-size:.78rem">Weights are proposals. Residents never see this score.</span>
+      </div>
+      <div class="col g8"><span class="label">Status residents see</span>
+        <div class="statusseg" role="radiogroup" aria-label="Status"><label><input type="radio" value="Open"><span>Open</span></label><label><input type="radio" value="Acknowledged" checked=""><span>Acknowledged</span></label><label><input type="radio" value="In progress"><span>In progress</span></label><label><input type="radio" value="Resolved"><span>Resolved</span></label></div>
+        <label class="label" style="margin-top:6px">Note to residents</label>
+        <textarea class="field" placeholder="What happens next?">Thanks. The fault has been passed to the team responsible for traffic signals.</textarea>
+      </div>
+      <button class="primary" data-act="staff-save">Save and notify 29 followers</button>
+      <details class="more"><summary>More options</summary>
+        <div class="col g12">
+          <div class="col g8"><label class="label">Override level</label>
+            <select class="field"><option>Keep calculated (Critical)</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+            <input class="field" placeholder="Reason (required for an override)"></div>
+          <div class="row" style="flex-wrap:wrap"><span class="grow"><b>Possible duplicate:</b> Signal flickering &#183; 48 m &#183; 6 d</span><button class="smallbtn" data-act="merge">Merge</button></div>
+        </div></details>
+     </div></div>
+    
+  </div></div><aside class="stories"><h2>Staff queue</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-25</code><span>Triage dashboard</span></li><li><code>US-22</code><span>Priority score</span></li><li><code>US-23</code><span>Priority levels</span></li><li><code>US-24</code><span>Score hidden from residents</span></li><li><code>US-27</code><span>Override priority</span></li><li><code>US-28</code><span>Update report status</span></li><li><code>US-17</code><span>Merge duplicates (staff)</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+<section class="ss" id="v14"><div class="ss-h"><span class="label">District office</span><h2 class="t">Flagged items</h2><a href="#static-top">Back to contents</a></div><div class="ss-row"><div class="ss-dev"><div class="desk">
+    <div class="desk-top"><h2>District office &#183; Neuk&#246;lln</h2><span class="sample">Staff only</span><span class="sp"></span>
+     <div class="tabs" role="group" aria-label="View"><button data-act="stab:queue" aria-pressed="false">Queue<span class="n">6</span></button><button data-act="stab:flagged" aria-pressed="true">Flagged<span class="n">2</span></button></div></div>
+    <div class="levels"><div class="lvlcard L-Critical"><b>1</b><span>Critical</span></div><div class="lvlcard L-High"><b>2</b><span>High</span></div><div class="lvlcard L-Medium"><b>2</b><span>Medium</span></div><div class="lvlcard L-Low"><b>1</b><span>Low</span></div></div>
+    <div class="col">
+      <div class="flagitem"><div class="thumb" style="width:56px;height:56px"><svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="120" style="fill:var(--scene-sky)"></rect><rect y="82" width="160" height="38" style="fill:var(--scene-ground)"></rect><rect x="24" y="16" width="112" height="70" style="fill:var(--scene-obj)"></rect><rect x="62" y="40" width="36" height="46" style="fill:var(--scene-sky)"></rect><path d="M80 40l-6 14 8 8-6 10 4 14" style="fill:none;stroke:var(--scene-obj);stroke-width:2.5"></path><rect x="36" y="26" width="16" height="10" style="fill:var(--scene-sky);opacity:.6"></rect><rect x="108" y="26" width="16" height="10" style="fill:var(--scene-sky);opacity:.6"></rect></svg></div><div class="grow" style="min-width:200px"><b>Unusual voting on &#8220;Front door of youth centre broken&#8221;</b><div class="meta">19 votes in 40 min, 15 from accounts younger than 7 days</div></div><button class="smallbtn solid" data-act="discount:r4">Count new accounts at half weight</button></div>
+      <div class="flagitem"><div class="av">M</div><div class="grow" style="min-width:200px"><b>Comment flagged by 2 residents</b><div class="meta">On &#8220;Swing seat broken at playground&#8221; &#183; offensive language filter</div></div><button class="smallbtn solid" data-act="hidecmt">Hide comment</button></div>
+      
+    </div>
+    
+  </div></div><aside class="stories"><h2>Staff flagged</h2><p>User stories shown on this screen</p>
+   <ul><li><code>US-26</code><span>Flag suspicious activity</span></li><li><code>US-33</code><span>Moderation queue</span></li></ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk&#246;lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div></aside></div></section>
+</div>
+
+<header class="shell-top"><div class="in">
+  <div class="brand"><i></i><span>Neuk&#246;lln Reports</span><small>UI prototype &#183; sample data</small></div>
+  <span class="sp"></span>
+  <div class="seg" role="group" aria-label="Which app">
+    <button id="role-resident" data-act="role:resident" aria-pressed="true">Resident app</button>
+    <button id="role-staff" data-act="role:staff" aria-pressed="false">District office</button>
+  </div>
+  <button class="linkbtn" id="toggle-outside" data-act="toggle-outside">Simulate: outside Neuk&#246;lln</button>
+  <button class="linkbtn" id="reset" data-act="reset">Reset demo</button>
+</div></header>
+
+<div class="stage-wrap">
+  <div class="stage" id="stage"></div>
+  <aside class="stories" id="stories" aria-label="User stories on this screen"></aside>
+</div>
+
+<script>
+(function(){
+/* ---------------- icons ---------------- */
+const I = {
+  back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  close:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  map:'<svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  user:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  hand:'<svg viewBox="0 0 24 24"><path d="M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13"/></svg>',
+  chat:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+  people:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.5 0 4 1.3 4.8 4"/></svg>',
+  send:'<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  pin:'<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  lock:'<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>',
+  camera:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'
+};
+
+/* ---------------- scenes (photo placeholders) ---------------- */
+function scene(kind){
+  const sky='style="fill:var(--scene-sky)"', gr='style="fill:var(--scene-ground)"', ob='style="fill:var(--scene-obj)"', hi='style="fill:var(--scene-hi)"';
+  const base=`<rect width="160" height="120" ${sky}/><rect y="82" width="160" height="38" ${gr}/>`;
+  const k={
+    light:`<rect x="76" y="30" width="6" height="58" ${ob}/><rect x="66" y="14" width="26" height="44" rx="5" ${ob}/><circle cx="79" cy="24" r="5" style="fill:var(--scene-sky);opacity:.5"/><circle cx="79" cy="36" r="5" style="fill:var(--scene-sky);opacity:.5"/><circle cx="79" cy="48" r="5" style="fill:var(--scene-sky);opacity:.5"/>${[0,1,2,3,4,5].map(i=>`<rect x="${14+i*24}" y="96" width="14" height="22" style="fill:var(--scene-sky);opacity:.7"/>`).join('')}`,
+    pothole:`<rect x="0" y="92" width="160" height="4" ${hi}/><ellipse cx="88" cy="104" rx="30" ry="9" ${ob}/><path d="M30 60h20l6-8h10l-4 8" style="fill:none;stroke:var(--scene-obj);stroke-width:3"/>`,
+    swing:`<path d="M40 86L60 20h40l20 66" style="fill:none;stroke:var(--scene-obj);stroke-width:5;stroke-linejoin:round"/><path d="M72 22l-4 46M92 22l8 40" style="stroke:var(--scene-obj);stroke-width:2"/><rect x="62" y="64" width="40" height="6" rx="2" transform="rotate(14 82 67)" ${hi}/>`,
+    door:`<rect x="24" y="16" width="112" height="70" ${ob}/><rect x="62" y="40" width="36" height="46" style="fill:var(--scene-sky)"/><path d="M80 40l-6 14 8 8-6 10 4 14" style="fill:none;stroke:var(--scene-obj);stroke-width:2.5"/><rect x="36" y="26" width="16" height="10" style="fill:var(--scene-sky);opacity:.6"/><rect x="108" y="26" width="16" height="10" style="fill:var(--scene-sky);opacity:.6"/>`,
+    bike:`<rect x="0" y="90" width="160" height="12" style="fill:var(--scene-sky);opacity:.5"/><rect x="40" y="70" width="70" height="28" rx="8" ${ob}/><circle cx="56" cy="100" r="7" ${ob}/><circle cx="96" cy="100" r="7" ${ob}/><rect x="128" y="84" width="20" height="4" ${hi}/>`,
+    toilet:`<rect x="50" y="24" width="60" height="62" rx="6" ${ob}/><rect x="60" y="38" width="40" height="40" style="fill:var(--scene-sky)"/><rect x="50" y="52" width="60" height="8" ${hi} transform="rotate(-12 80 56)"/>`
+  };
+  return `<svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${base}${k[kind]||''}</svg>`;
+}
+
+/* ---------------- data ---------------- */
+const SEED = () => [
+  {id:'r1',title:'Pedestrian light not working',cat:'traffic',sub:'Traffic light',place:'Karl-Marx-Strasse, near Rathaus Neuk\u00f6lln',loc:'Neuk\u00f6lln',dist:'80 m',age:'2 h ago',status:'Acknowledged',rep:4,com:5,likes:20,danger:3,safety:true,scene:'light',x:38,y:42,
+   note:'Thanks. The fault has been passed to the team responsible for traffic signals.',desc:'The pedestrian signal has been dark since this morning. Cars do not stop.',
+   comments:[{w:'L',t:'Same on the other side of the street.',a:'1 h'},{w:'M',t:'Kids from the school cross here at 8.',a:'40 min'}],voted:false,merge:{t:'Signal flickering',d:'48 m',a:'6 d'}},
+  {id:'r2',title:'Deep pothole in the bike lane',cat:'traffic',sub:'Pothole',place:'Hermannstrasse',loc:'Neuk\u00f6lln',dist:'350 m',age:'1 d ago',status:'Open',rep:3,com:2,likes:11,danger:1,safety:true,scene:'pothole',x:62,y:30,note:'',desc:'About 30 cm wide, hard to see at night.',
+   comments:[{w:'A',t:'Nearly fell here yesterday.',a:'5 h'}],voted:false},
+  {id:'r3',title:'Swing seat broken at playground',cat:'facility',sub:'Playground',place:'Playground, Weserstrasse',loc:'Neuk\u00f6lln',dist:'600 m',age:'2 d ago',status:'In progress',rep:2,com:1,likes:2,danger:0,safety:true,scene:'swing',x:24,y:68,note:'Repair booked for next week.',desc:'Seat is hanging from one chain.',
+   comments:[{w:'K',t:'Tape is around it now.',a:'1 d'}],voted:false},
+  {id:'r4',title:'Front door of youth centre broken',cat:'facility',sub:'Youth centre',place:'Gropiusstadt',loc:'Gropiusstadt',dist:'4.1 km',age:'3 d ago',status:'Open',rep:1,com:1,likes:26,danger:0,safety:false,scene:'door',x:80,y:78,note:'',desc:'Door does not lock any more.',
+   comments:[{w:'S',t:'Still open at night.',a:'2 d'}],voted:false,flag:'19 votes in 40 min, 15 from accounts younger than 7 days'},
+  {id:'r5',title:'Bike lane blocked by parked van',cat:'traffic',sub:'Bike lane',place:'Sonnenallee',loc:'Neuk\u00f6lln',dist:'900 m',age:'5 h ago',status:'Open',rep:1,com:0,likes:3,danger:0,safety:false,scene:'bike',x:70,y:58,note:'',desc:'Every morning between 7 and 9.',comments:[],voted:false},
+  {id:'r6',title:'Public toilet closed for weeks',cat:'facility',sub:'Public toilet',place:'Hermannplatz',loc:'Neuk\u00f6lln',dist:'1.2 km',age:'4 d ago',status:'Open',rep:2,com:3,likes:6,danger:0,safety:false,scene:'toilet',x:52,y:16,note:'',desc:'Sign says out of order, no date.',
+   comments:[{w:'R',t:'Closed since September.',a:'3 d'}],voted:false}
+];
+const SUBS = {traffic:['Traffic light','Pothole','Bike lane','Crossing','Sign'],facility:['Playground','Park','Youth centre','Public toilet','Library']};
+
+/* ---------------- scoring (staff only, proposal values) ---------------- */
+const W={rep:5,com:2,like:1};
+function mults(r){const c=r.safety?(r.cat==='traffic'?1.5:1.3):1, h=r.danger>=3?1.5:1;return {c,h};}
+function score(r){const m=mults(r);return Math.round((r.rep*W.rep+r.com*W.com+r.likes*W.like)*m.c*m.h*10)/10;}
+function level(s){return s>=60?'Critical':s>=30?'High':s>=10?'Medium':'Low';}
+
+/* ---------------- state ---------------- */
+let S;
+function fresh(){
+  let role='resident'; try{ if(location.hash==='#staff') role='staff'; }catch(e){}
+  return {role,view:'home',rid:null,filter:'all',user:null,sheet:null,outside:false,
+    draft:null,toast:null,mine:[],staffSel:'r1',staffTab:'queue',staffFilter:'all',reports:SEED(),seq:1843};
+}
+S=fresh();
+const R = id => S.reports.find(r=>r.id===id);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const signedIn = () => !!(S.user && S.user.verified);
+
+/* ---------------- user stories (from v0.1, US-01/02 revised) ---------------- */
+const ST = {
+ 'US-01':'Browse freely, sign in only to act','US-02':'One-time Neuk\u00f6lln resident check','US-03':'Post only while in Neuk\u00f6lln','US-06':'Take or attach photos','US-07':'Record a short video',
+ 'US-08':'Choose a category','US-09':'Add a description','US-10':'Confirm the location','US-11':'Review and post','US-12':'Save drafts','US-13':'"Already reported?" suggestions',
+ 'US-14':'Suggested category from photo','US-15':'See reports near me','US-16':'Capture and protect metadata','US-17':'Merge duplicates (staff)','US-18':'Vote "Me too"','US-19':'Comment on a report',
+ 'US-20':'Follow a report','US-22':'Priority score','US-23':'Priority levels','US-24':'Score hidden from residents','US-25':'Triage dashboard','US-26':'Flag suspicious activity','US-27':'Override priority',
+ 'US-28':'Update report status','US-29':'Get notified','US-31':'Blur faces and plates','US-32':'Location only when posting','US-33':'Moderation queue','US-35':'Language','US-36':'Accessibility'
+};
+const MAP = {
+ home:['US-01','US-15','US-24'], detail:['US-18','US-19','US-20','US-28','US-24'], camera:['US-06','US-07','US-16','US-03','US-32'],
+ compose:['US-08','US-14','US-09','US-10','US-11','US-31'], auth:['US-01','US-02'], dup:['US-13'], outside:['US-03','US-12'], success:['US-11','US-20','US-29'],
+ me:['US-01','US-29','US-35','US-36'], 'staff-queue':['US-25','US-22','US-23','US-24','US-27','US-28','US-17'], 'staff-flagged':['US-26','US-33']
+};
+function screenKey(){
+  if(S.role==='staff') return 'staff-'+S.staffTab;
+  if(S.sheet) return S.sheet.type;
+  return S.view;
+}
+
+/* ---------------- resident renderers ---------------- */
+function statusCls(s){return 'st-'+s.replace(/\s/g,'');}
+function cardHTML(r){
+  return `<button class="card" data-act="open:${r.id}">
+    <div class="thumb">${scene(r.scene)}</div>
+    <div class="col g8 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">${esc(r.title)}</span><span class="status ${statusCls(r.status)}">${r.status}</span></div>
+      <div class="meta">${r.sub} \u00b7 ${r.dist} \u00b7 ${r.age}</div>
+      <div class="counts"><span>${I.hand}${r.likes}</span><span>${I.chat}${r.comments.length+r.com}</span><span>${I.people}${r.rep}</span></div>
+    </div></button>`;
+}
+function mapHTML(list){
+  return `<div class="map" aria-label="Map of nearby reports">
+   <svg viewBox="0 0 360 225" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect width="360" height="225" style="fill:var(--map-bg)"/>
+    <path d="M250 0h110v70c-30 10-60 4-110-20z" style="fill:var(--map-park)"/>
+    <path d="M0 190c60-10 110 0 160 20v15H0z" style="fill:var(--map-water)"/>
+    <path d="M120 0L150 225M0 95L360 120M230 0L200 225M0 40L360 30M40 225L90 0M300 225L330 0" style="fill:none;stroke:var(--map-road);stroke-width:9"/>
+    <path d="M0 160L360 175" style="fill:none;stroke:var(--map-road);stroke-width:14"/>
+   </svg>
+   ${list.map(r=>`<button class="pin ${r.cat}" style="left:${r.x}%;top:${r.y}%" data-act="open:${r.id}" aria-label="${esc(r.title)}"><span></span></button>`).join('')}
+   <div class="me-dot" style="left:46%;top:55%" aria-label="You are here"></div>
+   <div class="legend"><span><b style="background:var(--signal)"></b>Traffic</span><span><b style="background:var(--tram)"></b>Facilities</span></div>
+  </div>`;
+}
+function navHTML(cur){
+  return `<nav class="nav" aria-label="Main">
+    <button data-act="nav:home" ${cur==='home'?'aria-current="page"':''}>${I.map}Map</button>
+    <button class="fab" data-act="new" aria-label="Report a problem">${I.plus}</button>
+    <button data-act="nav:me" ${cur==='me'?'aria-current="page"':''}>${I.user}${signedIn()?'Me':'Sign in'}</button>
+  </nav>`;
+}
+function vHome(){
+  const list=S.reports.filter(r=>S.filter==='all'||r.cat===S.filter);
+  return `<div class="top"><div class="grow"><div class="label">Reports near you</div><h1 class="t">Neuk\u00f6lln</h1></div></div>
+   <div class="chips" role="group" aria-label="Filter">
+     ${[['all','All'],['traffic','Traffic'],['facility','Facilities']].map(([k,l])=>`<button class="chip" data-act="filter:${k}" aria-pressed="${S.filter===k}">${l}</button>`).join('')}
+   </div>
+   <div class="scroll">
+     ${signedIn()?'':`<p class="guest">${I.lock}<span>You're browsing as a guest. You only sign in when you post, comment or vote.</span></p>`}
+     ${mapHTML(list)}
+     <div class="list">${list.map(cardHTML).join('')}</div>
+   </div>${navHTML('home')}`;
+}
+function vDetail(){
+  const r=R(S.rid); const order=['Open','Acknowledged','In progress','Resolved']; const ci=order.indexOf(r.status);
+  return `<div class="scroll">
+    <div class="hero">${scene(r.scene)}<button class="iconbtn" data-act="nav:home" aria-label="Back">${I.back}</button></div>
+    <div class="pad col g16">
+      <div class="col g8">
+        <span class="label">${r.cat==='traffic'?'Traffic':'Community facility'} \u00b7 ${r.sub}</span>
+        <h1 class="t">${esc(r.title)}</h1>
+        <div class="meta">${esc(r.place)} \u00b7 ${r.age}</div>
+      </div>
+      <div class="steps" aria-label="Status: ${r.status}">${order.map((o,i)=>`<div class="${i<=ci?'on':''} ${i===ci?'cur':''}"><i></i><span>${o}</span></div>`).join('')}</div>
+      ${r.note?`<div class="officenote"><div class="label">District office</div>${esc(r.note)}</div>`:''}
+      <p style="margin:0">${esc(r.desc)}</p>
+      <button class="primary ${r.voted?'on':''}" data-act="vote:${r.id}" aria-pressed="${r.voted}">${r.voted?I.check:I.hand}${r.voted?`You and ${r.likes-1} others`:`Me too \u00b7 ${r.likes}`}</button>
+      <div class="meta" style="text-align:center;margin-top:-8px">${r.rep} ${r.rep===1?'neighbour':'neighbours'} reported this${r.voted?' \u00b7 you follow this report':''}</div>
+      <div class="col g12">
+        <span class="label">Comments</span>
+        ${r.comments.length?r.comments.map(c=>`<div class="cmt"><div class="av">${esc(c.w)}</div><div class="b">${esc(c.t)}<div class="meta" style="font-size:.74rem">${c.a}</div></div></div>`).join(''):'<p class="meta" style="margin:0">No comments yet.</p>'}
+      </div>
+    </div></div>
+    <form class="composer" data-form="comment"><label for="cmt-input" class="sr" hidden>Comment</label>
+      <input id="cmt-input" placeholder="Add a comment" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send comment">${I.send}</button></form>`;
+}
+function vCamera(){
+  return `<div class="cam">
+    <div class="view">${scene('light')}
+      <button class="iconbtn x" data-act="nav:home" aria-label="Close camera">${I.close}</button>
+      <div class="locpill">${S.outside?'<span class="bad"><i></i>Outside Neuk\u00f6lln</span>':'<span><i></i>Inside Neuk\u00f6lln \u00b7 \u00b112 m</span>'}</div>
+    </div>
+    <div class="bar"><button class="shutter" data-act="shutter" aria-label="Take photo"></button>
+      <p>Tap for a photo \u00b7 hold for a video up to 30 s</p></div>
+  </div>`;
+}
+function vCompose(){
+  const d=S.draft; const subs=SUBS[d.cat];
+  return `<div class="top"><button class="iconbtn" data-act="new" aria-label="Retake">${I.back}</button><h2 class="t grow">New report</h2></div>
+   <div class="scroll"><div class="pad col g16" style="padding-top:6px">
+    <div class="photo-row"><div class="thumb">${scene(d.scene)}</div><div class="col g8"><span class="meta">Faces and number plates are blurred automatically before anyone sees the photo.</span></div></div>
+    <div class="col g8"><span class="label">What is it?</span>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       ${[['traffic','Traffic'],['facility','Community facility']].map(([k,l])=>`<button class="chip" data-act="cat:${k}" aria-pressed="${d.cat===k}">${l}</button>`).join('')}
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+       ${subs.map(s=>`<button class="chip" data-act="sub:${s}" aria-pressed="${d.sub===s}">${s}${s===d.suggested?'<span class="sug">suggested</span>':''}</button>`).join('')}
+      </div></div>
+    <div class="col g8"><label class="label" for="note">Anything to add? (optional)</label>
+      <textarea class="field" id="note" placeholder="e.g. Dark since this morning">${esc(d.note)}</textarea></div>
+    <label class="switch" for="danger"><span class="grow"><b>Dangerous right now?</b><br><span class="meta">Helps the district office act faster</span></span><input type="checkbox" id="danger" ${d.danger?'checked':''}></label>
+    ${d.danger?'<div class="warnbox">If someone is in danger, call 112 or 110 first.</div>':''}
+    <div class="locrow">${I.pin}<div class="grow"><b>Karl-Marx-Strasse</b><div class="meta">Taken here \u00b7 ${S.outside?'<span class="bad">outside Neuk\u00f6lln</span>':'<span class="ok">inside Neuk\u00f6lln</span>'}</div></div></div>
+   </div></div>
+   <div class="dock"><button class="primary" data-act="post">${I.send}Post report</button>
+     ${signedIn()?'':'<p class="hint">First time? You\'ll sign in once before it posts.</p>'}</div>`;
+}
+function vSuccess(){
+  return `<div class="scroll"><div class="pad col g16" style="padding-top:90px;text-align:center">
+     <div class="big-check">${I.check}</div>
+     <h1 class="t">Report posted</h1>
+     <p class="meta" style="margin:0"><span class="mono">#NK-2026-0${S.seq}</span><br>We'll tell you when the district office responds.</p>
+   </div></div>
+   <div class="dock"><button class="primary" data-act="open:${S.lastPosted}">See your report</button></div>`;
+}
+function vMe(){
+  if(!signedIn()) return `<div class="top"><h1 class="t grow">Your account</h1></div>
+    <div class="scroll"><div class="pad col g16">
+      <p style="margin:0">You can read every report without an account.</p>
+      <p class="meta" style="margin:0">Sign in when you want to post, comment or vote. We check once that you live in Neuk\u00f6lln, so reports come from neighbours.</p>
+    </div></div>
+    <div class="dock"><button class="primary" data-act="signin">Sign in</button></div>${navHTML('me')}`;
+  const mine=S.reports.filter(r=>S.mine.includes(r.id)||r.voted);
+  return `<div class="top"><div class="av" style="width:46px;height:46px">Y</div><div class="grow"><h2 class="t">You</h2><span class="verified">${I.check.replace('<svg','<svg width="12" height="12" style="stroke:currentColor;fill:none;stroke-width:3"')}Neuk\u00f6lln resident</span></div></div>
+   <div class="scroll"><div class="pad col g12">
+     <span class="label">Reports you follow</span>
+     ${mine.length?mine.map(cardHTML).join(''):'<p class="meta" style="margin:0">Vote, comment or post and the report shows up here.</p>'}
+     <span class="label" style="margin-top:8px">Settings</span>
+     <label class="switch" for="set-push"><span class="grow"><b>Status updates</b><br><span class="meta">Push notification when a report you follow changes</span></span><input type="checkbox" id="set-push" checked></label>
+     <div class="setrow"><label class="grow" for="set-lang"><b>Language</b></label><select id="set-lang" style="border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--surface)"><option>English</option><option>Deutsch</option></select></div>
+     <button class="quiet" data-act="signout" style="align-self:flex-start">Sign out</button>
+   </div></div>${navHTML('me')}`;
+}
+
+/* ---------------- sheets ---------------- */
+function sheetHTML(){
+  const sh=S.sheet; if(!sh) return '';
+  const head=(title,sub)=>`<div class="grab"></div><div class="sheet-head"><div class="grow col g8"><h2 class="t">${title}</h2>${sub?`<span class="meta">${sub}</span>`:''}</div><button class="close" data-act="sheet-close" aria-label="Close">${I.close}</button></div>`;
+  if(sh.type==='auth'){
+    const verb={vote:'vote',comment:'comment',post:'post your report',none:'continue'}[sh.pending.kind];
+    const steps=['contact','code','address']; const i=steps.indexOf(sh.step);
+    const dots=`<div class="dots" aria-label="Step ${i+1} of 3">${steps.map((s,j)=>`<i class="${j<=i?'on':''}"></i>`).join('')}</div>`;
+    let body='';
+    if(sh.step==='contact') body=`${head('Sign in to '+verb,'Takes about a minute, and only once.')}${dots}
+      <label class="label" for="auth-contact">Email or phone number</label><input class="field" id="auth-contact" inputmode="email" value="name@example.de">
+      <button class="primary" data-act="auth-next">Send me a code</button>`;
+    if(sh.step==='code') body=`${head('Enter your code','We sent 6 digits to name@example.de')}${dots}
+      <label class="label" for="auth-code">Code</label><input class="field mono" id="auth-code" inputmode="numeric" value="482913" style="letter-spacing:.3em;font-size:1.2rem">
+      <span class="meta" style="margin-top:-6px">Prototype: any 6 digits work.</span>
+      <button class="primary" data-act="auth-next">Confirm</button>`;
+    if(sh.step==='address') body=`${head('Do you live in Neuk\u00f6lln?','We check this once so reports come from neighbours.')}${dots}
+      <label class="label" for="auth-street">Street and house number</label><input class="field" id="auth-street" value="Weserstrasse 1">
+      <label class="label" for="auth-pc">Postcode</label><input class="field mono" id="auth-pc" inputmode="numeric" value="12045">
+      <div class="why">Your address is never shown to anyone. How we confirm it (for example a letter with a code) is still being decided.</div>
+      <button class="primary" data-act="auth-next">Confirm and ${verb}</button>`;
+    return `<div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true">${body}</div></div>`;
+  }
+  if(sh.type==='dup'){ const r=R('r1');
+    return `<div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true">${head('Already reported?','A similar report is 35 m away. Adding to it gives it more weight.')}
+      <div class="card" style="cursor:default"><div class="thumb">${scene(r.scene)}</div><div class="col g8 grow"><span class="ttl">${esc(r.title)}</span><span class="meta">${r.rep} neighbours \u00b7 ${r.age}</span><span class="status ${statusCls(r.status)}" style="align-self:flex-start">${r.status}</span></div></div>
+      <button class="primary" data-act="dup-join">Add my photo to this report</button>
+      <button class="quiet" data-act="dup-new" style="align-self:center">Mine is different, post it</button></div></div>`;
+  }
+  if(sh.type==='outside'){
+    return `<div class="scrim" data-act="sheet-close-bg"><div class="sheet" role="dialog" aria-modal="true">${head("You're outside Neuk\u00f6lln","Reports can only be posted on the spot, so they stay first-hand.")}
+      <div class="why">We'll keep your report as a draft for 48 hours. Post it when you're back in the district.</div>
+      <button class="primary" data-act="save-draft">Keep as draft</button></div></div>`;
+  }
+  return '';
+}
+
+/* ---------------- staff renderer ---------------- */
+function vStaff(){
+  const all=S.reports.map(r=>({r,s:score(r)})).sort((a,b)=>b.s-a.s);
+  const counts={Critical:0,High:0,Medium:0,Low:0}; all.forEach(x=>counts[level(x.s)]++);
+  const flagged=S.reports.filter(r=>r.flag);
+  const list=all.filter(x=>S.staffFilter==='all'||x.r.cat===S.staffFilter);
+  let body='';
+  if(S.staffTab==='queue'){
+    const sel=R(S.staffSel)||list[0].r; const s=score(sel), lv=level(s), m=mults(sel);
+    const parts=[['Reporters',sel.rep,W.rep],['Commenters',sel.com,W.com],['Votes',sel.likes,W.like]]; const mx=Math.max(...parts.map(p=>p[1]*p[2]),1);
+    const followers=sel.rep+sel.com+sel.likes;
+    body=`<div class="desk-body">
+     <div class="queue">
+      <div class="qfilters">${[['all','All'],['traffic','Traffic'],['facility','Facilities']].map(([k,l])=>`<button class="chip" data-act="sfilter:${k}" aria-pressed="${S.staffFilter===k}">${l}</button>`).join('')}<span class="sp"></span><span class="sample" style="align-self:center">Sorted by priority</span></div>
+      ${list.map(({r,s})=>{const l=level(s);return `<button class="qrow" data-act="ssel:${r.id}" aria-current="${r.id===sel.id}">
+        <span class="stripe S-${l}"></span>
+        <span class="col" style="gap:2px;min-width:0"><span class="ttl">${esc(r.title)}</span><span class="meta">${r.sub} \u00b7 ${r.loc} \u00b7 ${r.status}</span>${r.flag?'<span class="flagtag">Unusual voting, check Flagged</span>':''}</span>
+        <span class="right"><span class="score">${s.toFixed(1)}</span><span class="lvl L-${l}">${l}</span></span></button>`}).join('')}
+     </div>
+     <div class="detail">
+      <div class="dhead"><div class="thumb">${scene(sel.scene)}</div><div class="col g8 grow"><span class="lvl L-${lv}" style="align-self:flex-start">${lv} \u00b7 <span class="mono">${s.toFixed(1)}</span></span><h2 class="t">${esc(sel.title)}</h2><span class="meta">${esc(sel.place)} \u00b7 ${sel.age}</span></div></div>
+      <p style="margin:0">${esc(sel.desc)}</p>
+      <div class="col g8"><span class="label">Why this score</span>
+        <div class="bars">${parts.map(([n,c,w])=>`<div class="bar"><span>${n} <span class="mono meta">${c}\u00d7${w}</span></span><div class="track"><div class="fill" style="width:${c*w/mx*100}%"></div></div><span class="v">${c*w}</span></div>`).join('')}</div>
+        <div class="mult"><span>${sel.safety?(sel.cat==='traffic'?'traffic safety':'facility safety'):'standard'} \u00d7${m.c}</span><span>${sel.danger>=3?`danger flagged by ${sel.danger}`:'no danger flag'} \u00d7${m.h}</span></div>
+        <span class="meta" style="font-size:.78rem">Weights are proposals. Residents never see this score.</span>
+      </div>
+      <div class="col g8"><span class="label">Status residents see</span>
+        <div class="statusseg" role="radiogroup" aria-label="Status">${['Open','Acknowledged','In progress','Resolved'].map((o,i)=>`<label><input type="radio" name="sstatus" id="sstatus-${i}" value="${o}" ${sel.status===o?'checked':''}><span>${o}</span></label>`).join('')}</div>
+        <label class="label" for="staff-note" style="margin-top:6px">Note to residents</label>
+        <textarea class="field" id="staff-note" placeholder="What happens next?">${esc(sel.note)}</textarea>
+      </div>
+      <button class="primary" data-act="staff-save">Save and notify ${followers} followers</button>
+      <details class="more"><summary>More options</summary>
+        <div class="col g12">
+          <div class="col g8"><label class="label" for="override">Override level</label>
+            <select id="override" class="field"><option>Keep calculated (${lv})</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+            <input class="field" id="override-reason" placeholder="Reason (required for an override)"></div>
+          ${sel.merge?`<div class="row" style="flex-wrap:wrap"><span class="grow"><b>Possible duplicate:</b> ${esc(sel.merge.t)} \u00b7 ${sel.merge.d} \u00b7 ${sel.merge.a}</span><button class="smallbtn" data-act="merge">Merge</button></div>`:'<span class="meta">No duplicates found nearby.</span>'}
+        </div></details>
+     </div></div>`;
+  } else {
+    body=`<div class="col">
+      ${flagged.map(r=>`<div class="flagitem"><div class="thumb" style="width:56px;height:56px">${scene(r.scene)}</div><div class="grow" style="min-width:200px"><b>Unusual voting on \u201c${esc(r.title)}\u201d</b><div class="meta">${esc(r.flag)}</div></div><button class="smallbtn solid" data-act="discount:${r.id}">Count new accounts at half weight</button></div>`).join('')}
+      <div class="flagitem"><div class="av">M</div><div class="grow" style="min-width:200px"><b>Comment flagged by 2 residents</b><div class="meta">On \u201cSwing seat broken at playground\u201d \u00b7 offensive language filter</div></div><button class="smallbtn solid" data-act="hidecmt">Hide comment</button></div>
+      ${flagged.length?'':'<p class="meta" style="padding:0 18px">Nothing else needs review.</p>'}
+    </div>`;
+  }
+  return `<div class="desk">
+    <div class="desk-top"><h2>District office \u00b7 Neuk\u00f6lln</h2><span class="sample">Staff only</span><span class="sp"></span>
+     <div class="tabs" role="group" aria-label="View"><button data-act="stab:queue" aria-pressed="${S.staffTab==='queue'}">Queue<span class="n">${S.reports.length}</span></button><button data-act="stab:flagged" aria-pressed="${S.staffTab==='flagged'}">Flagged<span class="n">${flagged.length+1}</span></button></div></div>
+    <div class="levels">${Object.entries(counts).map(([k,v])=>`<div class="lvlcard L-${k}"><b>${v}</b><span>${k}</span></div>`).join('')}</div>
+    ${body}
+    ${S.toast?`<div class="toast" role="status">${I.check}${esc(S.toast)}</div>`:''}
+  </div>`;
+}
+
+/* ---------------- render ---------------- */
+const stage=document.getElementById('stage'), side=document.getElementById('stories');
+function render(){
+  document.getElementById('role-resident').setAttribute('aria-pressed',S.role==='resident');
+  document.getElementById('role-staff').setAttribute('aria-pressed',S.role==='staff');
+  document.getElementById('toggle-outside').textContent = S.outside?'Simulate: inside Neuk\u00f6lln':'Simulate: outside Neuk\u00f6lln';
+  document.getElementById('toggle-outside').hidden = S.role==='staff';
+  if(S.role==='staff'){ stage.innerHTML=vStaff(); }
+  else{
+    const v={home:vHome,detail:vDetail,camera:vCamera,compose:vCompose,success:vSuccess,me:vMe}[S.view]();
+    stage.innerHTML=`<div class="phone"><div class="screen">${v}${sheetHTML()}${S.toast?`<div class="toast" role="status">${I.check}${esc(S.toast)}</div>`:''}</div></div>`;
+  }
+  const k=screenKey(); const ids=MAP[k]||[];
+  const names={home:'Map and nearby reports',detail:'Report detail',camera:'Camera',compose:'New report',auth:'Sign-in sheet',dup:'Already reported?',outside:'Outside Neuk\u00f6lln',success:'Posted',me:'Account','staff-queue':'Staff queue','staff-flagged':'Staff flagged'};
+  side.innerHTML=`<h2>${names[k]}</h2><p>User stories shown on this screen</p>
+   <ul>${ids.map(id=>`<li><code>${id}</code><span>${esc(ST[id])}</span></li>`).join('')}</ul>
+   <div class="chg"><b>Changed in this version.</b> Browsing needs no account. Sign-in and the one-time Neuk\u00f6lln check appear only the first time someone posts, comments or votes, then the action finishes on its own.</div>`;
+}
+let toastTimer;
+function toast(t){S.toast=t;render();clearTimeout(toastTimer);toastTimer=setTimeout(()=>{S.toast=null;render();},2600);}
+
+/* ---------------- actions ---------------- */
+function requireAuth(pending){
+  if(signedIn()){ run(pending); return; }
+  S.sheet={type:'auth',step:'contact',pending}; render();
+  setTimeout(()=>{const f=document.getElementById('auth-contact'); if(f) f.focus();},50);
+}
+function run(p){
+  if(p.kind==='vote'){ const r=R(p.id); r.voted=!r.voted; r.likes+=r.voted?1:-1; S.sheet=null; toast(r.voted?'Vote added. You now follow this report.':'Vote removed'); return; }
+  if(p.kind==='comment'){ const r=R(p.id); r.comments.push({w:'Y',t:p.text||'Thanks for reporting this.',a:'now'}); r.com+=1; r.voted=r.voted; S.sheet=null; toast('Comment posted'); return; }
+  if(p.kind==='post'){ if(S.outside){ S.sheet={type:'outside'}; render(); return; }
+    if(S.draft.sub==='Traffic light'){ S.sheet={type:'dup'}; render(); return; } finishPost(); return; }
+  if(p.kind==='none'){ S.sheet=null; toast('Signed in as a Neuk\u00f6lln resident'); }
+}
+function finishPost(){
+  const d=S.draft; S.seq++; const id='n'+S.seq;
+  S.reports.unshift({id,title:d.note?d.note.slice(0,48):d.sub+' reported',cat:d.cat,sub:d.sub,place:'Karl-Marx-Strasse',loc:'Neuk\u00f6lln',dist:'0 m',age:'just now',status:'Open',rep:1,com:0,likes:0,danger:d.danger?1:0,safety:d.danger,scene:d.scene,x:46,y:50,note:'',desc:d.note||'No description added.',comments:[],voted:false});
+  S.mine.push(id); S.lastPosted=id; S.sheet=null; S.view='success'; S.draft=null; render();
+}
+function saveDraftFields(){ if(!S.draft) return; const n=document.getElementById('note'); if(n) S.draft.note=n.value; const dg=document.getElementById('danger'); if(dg) S.draft.danger=dg.checked; }
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const act=el.dataset.act; const [a,arg]=act.split(/:(.*)/s);
+  if(a==='sheet-close-bg'){ if(e.target!==el) return; S.sheet=null; render(); return; }
+  e.preventDefault();
+  if(S.view==='compose') saveDraftFields();
+  switch(a){
+    case 'role': S.role=arg; S.toast=null; render(); window.scrollTo({top:0}); break;
+    case 'reset': { const keep=S.role; S=fresh(); S.role=keep; render(); break; }
+    case 'toggle-outside': S.outside=!S.outside; render(); break;
+    case 'filter': S.filter=arg; render(); break;
+    case 'open': S.rid=arg; S.view='detail'; S.sheet=null; render(); stage.querySelector('.scroll')?.scrollTo(0,0); break;
+    case 'nav': S.view=arg; S.sheet=null; render(); break;
+    case 'new': S.view='camera'; S.sheet=null; render(); break;
+    case 'shutter': S.draft={scene:'light',cat:'traffic',sub:'Traffic light',suggested:'Traffic light',note:'',danger:false}; S.view='compose'; render(); break;
+    case 'cat': S.draft.cat=arg; S.draft.sub=SUBS[arg][0]; render(); break;
+    case 'sub': S.draft.sub=arg; render(); break;
+    case 'post': requireAuth({kind:'post'}); break;
+    case 'vote': requireAuth({kind:'vote',id:arg}); break;
+    case 'signin': requireAuth({kind:'none'}); break;
+    case 'signout': S.user=null; render(); break;
+    case 'sheet-close': S.sheet=null; render(); break;
+    case 'auth-next': {
+      const sh=S.sheet; const nx={contact:'code',code:'address'}[sh.step];
+      if(nx){ sh.step=nx; render(); setTimeout(()=>document.querySelector('.sheet input')?.focus(),50); }
+      else { S.user={verified:true}; const p=sh.pending; S.sheet=null; run(p); if(p.kind==='vote'||p.kind==='comment'){ /* toast already set */ } }
+      break; }
+    case 'dup-join': { const r=R('r1'); r.rep++; r.voted=true; S.sheet=null; S.rid='r1'; S.view='detail'; S.draft=null; toast('Your photo was added. You now follow this report.'); break; }
+    case 'dup-new': finishPost(); break;
+    case 'save-draft': S.sheet=null; S.view='home'; toast('Saved as a draft for 48 hours'); break;
+    case 'sfilter': S.staffFilter=arg; render(); break;
+    case 'ssel': S.staffSel=arg; render(); break;
+    case 'stab': S.staffTab=arg; render(); break;
+    case 'staff-save': { const r=R(S.staffSel); const c=document.querySelector('input[name="sstatus"]:checked'); if(c) r.status=c.value; r.note=document.getElementById('staff-note').value.trim(); toast(`Saved. ${r.rep+r.com+r.likes} followers notified.`); break; }
+    case 'merge': { const r=R(S.staffSel); r.rep+=1; r.merge=null; toast('Merged. The duplicate now points to this report.'); break; }
+    case 'discount': { const r=R(arg); r.likes=Math.round(11+15/2); r.flag=null; toast('New-account votes now count at half weight'); break; }
+    case 'hidecmt': toast('Comment hidden from residents'); break;
+  }
+});
+document.addEventListener('submit',e=>{
+  const f=e.target; if(f.dataset.form!=='comment') return; e.preventDefault();
+  const v=document.getElementById('cmt-input').value.trim(); if(!v){ document.getElementById('cmt-input').focus(); return; }
+  requireAuth({kind:'comment',id:S.rid,text:v});
+});
+document.addEventListener('change',e=>{ if(e.target.id==='danger'){ saveDraftFields(); render(); } });
+
+window.Proto={get state(){return S;},set(o){Object.assign(S,o);render();},R,render,fresh:()=>{S=fresh();render();}};
+render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1236 @@
+<title>Kiezruf MVP Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: street-sign clarity, carried over from the Neukölln v0.1 prototype. One signal-yellow action per screen.
+   Shell = sticky tab bar (Plan · Stories · App · Web · Admin). Prototype views = screen index | stage | stories on this screen. */
+:root{
+  --bg:#e9eeeb; --surface:#ffffff; --sunk:#f3f6f4; --ink:#14212c; --muted:#56646f; --line:#d3dbd7;
+  --signal:#f4c430; --signal-ink:#14212c; --tram:#0d6b5b; --tram-soft:#dcefea;
+  --crit:#c4382e; --crit-soft:#f9e1de; --high:#b45f06; --high-soft:#fbead6; --med:#2f6fa8; --med-soft:#dfeaf5; --low:#6a7782; --low-soft:#e8ecef; --ok:#2c7a4b; --ok-soft:#dcf0e3;
+  --scene-sky:#cfe0e8; --scene-ground:#9aa8b0; --scene-obj:#3b4954; --scene-hi:#f4c430;
+  --map-bg:#dde6e1; --map-road:#ffffff; --map-park:#c4dcc8; --map-water:#bcd6e6;
+  --shadow:0 1px 2px rgba(20,33,44,.06),0 8px 28px rgba(20,33,44,.10);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1217; --surface:#151e26; --sunk:#111920; --ink:#e7edf0; --muted:#9aa8b2; --line:#26333d;
+    --signal:#f4c430; --signal-ink:#14212c; --tram:#53c4ad; --tram-soft:#173a34;
+    --crit:#f07a6f; --crit-soft:#3d1d1a; --high:#eaa456; --high-soft:#3a2a14; --med:#7fb3e6; --med-soft:#172b3e; --low:#a2aeb8; --low-soft:#222c34; --ok:#6fcb93; --ok-soft:#173226;
+    --scene-sky:#243845; --scene-ground:#3a4852; --scene-obj:#c9d3d9; --scene-hi:#f4c430;
+    --map-bg:#18232b; --map-road:#2c3a45; --map-park:#1f3a2c; --map-water:#1b3446;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1217; --surface:#151e26; --sunk:#111920; --ink:#e7edf0; --muted:#9aa8b2; --line:#26333d;
+  --signal:#f4c430; --signal-ink:#14212c; --tram:#53c4ad; --tram-soft:#173a34;
+  --crit:#f07a6f; --crit-soft:#3d1d1a; --high:#eaa456; --high-soft:#3a2a14; --med:#7fb3e6; --med-soft:#172b3e; --low:#a2aeb8; --low-soft:#222c34; --ok:#6fcb93; --ok-soft:#173226;
+  --scene-sky:#243845; --scene-ground:#3a4852; --scene-obj:#c9d3d9; --scene-hi:#f4c430;
+  --map-bg:#18232b; --map-road:#2c3a45; --map-park:#1f3a2c; --map-water:#1b3446;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--tram);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.2;margin:0}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-size:.82em;letter-spacing:.01em}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.row{display:flex;gap:8px;align-items:center}
+.col{display:flex;flex-direction:column}
+.g4{gap:4px}.g8{gap:8px}.g12{gap:12px}.g16{gap:16px}
+.grow{flex:1;min-width:0}
+.wrap{flex-wrap:wrap}
+
+/* ---------- shell ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .in{max-width:1320px;margin:0 auto;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.brand{font-family:var(--f-display);font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.brand i{width:22px;height:22px;border-radius:6px;background:var(--signal);display:inline-block;position:relative}
+.brand i::after{content:"";position:absolute;left:6px;top:4px;width:10px;height:14px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--signal-ink)}
+.brand small{font:500 .72rem var(--f-mono);color:var(--muted);background:var(--sunk);border:1px solid var(--line);padding:1px 6px;border-radius:99px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs a{text-decoration:none;color:var(--muted);padding:6px 12px;border-radius:99px;font-weight:700;font-size:.9rem}
+.tabs a:hover{color:var(--ink);background:var(--sunk)}
+.tabs a[aria-current="page"]{background:var(--ink);color:var(--surface)}
+.page{max-width:1320px;margin:0 auto;padding-block:24px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* ---------- plan document ---------- */
+.doc{display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px}
+.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);align-self:start;display:flex;flex-direction:column;gap:2px;font-size:.9rem}
+.toc a{color:var(--muted);text-decoration:none;padding:4px 10px;border-left:2px solid var(--line)}
+.toc a:hover{color:var(--ink);border-left-color:var(--tram)}
+.doc-main{display:flex;flex-direction:column;gap:44px;min-width:0}
+.doc-main section{display:flex;flex-direction:column;gap:14px;scroll-margin-top:90px}
+.doc-main h1{font-size:clamp(1.8rem,4vw,2.6rem)}
+.doc-main h2{font-size:1.45rem}
+.doc-main h3{font-size:1.05rem}
+.lede{font-size:1.12rem;max-width:68ch}
+.prose{max-width:72ch;display:flex;flex-direction:column;gap:10px}
+.eyebrow{font:500 .75rem var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--tram)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.fact b{font-family:var(--f-display);font-size:1.05rem}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--sunk);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td .mono{white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px;font:500 .7rem var(--f-mono);letter-spacing:.03em;text-transform:uppercase;padding:2px 7px;border-radius:99px;white-space:nowrap;border:1px solid transparent}
+.c-kept{background:var(--low-soft);color:var(--low)}
+.c-changed{background:var(--high-soft);color:var(--high)}
+.c-new{background:var(--tram-soft);color:var(--tram)}
+.c-later{background:var(--sunk);color:var(--muted);border-color:var(--line)}
+.c-live{background:var(--ok-soft);color:var(--ok)}
+.c-pilot{background:var(--med-soft);color:var(--med)}
+.c-notlive{background:var(--sunk);color:var(--muted);border-color:var(--line)}
+.c-group{background:transparent;color:var(--muted);border-color:var(--line)}
+.lv{font:700 .7rem var(--f-mono);text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.lv-Critical{background:var(--crit-soft);color:var(--crit)}
+.lv-High{background:var(--high-soft);color:var(--high)}
+.lv-Medium{background:var(--med-soft);color:var(--med)}
+.lv-Low{background:var(--low-soft);color:var(--low)}
+
+.tree{list-style:none;margin:0;padding:0;font-size:.92rem}
+.tree ul{list-style:none;margin:0;padding-left:22px;border-left:1px dashed var(--line);margin-left:9px}
+.tree li{padding:3px 0}
+.tnode{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:4px 8px;border-radius:8px;border:1px solid transparent;background:none;text-align:left}
+button.tnode:hover{background:var(--sunk)}
+button.tnode[aria-pressed="true"]{border-color:var(--tram);background:var(--tram-soft)}
+.tnode b{font-weight:700}
+.tnode .ty{font:500 .72rem var(--f-mono);color:var(--muted)}
+.callout{border:1px solid var(--line);background:var(--sunk);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;max-width:80ch}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.card-s{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card-s h3{font-size:1rem}
+.card-s ul,.prose ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.gantt{display:grid;grid-template-columns:minmax(150px,220px) minmax(520px,1fr);font-size:.85rem;min-width:700px}
+.gantt>div{padding:8px 10px;border-bottom:1px solid var(--line)}
+.gantt .gh{font:500 .7rem var(--f-mono);color:var(--muted);background:var(--sunk);display:grid;grid-template-columns:repeat(26,1fr)}
+.gantt .gh span{text-align:left}
+.gantt .bar-row{position:relative;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/26 - 1px),var(--line) calc(100%/26 - 1px),var(--line) calc(100%/26))}
+.gantt .bar{position:absolute;top:8px;bottom:8px;border-radius:6px;background:var(--tram);color:var(--surface);font:500 .7rem var(--f-mono);display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden}
+.gantt .bar.pilot{background:var(--signal);color:var(--signal-ink)}
+
+/* ---------- prototype layout ---------- */
+.proto{display:grid;grid-template-columns:210px minmax(0,1fr) 270px;gap:20px;align-items:start}
+.scr-index{display:flex;flex-direction:column;gap:2px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
+.scr-index h3{font:500 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 4px}
+.scr-index button{background:none;border:0;text-align:left;padding:6px 10px;border-radius:8px;color:var(--muted);font-size:.9rem}
+.scr-index button:hover{background:var(--surface);color:var(--ink)}
+.scr-index button[aria-current="true"]{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:inset 3px 0 0 var(--tram)}
+.notes{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
+.notes h3{font-size:1rem}
+.notes .st{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px solid var(--line)}
+.notes .st:first-of-type{border-top:0}
+.notes .chg{background:var(--high-soft);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:.85rem}
+.sim{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px}
+.sim label{font:500 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.sim select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--sunk)}
+.stage{display:flex;justify-content:center;min-width:0}
+
+/* phone */
+.phone{width:360px;max-width:100%;height:720px;background:var(--surface);border:10px solid var(--ink);border-radius:42px;box-shadow:var(--shadow);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.sbar{display:flex;justify-content:space-between;padding:8px 22px 4px;font:500 .72rem var(--f-mono);flex:none}
+.scr{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;position:relative}
+.scr-pad{padding:4px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.navb{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;border-top:1px solid var(--line);padding:8px 18px 14px;background:var(--surface)}
+.navb button{background:none;border:0;display:flex;flex-direction:column;align-items:center;font-size:.72rem;color:var(--muted);gap:2px}
+.navb button[aria-current="true"]{color:var(--ink);font-weight:700}
+.navb .fab{width:56px;height:56px;border-radius:50%;background:var(--signal);color:var(--signal-ink);margin-top:-30px;box-shadow:var(--shadow);justify-content:center;font-weight:700}
+svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.hdr{display:flex;align-items:center;gap:8px;padding:6px 12px}
+.hdr h2{font-size:1.05rem;flex:1;min-width:0}
+.ib{background:none;border:0;width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+.ib:hover{background:var(--sunk)}
+.loc-chip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;background:var(--tram-soft);color:var(--tram);padding:3px 10px;border-radius:99px;font-weight:700}
+.loc-chip.off{background:var(--sunk);color:var(--muted)}
+.fchips{display:flex;gap:6px;overflow-x:auto}
+.fchip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:4px 12px;font-size:.82rem;white-space:nowrap}
+.fchip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.map{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/10;max-width:100%;border:1px solid var(--line);flex:none}
+.map svg{width:100%;height:100%;display:block}
+.pin{position:absolute;transform:translate(-50%,-100%);background:none;border:0;padding:0}
+.pin span{display:block;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--tram);border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.card{display:flex;gap:12px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;width:100%}
+.card:hover{border-color:var(--tram)}
+.thumb{width:72px;height:72px;border-radius:10px;overflow:hidden;flex:none}
+.thumb svg,.photo svg{width:100%;height:100%;display:block}
+.ttl{font-weight:700;line-height:1.3}
+.meta{font-size:.8rem;color:var(--muted)}
+.counts{display:flex;gap:12px;font-size:.8rem;color:var(--muted)}
+.counts span{display:inline-flex;align-items:center;gap:3px}
+.counts svg.i{width:15px;height:15px}
+.status{font:500 .66rem var(--f-mono);text-transform:uppercase;padding:2px 6px;border-radius:6px;white-space:nowrap;background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
+.st-Open{background:var(--surface)}
+.st-Acknowledged{background:var(--med-soft);color:var(--med);border-color:transparent}
+.st-Inprogress{background:var(--high-soft);color:var(--high);border-color:transparent}
+.st-Resolved{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.st-Forwarded{background:var(--tram-soft);color:var(--tram);border-color:transparent}
+.photo{aspect-ratio:16/10;border-radius:14px;overflow:hidden;position:relative;max-width:100%;flex:none}
+.photo .tag{position:absolute;left:8px;bottom:8px;background:rgba(20,33,44,.78);color:#fff;font:500 .68rem var(--f-mono);padding:3px 8px;border-radius:99px}
+.stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.stepper div{font-size:.66rem;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.stepper i{height:4px;border-radius:2px;background:var(--line)}
+.stepper .on i{background:var(--tram)}
+.stepper .on{color:var(--ink)}
+.office{background:var(--tram-soft);border-radius:12px;padding:10px 12px;font-size:.88rem}
+.office b{display:block;font-size:.72rem;font-family:var(--f-mono);text-transform:uppercase;color:var(--tram);font-weight:500}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
+.btn.dark{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn.ghost{border-color:transparent;background:none;color:var(--tram)}
+.btn.sm{padding:6px 10px;font-size:.85rem;border-radius:9px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.wide{width:100%}
+.metoo{display:flex;flex-direction:column;align-items:center;gap:4px}
+.cmt{display:flex;gap:10px;font-size:.88rem}
+.av{width:28px;height:28px;border-radius:50%;background:var(--sunk);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;flex:none}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:.8rem;font-weight:700}
+.inp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);width:100%}
+textarea.inp{resize:vertical;min-height:70px}
+.toggle{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.toggle input{width:20px;height:20px;accent-color:var(--crit);flex:none;margin-top:2px}
+.ai-chip{display:flex;gap:10px;align-items:center;border:1px dashed var(--tram);background:var(--tram-soft);border-radius:12px;padding:10px 12px;font-size:.85rem}
+.ai-chip b{color:var(--tram)}
+.banner{border-radius:12px;padding:10px 12px;font-size:.85rem}
+.banner.crit{background:var(--crit-soft);color:var(--crit);font-weight:700}
+.banner.info{background:var(--med-soft);color:var(--ink)}
+.sheet-bg{position:absolute;inset:0;background:rgba(10,18,24,.45);display:flex;align-items:flex-end;z-index:5}
+.sheet{background:var(--surface);width:100%;border-radius:22px 22px 0 0;padding:18px 18px 22px;display:flex;flex-direction:column;gap:12px}
+.toast{position:absolute;left:12px;right:12px;bottom:84px;background:var(--ink);color:var(--surface);border-radius:12px;padding:10px 14px;font-size:.85rem;z-index:6;display:flex;gap:8px;align-items:center}
+.viewfinder{flex:1;background:#0b1116;position:relative;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+.viewfinder .photo{border-radius:0;aspect-ratio:auto;flex:1}
+.vf-top,.vf-bot{position:absolute;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.vf-top{top:0}.vf-bot{bottom:0;justify-content:center;flex-direction:column;background:linear-gradient(transparent,rgba(0,0,0,.6))}
+.shutter{width:68px;height:68px;border-radius:50%;border:5px solid #fff;background:var(--signal)}
+.gps{background:rgba(0,0,0,.55);border-radius:99px;padding:4px 10px;font:500 .7rem var(--f-mono);display:inline-flex;gap:6px;align-items:center}
+.gps i{width:8px;height:8px;border-radius:50%;background:#6fcb93;display:inline-block}
+.gps.off i{background:#f07a6f}
+.center-msg{padding:40px 22px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.big-ok{width:64px;height:64px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.big-ok svg.i{width:32px;height:32px}
+.list-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+
+/* desktop frames */
+.desk{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.chrome{display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--sunk);border-bottom:1px solid var(--line)}
+.chrome i{width:10px;height:10px;border-radius:50%;background:var(--line);display:inline-block}
+.url{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px 10px;font:500 .75rem var(--f-mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.desk-scroll{overflow-x:auto}
+.web{display:grid;grid-template-columns:280px minmax(0,1fr) 300px;min-width:880px;height:600px}
+.web>div{min-height:0;overflow-y:auto}
+.web-list{border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px}
+.web-detail{border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px}
+.web-map{padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--sunk)}
+.web-map .map{aspect-ratio:auto;flex:1}
+.web .card{padding:8px}
+.web .thumb{width:56px;height:56px}
+.adm{display:grid;grid-template-columns:190px minmax(0,1fr);min-width:960px;min-height:640px}
+.adm-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line)}
+.crumb{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:.85rem}
+.crumb button{background:none;border:0;padding:3px 6px;border-radius:6px;color:var(--muted)}
+.crumb button:hover:not([disabled]){background:var(--sunk);color:var(--ink)}
+.crumb button[aria-current="true"]{color:var(--ink);font-weight:700;background:var(--sunk)}
+.crumb button[disabled]{opacity:.45;cursor:not-allowed}
+.crumb .sep{color:var(--line)}
+.adm-nav{border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:2px;background:var(--sunk)}
+.adm-nav button{background:none;border:0;text-align:left;padding:8px 10px;border-radius:8px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
+.adm-nav button:hover{color:var(--ink);background:var(--surface)}
+.adm-nav button[aria-current="true"]{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:var(--shadow)}
+.adm-nav .badge{margin-left:auto;background:var(--crit);color:#fff;border-radius:99px;font:500 .68rem var(--f-mono);padding:1px 6px}
+.adm-main{padding:18px 20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.adm-main h2{font-size:1.3rem}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.kpi b{font-family:var(--f-display);font-size:1.5rem;font-variant-numeric:tabular-nums}
+.kpi span{font-size:.78rem;color:var(--muted)}
+.brief{display:flex;flex-direction:column;gap:10px}
+.bitem{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px}
+.bitem .lv{align-self:start;margin-top:3px}
+.bitem h3{font-size:1rem}
+.bitem p{font-size:.9rem;max-width:80ch}
+.cite{display:inline-flex;font:500 .72rem var(--f-mono);color:var(--tram);background:var(--tram-soft);border:0;border-radius:6px;padding:1px 6px;margin:0 2px}
+.cite:hover{text-decoration:underline}
+.ai-foot{font-size:.8rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.q{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.qt td,.qt th{padding:8px 10px}
+.qt tr.sel td{background:var(--tram-soft)}
+.qt tbody tr{cursor:pointer}
+.qt tbody tr:hover td{background:var(--sunk)}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+.panel{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel h3{font-size:1.02rem}
+.brk{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:.82rem}
+.brk span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-mono)}
+.brk .tot{font-weight:700;border-top:1px solid var(--line);padding-top:4px}
+.flag{border:1px solid var(--crit);background:var(--crit-soft);border-radius:10px;padding:8px 10px;font-size:.82rem}
+.sm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.chart{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.chart svg{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font:500 9px var(--f-mono)}
+.chart .lbl-end{fill:var(--ink);font-weight:700}
+.hs{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.cluster{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px solid var(--surface);display:flex;align-items:center;justify-content:center;font:700 .75rem var(--f-mono);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.cl-Critical{background:var(--crit)}.cl-High{background:var(--high)}.cl-Medium{background:var(--med)}.cl-Low{background:var(--low)}
+.cluster[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
+
+@media (max-width:1180px){
+  .proto{grid-template-columns:190px minmax(0,1fr)}
+  .notes{grid-column:1/-1;position:static}
+}
+@media (max-width:800px){
+  .doc{grid-template-columns:1fr}
+  .toc{position:static;flex-direction:row;flex-wrap:wrap;gap:4px}
+  .toc a{border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+  .proto{grid-template-columns:1fr}
+  .scr-index{position:static;flex-direction:row;flex-wrap:wrap}
+  .scr-index h3{width:100%}
+  .two{grid-template-columns:1fr}
+  .phone{height:660px}
+}
+</style>
+
+<noscript><div style="max-width:640px;margin:40px auto;padding:20px;border:2px solid #c4382e;border-radius:12px">This prototype needs JavaScript. Open the file in Chrome, Edge, Firefox or Safari.</div></noscript>
+
+<header class="top"><div class="in">
+  <div class="brand"><i></i>Kiezruf <small>MVP v0.4 · 11 Nov 2026</small></div>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#plan">Plan</a><a href="#stories">Stories</a><a href="#app">Citizen app</a><a href="#web">Citizen web</a><a href="#admin">Admin console</a>
+  </nav>
+</div></header>
+<main class="page" id="page"></main>
+
+<script>
+/* =====================================================================
+   DATA — single source of truth for stories, tenants, screens, reports
+   ===================================================================== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* Tenant tree. Keys from the official Amtlicher Gemeindeschlüssel (AGS); Berlin Bezirke use Berlin's own 01–12 numbering. */
+const TENANTS = [
+ {id:'de',  name:'Deutschland', type:'Country', parent:null, key:'—', status:'group'},
+ {id:'be',  name:'Berlin', type:'Land (city-state)', parent:'de', key:'AGS 11', status:'live'},
+ {id:'bec', name:'Berlin', type:'Stadt (kreisfrei)', parent:'be', key:'AGS 11000000', status:'live'},
+ {id:'nk',  name:'Neukölln', type:'Bezirk', parent:'bec', key:'Bezirk 08', status:'pilot', office:'Bezirksamt Neukölln'},
+ {id:'sp',  name:'Spandau', type:'Bezirk', parent:'bec', key:'Bezirk 05', status:'pilot', office:'Bezirksamt Spandau'},
+ {id:'fk',  name:'Friedrichshain-Kreuzberg', type:'Bezirk', parent:'bec', key:'Bezirk 02', status:'notlive', office:'Bezirksamt Friedrichshain-Kreuzberg'},
+ {id:'tk',  name:'Treptow-Köpenick', type:'Bezirk', parent:'bec', key:'Bezirk 09', status:'notlive'},
+ {id:'by',  name:'Bayern', type:'Land', parent:'de', key:'AGS 09', status:'group'},
+ {id:'obb', name:'Oberbayern', type:'Regierungsbezirk', parent:'by', key:'AGS 091', status:'group'},
+ {id:'lkm', name:'Landkreis München', type:'Landkreis', parent:'obb', key:'AGS 09184', status:'group'},
+ {id:'uh',  name:'Unterhaching', type:'Gemeinde', parent:'lkm', key:'AGS 09184148', status:'notlive', office:'Gemeinde Unterhaching'},
+ {id:'in',  name:'Ingolstadt', type:'Stadt (kreisfrei)', parent:'obb', key:'AGS 09161000', status:'notlive'},
+];
+const T = id => TENANTS.find(t => t.id === id);
+const kids = id => TENANTS.filter(t => t.parent === id);
+const desc = id => [id, ...kids(id).flatMap(k => desc(k.id))];
+const chain = id => { const out=[]; let t=T(id); while(t){ out.unshift(t); t=T(t.parent);} return out; };
+const STATUS_CHIP = {live:['c-live','Live'], pilot:['c-pilot','Pilot'], notlive:['c-notlive','Not live'], group:['c-group','Grouping']};
+
+/* User stories. st: kept | changed | new | later. Numbering continues from v0.1 (US-01…36). */
+const STORIES = [
+ // Access & trust
+ {id:'US-01',e:'Access & trust',p:'Must',st:'kept',t:'Browse freely, sign in only to act',ac:['No account needed to browse map, list and report details.','Sign-in sheet appears the first time someone posts, comments or votes, then the action completes on its own.','Email or phone + 6-digit one-time code. Passkey offered after first sign-in.']},
+ {id:'US-02',e:'Access & trust',p:'—',st:'later',t:'Verify I live in the district',note:'Dropped from MVP (decision D-03). Replaced by US-37. Revisit only if pilot data shows outsiders distorting rankings.',ac:['Address check against tenant boundary.']},
+ {id:'US-37',e:'Access & trust',p:'Must',st:'new',t:'Trust signals instead of a residency check',ac:['Every acting account has a confirmed email or phone number.','Account age, on-site posting history and device signals feed spike detection (US-26).','Votes from accounts younger than 7 days count at half weight when a spike is flagged.']},
+ {id:'US-04',e:'Access & trust',p:'Must',st:'changed',t:'Use the same account on the web',note:'Promoted from Should: citizen web is part of the MVP.',ac:['Same sign-in on mobile and web.','Web posting needs browser location passing the same on-site check (US-03).','Desktop photos without valid location and time metadata are saved as drafts only.']},
+ {id:'US-34',e:'Access & trust',p:'Must',st:'changed',t:'Delete my account and data',note:'Promoted from Should: required under DSGVO Art. 17.',ac:['Self-service deletion in Account.','Public reports stay, re-attributed to "a neighbour"; personal data removed within 30 days.']},
+ // Tenancy
+ {id:'US-40',e:'Tenancy',p:'Must',st:'new',t:'Tenant tree for Germany',note:'Supersedes US-05 "Add more districts later".',ac:['Country → Land → (Regierungsbezirk) → Kreis or kreisfreie Stadt → Gemeinde → (Bezirk). Optional levels may be skipped.','Seeded from official boundaries and AGS keys. Berlin and Hamburg are modelled as Land → Stadt → Bezirk.','Each node has a status: Grouping, Not live, Pilot, Live.']},
+ {id:'US-41',e:'Tenancy',p:'Must',st:'new',t:'Send each report to the right office automatically',ac:['On posting, the capture location is matched to the deepest live tenant (point-in-polygon).','The compose screen shows which office receives the report before posting.','Report ID carries the tenant code, e.g. BE-NK-2026-0118.']},
+ {id:'US-42',e:'Tenancy',p:'Must',st:'new',t:'Give staff access at any level of the tree',ac:['Roles: Platform admin, Tenant admin, Case worker, Viewer.','A role is assigned to one node and inherits to every node below it.','Staff never see reports outside their assigned subtree.']},
+ {id:'US-43',e:'Tenancy',p:'Should',st:'new',t:'Roll-up view for higher levels',ac:['A Land or Kreis viewer sees combined KPIs, a per-tenant comparison table and a roll-up briefing.','Roll-up is read-only; only the owning tenant changes status.']},
+ {id:'US-44',e:'Tenancy',p:'Must',st:'new',t:'Clear message where Kiezruf is not live yet',ac:['Camera and map show "not live here yet" when the location is in a Not-live or Grouping-only area.','Citizen can ask to be notified when it goes live.','Attempted reports are counted per area as demand for onboarding.']},
+ {id:'US-45',e:'Tenancy',p:'Must',st:'new',t:'Forward a report to the responsible authority',ac:['Staff can forward to a parent tenant, a sibling tenant or a saved external contact (e.g. Verkehrslenkung Berlin, BSR).','Forwarding to an external contact sends an email with the report, blurred photo, location and a link that needs no login. No API integration in the MVP (D-10).','Status becomes Forwarded with a public note; followers are notified.','Forwarded reports stay visible in the original queue as read-only.']},
+ {id:'US-46',e:'Tenancy',p:'Must',st:'new',t:'Set up a new tenant',ac:['Platform admin activates a node, invites its Tenant admin and picks a category template.','Tenant admin adjusts categories, score thresholds and external contacts.']},
+ // Reporting
+ {id:'US-03',e:'Reporting',p:'Must',st:'changed',t:'Post only while on-site',note:'Was "only in Neukölln". Now: anyone, anywhere inside a live tenant.',ac:['Location requested at the moment of posting, not in the background.','Accuracy worse than 100 m → ask to wait or step outside.','Outside any live tenant → US-44.']},
+ {id:'US-06',e:'Reporting',p:'Must',st:'kept',t:'Take or attach photos',ac:['In-app camera opens in one tap.','Gallery photos only if taken on-site within 48 h.','Up to 3 photos per report.']},
+ {id:'US-07',e:'Reporting',p:'Could',st:'later',t:'Record a short video',note:'Moved out of MVP to cut upload, moderation and blur cost.',ac:['Compressed on device; resumable upload.']},
+ {id:'US-08',e:'Reporting',p:'Must',st:'kept',t:'Choose a category',ac:['Groups: Traffic / Community, sub-categories managed per tenant.','"Other" requires a description.']},
+ {id:'US-14',e:'Reporting',p:'Must',st:'changed',t:'Suggest a category from the photo',note:'Promoted from Should (Photo AI is in MVP scope).',ac:['Pre-selected only above the confidence threshold (start at 0.80).','Citizen can change it; corrections are logged as training feedback.']},
+ {id:'US-09',e:'Reporting',p:'Must',st:'kept',t:'Add a description',ac:['Optional "Dangerous right now?" toggle.','Toggle on → emergency banner (112 / 110).']},
+ {id:'US-10',e:'Reporting',p:'Must',st:'kept',t:'Confirm the location',ac:['Pin from capture-time GPS with street address.','Adjustable within 50 m.']},
+ {id:'US-11',e:'Reporting',p:'Must',st:'kept',t:'Review and post',ac:['Summary of photo, category, description, location and receiving office.','On post: report ID, visible on map and in My reports.']},
+ {id:'US-12',e:'Reporting',p:'Should',st:'kept',t:'Save drafts offline',ac:['Draft keeps capture-time location and time for 48 h.','Prompt to post on reconnect.']},
+ {id:'US-13',e:'Reporting',p:'Must',st:'changed',t:'"Already reported?" suggestions',note:'Now uses photo similarity from the AI pipeline.',ac:['Matches within 150 m, same or related category, similar photo.','Up to 3 matches; "Add my photo to this report" makes the citizen a co-reporter.']},
+ {id:'US-16',e:'Reporting',p:'Must',st:'kept',t:'Capture and protect metadata',ac:['Capture GPS and time stored privately.','All public files stripped of EXIF.']},
+ {id:'US-31',e:'Reporting',p:'Must',st:'kept',t:'Blur faces and licence plates',ac:['Automatic blur before anything is published.','Citizen can blur extra areas; only the blurred file is ever public.','Runs at the EU-based provider vlincta.com; no separate detector (D-15).']},
+ // Engagement
+ {id:'US-15',e:'Engagement',p:'Must',st:'kept',t:'See reports near me',ac:['Map and list sorted by distance.','Filters: category, status, age.']},
+ {id:'US-18',e:'Engagement',p:'Must',st:'kept',t:'Vote "Me too" (the like button)',ac:['One vote per account per report; undoable.','Count is public; the priority score is not (US-24).']},
+ {id:'US-19',e:'Engagement',p:'Must',st:'kept',t:'Comment on a report',ac:['Flat list, 500 characters.','Flag on every comment; offensive-language filter holds for review.']},
+ {id:'US-20',e:'Engagement',p:'Must',st:'changed',t:'Follow a report',note:'Promoted from Should: it closes the loop with citizens.',ac:['Reporters, co-reporters and voters auto-follow.','Notified on every status change.']},
+ {id:'US-29',e:'Engagement',p:'Must',st:'kept',t:'Get notified',ac:['Push on mobile, email on web.','Per-type on/off settings.']},
+ {id:'US-21',e:'Engagement',p:'Could',st:'later',t:'Post a "still broken" or "fixed" update',ac:['"Fixed" from 2+ citizens suggests closing to staff.']},
+ // Triage
+ {id:'US-22',e:'Triage',p:'Must',st:'kept',t:'Calculate a priority score',ac:['Unique accounts only: co-reporter 5, commenter 2, Me too 1.','Recency decay (half-life 14 days), danger ×1.5 (3+ confirmations) or ×1.2 (1–2), safety category ×1.3.','Breakdown visible to staff.']},
+ {id:'US-23',e:'Triage',p:'Must',st:'kept',t:'See priority levels',ac:['Critical ≥ 60, High ≥ 25, Medium ≥ 10, Low < 10. Thresholds set per tenant.','Level changes are timestamped.']},
+ {id:'US-24',e:'Triage',p:'Must',st:'kept',t:'Hide the score from citizens',ac:['Citizen apps never receive score or level.','Staff role required for score endpoints.']},
+ {id:'US-25',e:'Triage',p:'Must',st:'kept',t:'Priority queue (web)',ac:['Default sort by score; filters for category, level, status, tenant, age.']},
+ {id:'US-17',e:'Triage',p:'Must',st:'changed',t:'Merge and split duplicates',note:'Promoted from Should; AI proposes clusters.',ac:['System proposes duplicates; one-click merge.','No double-counting of the same account after merge.']},
+ {id:'US-27',e:'Triage',p:'Should',st:'kept',t:'Override priority',ac:['Manual level with a required reason; shown in the audit log.']},
+ {id:'US-28',e:'Triage',p:'Must',st:'kept',t:'Update report status',ac:['Open → Acknowledged → In progress → Resolved; Rejected (reason); Forwarded (US-45).','Public note visible to citizens.']},
+ {id:'US-26',e:'Triage',p:'Must',st:'changed',t:'Flag suspicious activity',note:'Promoted from Should: without a residency check this is the main defence against vote manipulation.',ac:['Spike rule: more than 10 votes in 60 min with over half from accounts younger than 7 days.','Moderator can discount new accounts with a reason.']},
+ {id:'US-33',e:'Triage',p:'Must',st:'kept',t:'Moderation queue',ac:['Flagged comments and photos; hide, restore or ban.']},
+ {id:'US-30',e:'Triage',p:'Could',st:'later',t:'Archive resolved reports',ac:['Hidden from main map 30 days after Resolved.']},
+ // Analysis
+ {id:'US-50',e:'Analysis',p:'Must',st:'new',t:'Hotspot map',ac:['Reports clustered within 150 m and the same category group.','Cluster colour = highest level inside; size = report count.']},
+ {id:'US-51',e:'Analysis',p:'Must',st:'new',t:'Category trends',ac:['Weekly counts per category for the last 8 weeks, with change against the 4-week average.','Median time to acknowledge and to resolve.']},
+ {id:'US-52',e:'Analysis',p:'Should',st:'new',t:'Recurring problem locations',ac:['A place is recurring when 3+ resolved-then-reopened or new reports land in the same cluster within 30 days.','Shown with weekday pattern, e.g. "mostly Mondays".']},
+ {id:'US-53',e:'Analysis',p:'Must',st:'new',t:'Weekly AI briefing',ac:['Every Monday 07:00, one briefing per tenant (and per roll-up level).','At most 5 items: Urgent, Watch, Improving. Every claim cites report IDs.','Built only from scores, clusters, trends and comment text in scope; no outside data.','Processed by the EU-based AI provider (vlincta.com); names, emails and phone numbers are removed from comment text first (D-13).','Labelled as AI-written; staff decide.']},
+ {id:'US-54',e:'Analysis',p:'Must',st:'new',t:'Rate the briefing',ac:['"Useful" / "Something is wrong" per item, with optional note.','Feedback reviewed weekly during the pilot.']},
+ {id:'US-56',e:'Analysis',p:'Must',st:'new',t:'Get the briefing by email',ac:['Sent automatically every Monday 07:00 (Europe/Berlin) to the tenant admins of each tenant in scope (D-14, D-17).','Same items, levels and report links as the console. No photos or personal data in the email.','Links open the report in the console after sign-in. Staff can unsubscribe; failed deliveries are retried and logged.']},
+ {id:'US-55',e:'Analysis',p:'Should',st:'new',t:'Export for council meetings',ac:['CSV of queue and trends for the selected scope and date range.']},
+ // Platform
+ {id:'US-32',e:'Privacy & platform',p:'Must',st:'kept',t:'Location only when posting',ac:['No background location.']},
+ {id:'US-35',e:'Privacy & platform',p:'Must',st:'changed',t:'German and English',note:'Promoted: DE is the default for a German public-sector product.',ac:['German default; English selectable; Turkish and Arabic after pilot.']},
+ {id:'US-36',e:'Privacy & platform',p:'Must',st:'kept',t:'Accessible to everyone',ac:['WCAG 2.1 AA / BITV 2.0 for citizen web and admin console.']},
+];
+const SID = id => STORIES.find(s => s.id === id);
+
+/* Screens and the stories each one shows. */
+const SCREENS = {
+ app:[
+  {id:'home',n:'Map & nearby reports',s:['US-01','US-15','US-24','US-44'],chg:'The location chip shows which tenant you are in. Pins are neutral: no score or level is ever shown to citizens.'},
+  {id:'detail',n:'Report detail',s:['US-18','US-19','US-20','US-28','US-45'],chg:'Me too is the like button. Office notes and the Forwarded status are visible, so citizens see where their report went.'},
+  {id:'signin',n:'Sign-in sheet',s:['US-01','US-37'],chg:'The v0.1 residency step is gone. Email or phone + code, then the action completes.'},
+  {id:'camera',n:'Camera',s:['US-06','US-03','US-16','US-32'],chg:'Works anywhere inside a live tenant, not only Neukölln.'},
+  {id:'compose',n:'New report',s:['US-14','US-08','US-09','US-10','US-31','US-41','US-11'],chg:'Photo AI pre-selects the category and blurs faces and plates. The receiving office is named before posting.'},
+  {id:'dup',n:'Already reported?',s:['US-13','US-17'],chg:'Matches now use photo similarity as well as distance and category.'},
+  {id:'notlive',n:'Not live here yet',s:['US-44','US-12'],chg:'New. Replaces "Outside Neukölln".'},
+  {id:'posted',n:'Report posted',s:['US-11','US-41','US-20','US-29'],chg:'The ID carries the tenant code.'},
+  {id:'me',n:'Account',s:['US-29','US-34','US-35','US-36'],chg:'Delete account is now Must.'},
+ ],
+ web:[
+  {id:'web-browse',n:'Browse & vote',s:['US-04','US-15','US-18','US-19'],chg:'Same flows as the app in a three-pane layout. URL path mirrors the tenant tree.'},
+  {id:'web-post',n:'Report from the web',s:['US-04','US-03','US-16'],chg:'Browser location must pass the on-site check; otherwise the report is kept as a draft.'},
+ ],
+ admin:[
+  {id:'briefing',n:'Weekly AI briefing',s:['US-53','US-54','US-43','US-51'],chg:'New. The first thing staff see on Monday morning.'},
+  {id:'email',n:'Monday briefing email',s:['US-56','US-53'],chg:'New in v0.3. Weekly, emailed automatically to tenant admins (D-14, D-17).'},
+  {id:'queue',n:'Priority queue',s:['US-25','US-22','US-23','US-24','US-27','US-28','US-17','US-45','US-14'],chg:'Adds tenant column in roll-up, AI photo check and Forward.'},
+  {id:'hotspots',n:'Hotspots',s:['US-50','US-52','US-43'],chg:'New. At roll-up levels it becomes a per-tenant comparison.'},
+  {id:'trends',n:'Trends',s:['US-51','US-55'],chg:'New.'},
+  {id:'flagged',n:'Flagged & moderation',s:['US-26','US-33','US-37'],chg:'Spike rule now matters more, because there is no residency check.'},
+  {id:'settings',n:'Tenants & roles',s:['US-40','US-42','US-46'],chg:'New. Replaces the v0.1 idea of hard-coded boundaries.'},
+ ]
+};
+
+/* Sample reports. com = unique commenters, rep = co-reporters, danger = "dangerous" confirmations. ageH = hours since posted. */
+const REPORTS = [
+ {id:'BE-NK-2026-0112',t:'nk',title:'Pedestrian light not working',grp:'Traffic',sub:'Traffic light',loc:'Karl-Marx-Straße, near Rathaus Neukölln',ageH:2,status:'Acknowledged',rep:4,com:5,likes:20,danger:3,safety:true,x:46,y:44,scene:'light',dist:'80 m',ai:{cat:'Traffic light',conf:.94},note:'Thanks. The fault has been passed to the team responsible for traffic signals.',desc:'The pedestrian signal has been dark since this morning. Cars do not stop.',cmts:[['L','Same on the other side of the street.','1 h'],['M','Kids from the school cross here at 8.','40 min']]},
+ {id:'BE-NK-2026-0109',t:'nk',title:'Deep pothole in the bike lane',grp:'Traffic',sub:'Pothole',loc:'Sonnenallee 112',ageH:24,status:'Open',rep:3,com:2,likes:11,danger:1,safety:true,x:62,y:62,scene:'pothole',dist:'350 m',ai:{cat:'Pothole',conf:.88},note:'',desc:'About 30 cm wide, hard to see at night.',cmts:[['K','Nearly fell here yesterday.','20 h']],merge:{id:'BE-NK-2026-0114',t:'Pothole Sonnenallee 108',d:'40 m',a:'5 h'}},
+ {id:'BE-NK-2026-0115',t:'nk',title:'Rubbish dumped again at Hermannplatz',grp:'Community',sub:'Illegal dumping',loc:'Hermannplatz, U-Bahn exit',ageH:12,status:'Open',rep:5,com:3,likes:14,danger:0,safety:false,x:30,y:22,scene:'dump',dist:'1.1 km',ai:{cat:'Illegal dumping',conf:.91},note:'',desc:'Mattress and bags again, same corner as last Monday.',cmts:[['A','Every Monday morning after the weekend.','10 h']]},
+ {id:'BE-NK-2026-0098',t:'nk',title:'Front door of youth centre broken',grp:'Community',sub:'Youth centre',loc:'Weserstraße 34',ageH:72,status:'Open',rep:1,com:1,likes:26,danger:0,safety:false,x:22,y:58,scene:'door',dist:'4.1 km',ai:{cat:'Building damage',conf:.62},note:'',desc:'Door does not lock any more.',cmts:[],flag:'19 votes in 40 min, 15 from accounts younger than 7 days'},
+ {id:'BE-NK-2026-0101',t:'nk',title:'Public toilet closed for weeks',grp:'Community',sub:'Public toilet',loc:'Rixdorfer Höhe',ageH:96,status:'Open',rep:2,com:4,likes:6,danger:0,safety:false,x:74,y:30,scene:'toilet',dist:'1.2 km',ai:{cat:'Public toilet',conf:.83},note:'',desc:'Sign says out of order, no date.',cmts:[]},
+ {id:'BE-NK-2026-0104',t:'nk',title:'Swing seat broken at playground',grp:'Community',sub:'Playground',loc:'Körnerpark',ageH:48,status:'In progress',rep:2,com:1,likes:2,danger:0,safety:true,x:52,y:80,scene:'swing',dist:'600 m',ai:{cat:'Playground',conf:.9},note:'Repair booked for next week.',desc:'Seat is hanging from one chain.',cmts:[]},
+ {id:'BE-NK-2026-0111',t:'nk',title:'Bike lane blocked by parked van',grp:'Traffic',sub:'Bike lane',loc:'Karl-Marx-Straße 200',ageH:5,status:'Open',rep:1,com:0,likes:3,danger:0,safety:false,x:40,y:70,scene:'van',dist:'900 m',ai:{cat:'Parking violation',conf:.86},note:'',desc:'Every morning between 7 and 9.',cmts:[]},
+ {id:'BE-SP-2026-0233',t:'sp',title:'Street lamps out along the Havel path',grp:'Traffic',sub:'Street lighting',loc:'Lindenufer',ageH:30,status:'Open',rep:3,com:4,likes:17,danger:2,safety:true,x:60,y:40,scene:'lamp',dist:'—',ai:{cat:'Street lighting',conf:.9},note:'',desc:'Five lamps in a row are dark. Very dark path at night.',cmts:[]},
+ {id:'BE-SP-2026-0229',t:'sp',title:'Traffic sign knocked over',grp:'Traffic',sub:'Road sign',loc:'Klosterstraße',ageH:50,status:'Forwarded',rep:1,com:1,likes:4,danger:1,safety:true,x:35,y:55,scene:'sign',dist:'—',ai:{cat:'Road sign',conf:.87},note:'Forwarded by email to Verkehrslenkung Berlin, which looks after this road.',desc:'Give-way sign lying on the pavement.',cmts:[]},
+ {id:'BE-SP-2026-0231',t:'sp',title:'Pothole at the bus stop',grp:'Traffic',sub:'Pothole',loc:'Seegefelder Straße, bus stop',ageH:20,status:'Acknowledged',rep:2,com:1,likes:7,danger:1,safety:true,x:50,y:70,scene:'pothole',dist:'—',ai:{cat:'Pothole',conf:.85},note:'Straßen- und Grünflächenamt will fill it this week.',desc:'People step into it getting off the bus.',cmts:[]},
+ {id:'BE-SP-2026-0226',t:'sp',title:'Bins overflowing in Münsingerpark',grp:'Community',sub:'Waste bins',loc:'Münsingerpark',ageH:60,status:'Open',rep:1,com:0,likes:3,danger:0,safety:false,x:30,y:30,scene:'dump',dist:'—',ai:{cat:'Waste bins',conf:.8},note:'',desc:'Bins full since the weekend.',cmts:[]},
+];
+const R = id => REPORTS.find(r => r.id === id);
+
+/* Priority score (US-22/23). */
+const LEVELS = [['Critical',60],['High',25],['Medium',10],['Low',0]];
+function breakdown(r){
+  const likes = r.discount ? r.likes - r.discount : r.likes;
+  const base = r.rep*5 + r.com*2 + likes;
+  const decay = Math.pow(0.5, r.ageH/(24*14));
+  const md = r.danger>=3 ? 1.5 : r.danger>=1 ? 1.2 : 1;
+  const ms = r.safety ? 1.3 : 1;
+  return {base, likes, decay, md, ms, score: base*decay*md*ms};
+}
+const score = r => breakdown(r).score;
+const level = r => r.override || LEVELS.find(([,min]) => score(r) >= min)[0];
+
+/* Weekly trends (US-51): Neukölln baseline, KW 38–45. Other tenants scaled. */
+const WEEKS = ['KW38','KW39','KW40','KW41','KW42','KW43','KW44','KW45'];
+const TREND_BASE = {'Illegal dumping':[6,7,5,8,9,8,11,14],'Potholes & road damage':[3,2,4,3,5,6,7,9],'Traffic lights & signs':[2,1,2,3,1,2,2,4],'Playgrounds':[4,5,3,2,2,1,2,1]};
+const TREND_FACTOR = {nk:1, sp:.7};
+
+/* Hotspots (US-50/52) for Neukölln. */
+const HOTSPOTS = {
+ nk:[
+  {id:'h1',name:'Hermannplatz',x:30,y:22,n:9,lv:'High',cat:'Illegal dumping',rec:'Recurring: 9 reports in 30 days, 7 of them on Mondays.',ids:['BE-NK-2026-0115']},
+  {id:'h2',name:'Sonnenallee 100–120',x:62,y:62,n:5,lv:'High',cat:'Potholes & road damage',rec:'5 reports in 10 days within 400 m. Up from 1 in the previous 10 days.',ids:['BE-NK-2026-0109']},
+  {id:'h3',name:'Karl-Marx-Str. / Rathaus',x:46,y:44,n:1,lv:'Critical',cat:'Traffic lights & signs',rec:'One report, but 20 Me too votes and 3 danger confirmations. School crossing.',ids:['BE-NK-2026-0112']},
+  {id:'h4',name:'Körnerpark',x:52,y:80,n:3,lv:'Medium',cat:'Playgrounds',rec:'3 playground reports this quarter; one in progress.',ids:['BE-NK-2026-0104']},
+  {id:'h5',name:'Rixdorfer Höhe',x:74,y:30,n:2,lv:'Medium',cat:'Public toilets',rec:'Closed toilet reported twice, 4 weeks apart.',ids:['BE-NK-2026-0101']},
+ ],
+ sp:[
+  {id:'h6',name:'Lindenufer',x:60,y:40,n:3,lv:'High',cat:'Street lighting',rec:'3 lighting reports along the Havel path in 2 days.',ids:['BE-SP-2026-0233']},
+  {id:'h7',name:'Seegefelder Straße',x:50,y:70,n:2,lv:'Medium',cat:'Potholes & road damage',rec:'2 reports near the bus stop.',ids:['BE-SP-2026-0231']},
+ ]
+};
+
+/* AI briefings (US-53). Written as the model would write them; every claim cites reports. */
+const BRIEFINGS = {
+ nk:{range:'3–9 Nov 2026', basis:'61 reports and 412 reactions', items:[
+  {lv:'Critical',k:'Urgent',h:'Pedestrian light out at a school crossing',p:'The signal at Karl-Marx-Straße near Rathaus Neukölln has been dark since Monday. 4 people reported it, 20 backed it and 3 marked it dangerous. Two comments say children cross here around 08:00. Signals on this road are run at Land level, so forwarding to Verkehrslenkung Berlin is the likely next step.',c:['BE-NK-2026-0112']},
+  {lv:'High',k:'Urgent',h:'Potholes multiplying on Sonnenallee',p:'5 pothole reports between Sonnenallee 100 and 120 in 10 days, against 1 in the 10 days before. Two are probable duplicates. Cyclists mention falls.',c:['BE-NK-2026-0109','BE-NK-2026-0114']},
+  {lv:'High',k:'Watch',h:'Hermannplatz dumping follows a weekly pattern',p:'9 dumping reports in 30 days, 7 posted on Monday mornings. A Sunday-evening or early Monday pickup with BSR may prevent repeats rather than clear them one by one.',c:['BE-NK-2026-0115']},
+  {lv:'Medium',k:'Watch',h:'Youth centre door: votes look inflated',p:'The score jumped after 19 votes in 40 minutes, 15 from new accounts. Check Flagged before acting on its rank. The door itself does need repair.',c:['BE-NK-2026-0098']},
+  {lv:'Low',k:'Improving',h:'Playground repairs on track',p:'Körnerpark swing is in progress; playground reports are down from 4 to 1 a week since September.',c:['BE-NK-2026-0104']},
+ ]},
+ be:{range:'3–9 Nov 2026', basis:'108 reports and 731 reactions across the 2 pilot Bezirke', items:[
+  {lv:'Critical',k:'Urgent',h:'Two traffic-safety faults need Land-level action',p:'A dark pedestrian signal in Neukölln and a fallen give-way sign in Spandau both sit with Verkehrslenkung Berlin. Neither has been acknowledged there yet.',c:['BE-NK-2026-0112','BE-SP-2026-0229']},
+  {lv:'High',k:'Watch',h:'Lighting failures along the Havel path',p:'Three lighting reports on Lindenufer in two days, two marked dangerous. Spandau has not acknowledged them yet.',c:['BE-SP-2026-0233']},
+  {lv:'Medium',k:'Watch',h:'Neukölln acknowledges faster than Spandau',p:'Median time to acknowledge is 1.6 days in Neukölln and 3.4 days in Spandau this week.',c:[]},
+ ]},
+ sp:{range:'3–9 Nov 2026', basis:'43 reports and 286 reactions', items:[
+  {lv:'High',k:'Urgent',h:'Dark path along the Havel at Lindenufer',p:'Five street lamps in a row are out. 3 reports in two days, 2 danger marks, 17 Me too votes. Nobody has acknowledged it yet.',c:['BE-SP-2026-0233']},
+  {lv:'Medium',k:'Watch',h:'Pothole at the Seegefelder Straße bus stop',p:'Two reports and one danger mark. Acknowledged; residents were told it will be filled this week.',c:['BE-SP-2026-0231']},
+  {lv:'Medium',k:'Watch',h:'Fallen sign on Klosterstraße is with Verkehrslenkung Berlin',p:'Forwarded by email 2 days ago with no reply yet. Consider a reminder.',c:['BE-SP-2026-0229']},
+  {lv:'Low',k:'Watch',h:'Bins in Münsingerpark overflow after weekends',p:'One report so far. Worth watching whether it repeats next Monday.',c:['BE-SP-2026-0226']},
+ ]},
+};
+
+const ROLES = {
+ nk:{n:'Case worker · Bezirksamt Neukölln',scope:'nk',edit:true,settings:false},
+ be:{n:'Viewer · Senatsverwaltung Berlin',scope:'be',edit:false,settings:false},
+ sp:{n:'Tenant admin · Bezirksamt Spandau',scope:'sp',edit:true,settings:true},
+ pa:{n:'Platform admin · Kiezruf team',scope:'de',edit:false,settings:true},
+};
+const EXTERNAL = {be:['Verkehrslenkung Berlin (VLB)','Berliner Stadtreinigung (BSR)','Grünflächenamt'], by:['Staatliches Bauamt (Landesstraßen)','Landratsamt München']};
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const S = {
+ app:{screen:'home',rid:null,signed:false,sheet:null,pending:null,loc:'nk',filter:'All',toast:'',voted:{},follow:{},draft:{danger:false,desc:'',ai:true},newId:null,seq:118,notify:{}},
+ web:{screen:'web-browse',rid:'BE-NK-2026-0112',modal:false},
+ adm:{tab:'briefing',role:'nk',scope:'nk',sel:'BE-NK-2026-0112',hs:'h1',tnode:'nk',toast:'',fb:{}},
+};
+
+/* =====================================================================
+   ICONS + ILLUSTRATIONS
+   ===================================================================== */
+const P = d => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+const I = {
+ map:P('M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14'),
+ user:P('M12 12a4 4 0 100-8 4 4 0 000 8zM4 21c1.5-4 4.5-6 8-6s6.5 2 8 6'),
+ cam:P('M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 100-8 4 4 0 000 8z'),
+ hand:P('M7 11V6a1.5 1.5 0 013 0v4M10 10V4.5a1.5 1.5 0 013 0V10M13 10V5.5a1.5 1.5 0 013 0V12M16 9.5a1.5 1.5 0 013 0V14c0 4-3 7-7 7s-6-2.5-7.5-5L3 13a1.5 1.5 0 012.5-1.6L7 13'),
+ chat:P('M4 5h16v11H9l-5 4z'),
+ people:P('M9 11a3 3 0 100-6 3 3 0 000 6zM2.5 20c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5M16 11a3 3 0 100-6M18 15c2 .7 3.2 2.3 3.6 5'),
+ back:P('M15 5l-7 7 7 7'),
+ close:P('M6 6l12 12M18 6L6 18'),
+ check:P('M5 12l5 5 9-10'),
+ pin:P('M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'),
+ bell:P('M6 16V11a6 6 0 0112 0v5l2 2H4zM10 20a2 2 0 004 0'),
+ spark:P('M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6'),
+ list:P('M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01'),
+ fire:P('M12 21c-4 0-7-3-7-7 0-3 2-5 3-7 1 2 2 3 3 3 0-3 1-5 3-7 1 3 5 6 5 11 0 4-3 7-7 7z'),
+ chart:P('M4 20V10M10 20V4M16 20v-7M22 20H2'),
+ flag:P('M5 21V4h11l-2 4 2 4H5'),
+ tree:P('M12 3v6M12 9H6v4M12 9h6v4M6 13v3M18 13v3M4 16h4v4H4zM16 16h4v4h-4zM10 3h4'),
+ send:P('M4 12l16-8-6 16-3-7z'),
+ out:P('M14 4h6v6M20 4l-9 9M18 14v6H4V6h6'),
+};
+function scene(k, blur){
+  const o = 'var(--scene-obj)', h = 'var(--scene-hi)';
+  const parts = {
+   light:`<rect x="76" y="20" width="6" height="56" fill="${o}"/><rect x="66" y="14" width="26" height="40" rx="5" fill="${o}"/><circle cx="79" cy="24" r="5" fill="var(--scene-ground)"/><circle cx="79" cy="36" r="5" fill="var(--scene-ground)"/><circle cx="79" cy="48" r="5" fill="var(--scene-ground)"/><path d="M0 82h160" stroke="${h}" stroke-width="3" stroke-dasharray="10 8"/>`,
+   pothole:`<path d="M0 78h160" stroke="var(--scene-sky)" stroke-width="2" stroke-dasharray="8 6"/><ellipse cx="80" cy="86" rx="30" ry="8" fill="${o}"/><ellipse cx="80" cy="85" rx="20" ry="4" fill="var(--scene-sky)" opacity=".5"/><rect x="18" y="66" width="22" height="4" fill="${h}"/>`,
+   dump:`<rect x="50" y="56" width="50" height="16" rx="3" fill="${o}" transform="rotate(-8 75 64)"/><circle cx="104" cy="70" r="9" fill="${o}"/><circle cx="118" cy="72" r="7" fill="${o}"/><circle cx="40" cy="72" r="8" fill="${o}"/><rect x="128" y="20" width="18" height="52" fill="${o}" opacity=".5"/>`,
+   door:`<rect x="30" y="10" width="100" height="62" fill="${o}" opacity=".35"/><rect x="66" y="32" width="28" height="40" fill="${o}"/><path d="M94 32l12 6v38l-12-4z" fill="${h}"/>`,
+   toilet:`<rect x="52" y="22" width="56" height="50" rx="4" fill="${o}"/><text x="80" y="52" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="16" fill="var(--scene-sky)">WC</text><rect x="58" y="60" width="44" height="6" fill="${h}"/>`,
+   swing:`<path d="M40 72L60 14h40l20 58" fill="none" stroke="${o}" stroke-width="4"/><path d="M72 14v40M88 14v24" stroke="${o}" stroke-width="2"/><rect x="66" y="52" width="26" height="5" fill="${h}" transform="rotate(28 72 54)"/>`,
+   van:`<path d="M0 82h160" stroke="${h}" stroke-width="4"/><rect x="40" y="36" width="72" height="34" rx="5" fill="${o}"/><path d="M112 46h18l10 12v12h-28z" fill="${o}"/><circle cx="60" cy="72" r="7" fill="var(--scene-sky)"/><circle cx="122" cy="72" r="7" fill="var(--scene-sky)"/>`,
+   lamp:`<path d="M30 76V20h18M90 76V20h18" fill="none" stroke="${o}" stroke-width="4"/><rect x="44" y="18" width="10" height="5" fill="${o}"/><rect x="104" y="18" width="10" height="5" fill="${o}"/><path d="M0 80c40-6 120-6 160 0" stroke="var(--scene-sky)" stroke-width="5" fill="none"/>`,
+   sign:`<path d="M60 74l50-18" stroke="${o}" stroke-width="4"/><path d="M108 44l18 14-18 14z" fill="${h}" stroke="${o}" stroke-width="2"/>`,
+  };
+  const bl = blur ? `<rect x="118" y="52" width="26" height="12" rx="3" fill="var(--scene-sky)" opacity=".9"/><text x="131" y="61" text-anchor="middle" font-family="monospace" font-size="6" fill="${o}">PLATE</text>` : '';
+  return `<svg viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="160" height="100" style="fill:var(--scene-sky)"/><rect y="66" width="160" height="34" style="fill:var(--scene-ground)"/>${parts[k]||''}${bl}</svg>`;
+}
+function streetMap(){
+  return `<svg viewBox="0 0 360 225" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+   <rect width="360" height="225" style="fill:var(--map-bg)"/>
+   <path d="M250 0h110v70c-30 10-60 4-110-20z" style="fill:var(--map-park)"/>
+   <path d="M0 190c60-10 110 0 160 20v15H0z" style="fill:var(--map-park)"/>
+   <path d="M0 20c80 10 140 30 220 10s100-10 140 0" style="fill:none;stroke:var(--map-water);stroke-width:10"/>
+   <path d="M120 0L150 225M0 95L360 120M230 0L200 225M0 40L360 30M40 225L90 0M300 225L330 0" style="fill:none;stroke:var(--map-road);stroke-width:9"/>
+   <path d="M165 0L170 225M0 150L360 160" style="fill:none;stroke:var(--map-road);stroke-width:14"/>
+  </svg>`;
+}
+
+/* =====================================================================
+   PLAN VIEW
+   ===================================================================== */
+function treeHTML(id, opts={}){
+  const t = T(id), ks = kids(id), [cls,lab] = STATUS_CHIP[t.status];
+  const inner = `<b>${esc(t.name)}</b><span class="ty">${esc(t.type)} · ${esc(t.key)}</span><span class="chip ${cls}">${lab}</span>`;
+  const node = opts.clickable
+    ? `<button class="tnode" data-act="tnode:${t.id}" aria-pressed="${S.adm.tnode===t.id}">${inner}</button>`
+    : `<span class="tnode">${inner}</span>`;
+  return `<li>${node}${ks.length?`<ul>${ks.map(k=>treeHTML(k.id,opts)).join('')}</ul>`:''}</li>`;
+}
+function renderPlan(){
+  const cnt = st => STORIES.filter(s=>s.st===st).length;
+  const must = STORIES.filter(s=>s.p==='Must').length;
+  return `<div class="doc">
+  <nav class="toc" aria-label="Plan contents">
+    <a href="#plan" data-goto="p-sum">Summary</a><a href="#plan" data-goto="p-dec">Decisions</a><a href="#plan" data-goto="p-ten">Tenancy model</a>
+    <a href="#plan" data-goto="p-scope">MVP scope</a><a href="#plan" data-goto="p-ai">Intelligent analysis</a><a href="#plan" data-goto="p-arch">Architecture</a>
+    <a href="#plan" data-goto="p-road">Delivery plan</a><a href="#plan" data-goto="p-kpi">Pilot success</a><a href="#plan" data-goto="p-open">Open questions</a>
+  </nav>
+  <div class="doc-main">
+  <section id="p-sum">
+    <span class="eyebrow">MVP plan · v0.4 · supersedes the Neukölln v0.1 wireframe and UI prototype</span>
+    <h1>Kiezruf: citizens report it, neighbours back it, the municipality knows what to fix first</h1>
+    <p class="lede">Anyone standing in front of a broken traffic light, a pothole or a dumped mattress takes a photo and posts it. Others nearby tap <b>Me too</b>. Each municipality gets a ranked queue, a hotspot map and a Monday-morning AI briefing that says what needs urgent attention, citing the reports behind each point.</p>
+    <div class="facts">
+      <div class="fact"><span class="eyebrow">Users</span><b>Citizens</b><span class="small muted">Mobile app (iOS, Android) and citizen web</span></div>
+      <div class="fact"><span class="eyebrow">Users</span><b>Municipal staff</b><span class="small muted">Admin console on the web, scoped by tenant</span></div>
+      <div class="fact"><span class="eyebrow">Tenancy</span><b>Germany-wide tree</b><span class="small muted">Land → Kreis / Stadt → Gemeinde → Bezirk</span></div>
+      <div class="fact"><span class="eyebrow">Pilot</span><b>Neukölln + Spandau</b><span class="small muted">Two Berlin Bezirke. Free for citizens and municipalities, government funded</span></div>
+      <div class="fact"><span class="eyebrow">Backlog</span><b>${STORIES.length} stories, ${must} Must</b><span class="small muted">${cnt('kept')} kept · ${cnt('changed')} changed · ${cnt('new')} new · ${cnt('later')} later</span></div>
+    </div>
+    <div class="callout"><b>How to use this file</b><span class="small">This page is the single source of truth. The <a href="#stories">Stories</a> tab lists every story with its acceptance criteria and the screens that show it. The three prototype tabs are clickable, and each screen lists its stories on the right. When a decision changes, change it here first.</span></div>
+  </section>
+
+  <section id="p-dec">
+    <h2>Decisions</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>ID</th><th>Decision</th><th>Why</th><th>Affects</th></tr></thead>
+      <tbody>
+       <tr><td class="mono">D-01</td><td>Evolve the Neukölln v0.1 prototype instead of starting over. Story IDs US-01…36 are kept; new stories start at US-37.</td><td>Most flows were already agreed; only scope and tenancy change.</td><td class="mono">all</td></tr>
+       <tr><td class="mono">D-02</td><td>Tenants form one flexible tree. Admin roles can sit at any node and inherit downward.</td><td>German administration is not uniform: Berlin Bezirke sit under a city that is also a Land; Landkreise contain Gemeinden.</td><td class="mono">US-40…46</td></tr>
+       <tr><td class="mono">D-03</td><td>Anyone signed in may report and vote while on-site. No residency check in the MVP.</td><td>Commuters and visitors see problems too. An address check adds friction and its verification method was never solved.</td><td class="mono">US-02, US-03, US-37</td></tr>
+       <tr><td class="mono">D-04</td><td>Spike detection and vote discounting become Must.</td><td>Without a residency check this is the main defence against manipulation.</td><td class="mono">US-26, US-37</td></tr>
+       <tr><td class="mono">D-05</td><td>The like button is the existing "Me too". One per account, undoable, count public.</td><td>"Me too" says "I am affected too", which feeds triage better than a generic like.</td><td class="mono">US-18</td></tr>
+       <tr><td class="mono">D-06</td><td>The priority score and level stay staff-only.</td><td>Stops citizens competing for rank. Unchanged from v0.1.</td><td class="mono">US-24</td></tr>
+       <tr><td class="mono">D-07</td><td>All four analysis parts are in the MVP: scoring, hotspots and trends, weekly AI briefing, photo AI.</td><td>The analysis is what makes the tool worth a municipality's time.</td><td class="mono">US-14, US-22, US-50…55</td></tr>
+       <tr><td class="mono">D-08</td><td>Video moves out of the MVP.</td><td>Saves upload, blur and moderation work in the first release.</td><td class="mono">US-07</td></tr>
+       <tr><td class="mono">D-09</td><td>The pilot runs in two Berlin Bezirke: Neukölln and Spandau.</td><td>Both sit under one Land, so forwarding to Land-level offices and the Berlin roll-up get tested. A Gemeinde outside a city-state follows after the pilot.</td><td class="mono">Phase 0, US-43</td></tr>
+       <tr><td class="mono">D-10</td><td>Forwarding to outside authorities is by email in the MVP.</td><td>Works with every office from day one. API integration waits until after the pilot.</td><td class="mono">US-45</td></tr>
+       <tr><td class="mono">D-11</td><td>The product name is Kiezruf.</td><td>Confirmed for the pilot.</td><td class="mono">Branding</td></tr>
+       <tr><td class="mono">D-12</td><td>Kiezruf is free for citizens and municipalities.</td><td>Removes procurement as a blocker for the pilot.</td><td class="mono">Phase 0</td></tr>
+       <tr><td class="mono">D-13</td><td>AI processing runs with an EU-based provider (vlincta.com). Comment text is pseudonymised before it is sent.</td><td>Keeps personal data in the EU under the Bezirksämter's data-processing agreements.</td><td class="mono">US-14, US-31, US-53</td></tr>
+       <tr><td class="mono">D-14</td><td>The AI briefing is weekly and emailed automatically every Monday at 07:00. No instant alerts in the MVP.</td><td>One predictable summary fits the weekly planning rhythm in the Bezirksämter.</td><td class="mono">US-53, US-56</td></tr>
+       <tr><td class="mono">D-15</td><td>vlincta.com also blurs faces and licence plates. No separate detector is needed.</td><td>One EU provider for all image and language processing keeps the data-processing agreements simple.</td><td class="mono">US-31, US-14</td></tr>
+       <tr><td class="mono">D-16</td><td>After the pilot, Kiezruf is government funded and stays free for citizens and municipalities.</td><td>Municipalities don't need to buy it, which keeps adoption simple.</td><td class="mono">After pilot</td></tr>
+       <tr><td class="mono">D-17</td><td>The Monday briefing email goes to tenant admins only. Case workers read the briefing in the console.</td><td>One accountable recipient per tenant; fewer emails.</td><td class="mono">US-56</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section id="p-ten">
+    <h2>Tenancy model</h2>
+    <div class="prose"><p>Every report and every staff role belongs to a node in one tree. The levels follow German administration, and optional levels are skipped where they don't exist. Example nodes below; the full tree is imported from official boundary data. The pilot tenants are Neukölln and Spandau. The Bayern nodes only show how a Landkreis and its Gemeinden fit in; they are not live.</p></div>
+    <div class="two">
+      <div class="card-s"><h3>Example tree</h3><ul class="tree">${treeHTML('de')}</ul></div>
+      <div class="card-s"><h3>Rules</h3><ul>
+        <li><b>Node status.</b> Grouping (structure only), Not live, Pilot, Live. Only Pilot and Live nodes receive reports.</li>
+        <li><b>Routing.</b> A report goes to the deepest Pilot or Live node containing the capture point. If none, the citizen sees "not live here yet" (US-44).</li>
+        <li><b>Roles inherit down.</b> A Berlin viewer sees all Bezirke; a Neukölln case worker sees only Neukölln.</li>
+        <li><b>Only the owner edits.</b> Higher levels read and roll up. They act only on reports forwarded to them.</li>
+        <li><b>Responsibility is not geography.</b> A Landesstraße inside a Gemeinde belongs to the Land. Staff use <i>Forward</i> (US-45) to hand over, and the citizen sees where it went.</li>
+        <li><b>Boundaries.</b> BKG VG250 polygons with AGS keys for Länder, Kreise and Gemeinden; Berlin's open-data Bezirk polygons for Berlin. Hamburg Bezirke follow the same pattern.</li>
+        <li><b>IDs.</b> <span class="mono">BE-NK-2026-0118</span> = Land, tenant, year, sequence.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section id="p-scope">
+    <h2>MVP scope</h2>
+    <div class="two">
+      <div class="card-s"><h3>In the MVP</h3><ul>
+        <li>Browse map and list without an account; sign in with email or phone code to act</li>
+        <li>On-site photo reports with category, description, danger toggle and location</li>
+        <li>Automatic tenant routing; "not live here yet" handling</li>
+        <li>Me too votes, comments, follow, push and email notifications</li>
+        <li>Duplicate suggestions and staff merge</li>
+        <li>Admin console: priority queue, status, public note, forward, override, moderation</li>
+        <li>Tenant tree, roles, per-tenant categories and thresholds</li>
+        <li>Analysis: score, hotspots, trends, weekly AI briefing, photo AI</li>
+        <li>German and English; WCAG 2.1 AA; DSGVO deletion</li>
+      </ul></div>
+      <div class="card-s"><h3>After the MVP</h3><ul>
+        <li>Video reports (US-07)</li>
+        <li>"Still broken" / "fixed" updates from citizens (US-21)</li>
+        <li>Auto-archive of resolved reports (US-30)</li>
+        <li>Residency verification (US-02), only if pilot data shows a need</li>
+        <li>Integrations with existing municipal ticket systems (API / Open311)</li>
+        <li>Turkish and Arabic; more languages on demand</li>
+        <li>Instant email or push alert when a report turns Critical</li>
+        <li>Public transparency page per tenant (fixed this month, median time to fix)</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section id="p-ai">
+    <h2>Intelligent analysis</h2>
+    <div class="prose"><p>Four parts, each with a guardrail. The deterministic score ranks the queue; the language model only explains and summarises, and every claim it makes links to reports.</p></div>
+    <div class="two">
+      <div class="card-s"><h3>1 · Priority score</h3><p class="small">Unique accounts only: co-reporter 5, commenter 2, Me too 1. Recency half-life 14 days. Danger ×1.5 or ×1.2, safety category ×1.3. Levels: Critical ≥ 60, High ≥ 25, Medium ≥ 10.</p><p class="small muted">Guardrail: transparent breakdown, manual override with reason, spike discount.</p></div>
+      <div class="card-s"><h3>2 · Hotspots &amp; trends</h3><p class="small">Clusters within 150 m per category group. Weekly counts with change against the 4-week average. Recurring places get a weekday pattern.</p><p class="small muted">Guardrail: plain statistics, no model. Numbers shown with their counts.</p></div>
+      <div class="card-s"><h3>3 · Weekly AI briefing</h3><p class="small">Every Monday 07:00 per tenant and per roll-up level, emailed automatically to tenant admins and shown in the console for everyone in scope. Input: top-scored reports, clusters, trend deltas and comment text in scope. Output: at most 5 items marked Urgent, Watch or Improving.</p><p class="small muted">Guardrail: structured output with mandatory report citations; any item without valid citations is dropped. Labelled AI-written; staff rate each item (US-54).</p></div>
+      <div class="card-s"><h3>4 · Photo AI</h3><p class="small">On upload, at vlincta.com: face and plate blur, EXIF strip, category suggestion and photo similarity for duplicate matching.</p><p class="small muted">Guardrail: blur runs before anything is public; category is pre-selected only above 0.80 confidence; citizens' corrections are logged.</p></div>
+    </div>
+  </section>
+
+  <section id="p-arch">
+    <h2>Architecture</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Part</th><th>Proposed choice</th><th>Reason</th></tr></thead>
+      <tbody>
+       <tr><td>Mobile app</td><td>React Native (Expo), iOS and Android</td><td>One codebase; camera, location and push are mature.</td></tr>
+       <tr><td>Citizen web and admin console</td><td>Next.js, shared component library and API client</td><td>Shares types and design tokens with the app.</td></tr>
+       <tr><td>API</td><td>TypeScript service, REST, role checks on every query by tenant subtree</td><td>Tenant isolation enforced server-side and again in the database.</td></tr>
+       <tr><td>Database</td><td>PostgreSQL + PostGIS; tenant path stored as <span class="mono">ltree</span>; row-level security</td><td>Point-in-polygon routing and subtree queries in one place.</td></tr>
+       <tr><td>Photos</td><td>S3-compatible object storage in Germany; private originals, public blurred copies</td><td>DSGVO; originals never leave the private bucket.</td></tr>
+       <tr><td>Jobs</td><td>Queue workers for blur, EXIF, similarity, scoring, clustering and briefings</td><td>Keeps posting fast; retries on failure.</td></tr>
+       <tr><td>AI models</td><td>EU-based provider (vlincta.com): a language model for briefings; vision models for face and plate blur, photo category and similarity</td><td>Decided in D-13 and D-15. Structured output with citations; comment text pseudonymised before sending. Specific models agreed with the provider.</td></tr>
+       <tr><td>Email</td><td>EU-hosted transactional email service, SPF and DKIM on the sending domain</td><td>Delivers the Monday briefing (US-56) and forwarded reports (US-45).</td></tr>
+       <tr><td>Hosting</td><td>German data centre, BSI C5-attested provider</td><td>Expected by public-sector buyers.</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section id="p-road">
+    <h2>Delivery plan</h2>
+    <div class="prose"><p class="small muted">Estimate for a team of 2 full-stack, 1 mobile, 1 part-time designer and a product owner. Weeks from kickoff.</p></div>
+    <div class="tbl-wrap"><div class="gantt">
+      <div class="gh" style="grid-column:1"><span>Phase</span></div>
+      <div class="gh">${Array.from({length:26},(_,i)=>`<span>${(i%2===0)?i+1:''}</span>`).join('')}</div>
+      ${[
+        ['0 · Partners, categories, DPA, boundary import',1,2,''],
+        ['1 · Citizen core: browse, sign-in, report, Me too, comments',3,8,''],
+        ['2 · Admin console: queue, status, forward, roles, moderation',7,12,''],
+        ['3 · Analysis: photo AI, duplicates, hotspots, trends, briefing',11,14,''],
+        ['4 · Pilot in Neukölln + Spandau',15,26,'pilot'],
+      ].map(([n,a,b,c])=>`<div>${n}</div><div class="bar-row"><span class="bar ${c}" style="left:calc(${(a-1)/26*100}% + 2px);width:calc(${(b-a+1)/26*100}% - 4px)">wk ${a}–${b}</span></div>`).join('')}
+    </div></div>
+  </section>
+
+  <section id="p-kpi">
+    <h2>Pilot success</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Measure</th><th>Target by week 26</th></tr></thead>
+      <tbody>
+       <tr><td>Reports posted per 1,000 residents per month</td><td class="mono">≥ 2</td></tr>
+       <tr><td>Share of reports routed to the right office without forwarding</td><td class="mono">≥ 85 %</td></tr>
+       <tr><td>Median time to acknowledge</td><td class="mono">≤ 2 days</td></tr>
+       <tr><td>Briefing items rated "Useful" by staff</td><td class="mono">≥ 70 %</td></tr>
+       <tr><td>Photo category suggestions accepted unchanged</td><td class="mono">≥ 80 %</td></tr>
+       <tr><td>Votes discounted as manipulation</td><td class="mono">&lt; 3 %</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section id="p-open">
+    <h2>Open questions</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>ID</th><th>Question</th><th>Blocks</th></tr></thead>
+      <tbody>
+       <tr><td class="mono">Q-07</td><td>Which email addresses receive forwarded reports: Verkehrslenkung Berlin, BSR, the Grünflächenämter, and which departments inside each Bezirksamt? <span class="chip c-later">Deferred</span></td><td>Pilot go-live (week 15)</td></tr>
+       <tr><td class="mono">Q-11</td><td>Which government body funds Kiezruf after the pilot (Land Berlin, the federal government or an EU programme), and does that funder set requirements for hosting, accessibility or open source?</td><td>After pilot</td></tr>
+      </tbody></table></div>
+    <h3>Answered on 11 Nov 2026</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>ID</th><th>Question</th><th>Answer</th></tr></thead>
+      <tbody>
+       <tr><td class="mono">Q-01</td><td>Which two tenants run the pilot?</td><td>Neukölln and Spandau (D-09)</td></tr>
+       <tr><td class="mono">Q-02</td><td>Email forwarding or API?</td><td>Email (D-10)</td></tr>
+       <tr><td class="mono">Q-03</td><td>National product name?</td><td>Kiezruf (D-11)</td></tr>
+       <tr><td class="mono">Q-04</td><td>Who pays?</td><td>Free (D-12)</td></tr>
+       <tr><td class="mono">Q-05</td><td>Where does AI processing run?</td><td>EU-based provider, vlincta.com (D-13)</td></tr>
+       <tr><td class="mono">Q-06</td><td>Weekly briefing or instant alerts?</td><td>Weekly, automated email delivery (D-14)</td></tr>
+       <tr><td class="mono">Q-08</td><td>Does vlincta.com also blur faces and plates?</td><td>Yes (D-15)</td></tr>
+       <tr><td class="mono">Q-09</td><td>Free after the pilot?</td><td>Government funded (D-16)</td></tr>
+       <tr><td class="mono">Q-10</td><td>Who receives the Monday email?</td><td>Tenant admins (D-17)</td></tr>
+      </tbody></table></div>
+  </section>
+  </div></div>`;
+}
+
+/* =====================================================================
+   STORIES VIEW
+   ===================================================================== */
+const ST_CHIP = {kept:['c-kept','Kept'],changed:['c-changed','Changed'],new:['c-new','New'],later:['c-later','Later']};
+function screensFor(id){
+  const out=[]; for(const [surf,list] of Object.entries(SCREENS)) for(const s of list) if(s.s.includes(id)) out.push([surf,s]);
+  return out;
+}
+function renderStories(){
+  const epics=[...new Set(STORIES.map(s=>s.e))];
+  return `<div class="col g16">
+   <div class="col g8"><h1 style="font-size:1.8rem">User stories</h1><p class="muted" style="max-width:70ch">${STORIES.length} stories. IDs US-01…36 come from v0.1; US-37 onward are new. Click a screen name to open it in the prototype.</p>
+   <div class="row wrap small"><span class="chip c-kept">Kept</span> unchanged from v0.1 <span class="chip c-changed">Changed</span> scope or priority changed <span class="chip c-new">New</span> added in v0.2 <span class="chip c-later">Later</span> out of MVP</div></div>
+   ${epics.map(e=>`<div class="col g8"><h2 style="font-size:1.15rem">${esc(e)}</h2><div class="tbl-wrap"><table>
+     <thead><tr><th>ID</th><th>Story</th><th>Priority</th><th>Acceptance</th><th>Screens</th></tr></thead><tbody>
+     ${STORIES.filter(s=>s.e===e).map(s=>{const [c,l]=ST_CHIP[s.st]; return `<tr>
+       <td><span class="mono">${s.id}</span><br><span class="chip ${c}">${l}</span></td>
+       <td style="min-width:200px"><b>${esc(s.t)}</b>${s.note?`<div class="small muted">${esc(s.note)}</div>`:''}</td>
+       <td class="mono">${s.p}</td>
+       <td style="min-width:280px"><ul style="margin:0;padding-left:16px">${s.ac.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></td>
+       <td style="min-width:150px">${screensFor(s.id).map(([surf,sc])=>`<a href="#${surf}" data-open="${surf}:${sc.id}" class="small">${esc(sc.n)}</a>`).join('<br>')||'<span class="small muted">—</span>'}</td>
+     </tr>`;}).join('')}
+     </tbody></table></div></div>`).join('')}
+  </div>`;
+}
+
+/* =====================================================================
+   PROTOTYPE FRAME (index | stage | notes)
+   ===================================================================== */
+function protoFrame(surf, current, stage, sim){
+  const list = SCREENS[surf], sc = list.find(s=>s.id===current) || list[0];
+  return `<div class="proto">
+   <nav class="scr-index" aria-label="Screens"><h3>Screens</h3>${list.map(s=>`<button data-act="goto:${surf}:${s.id}" aria-current="${s.id===sc.id}">${esc(s.n)}</button>`).join('')}</nav>
+   <div class="stage">${stage}</div>
+   <aside class="notes"><h3>${esc(sc.n)}</h3>
+     <div class="chg"><b>Since v0.1:</b> ${esc(sc.chg)}</div>
+     <div class="col">${sc.s.map(id=>{const s=SID(id),[c,l]=ST_CHIP[s.st];return `<div class="st"><div class="row"><span class="mono">${id}</span><span class="chip ${c}">${l}</span></div><span class="small">${esc(s.t)}</span></div>`}).join('')}</div>
+     ${sim||''}
+   </aside></div>`;
+}
+
+/* =====================================================================
+   CITIZEN APP
+   ===================================================================== */
+const A = S.app;
+function locTenant(){ return T(A.loc); }
+function isLive(t){ return t && (t.status==='live'||t.status==='pilot'); }
+function statusCls(s){ return 'st-'+s.replace(/\s/g,''); }
+function likes(r){ return r.likes + (A.voted[r.id]?1:0); }
+function cardHTML(r){
+  return `<button class="card" data-act="open:${r.id}">
+    <div class="thumb">${scene(r.scene)}</div>
+    <div class="col g4 grow">
+      <div class="row" style="align-items:flex-start"><span class="ttl grow">${esc(r.title)}</span><span class="status ${statusCls(r.status)}">${r.status}</span></div>
+      <div class="meta">${esc(r.sub)} · ${r.dist} · ${ago(r.ageH)}</div>
+      <div class="counts"><span>${I.hand}${likes(r)}</span><span>${I.chat}${r.com}</span><span>${I.people}${r.rep}</span></div>
+    </div></button>`;
+}
+function ago(h){ return h<1?'just now':h<24?`${h} h ago`:`${Math.round(h/24)} d ago`; }
+function navb(cur){
+  return `<div class="navb"><button data-act="screen:home" aria-current="${cur==='home'}">${I.map}Map</button>
+   <button class="fab" data-act="screen:camera" aria-label="New report">${I.cam}</button>
+   <button data-act="screen:me" aria-current="${cur==='me'}">${I.user}${A.signed?'You':'Sign in'}</button></div>`;
+}
+function phone(inner, nav){
+  return `<div class="phone"><div class="sbar"><span>9:41</span><span>5G · 82%</span></div>
+   <div class="scr" id="scr">${inner}</div>${nav||''}${A.sheet?sheetHTML():''}${A.toast?`<div class="toast" role="status">${I.check}${esc(A.toast)}</div>`:''}</div>`;
+}
+function appHome(){
+  const t = locTenant(), live = isLive(t);
+  const list = REPORTS.filter(r=>r.t===A.loc && (A.filter==='All'||r.grp===A.filter));
+  const cn = chain(t.id), where = cn.length>1 ? 'in '+cn[cn.length-2].name : '';
+  return phone(`<div class="scr-pad">
+    <div class="col g4" style="padding-top:6px"><span class="small muted">Reports near you</span>
+      <div class="row"><h2 style="font-size:1.5rem" class="grow">${esc(t.name)}</h2><span class="loc-chip ${live?'':'off'}">${I.pin}${live?esc(where):'Not live yet'}</span></div></div>
+    ${live?`<div class="fchips">${['All','Traffic','Community'].map(f=>`<button class="fchip" data-act="filter:${f}" aria-pressed="${A.filter===f}">${f}</button>`).join('')}</div>
+    <div class="map">${streetMap()}${list.map(r=>`<button class="pin" style="left:${r.x}%;top:${r.y}%" data-act="open:${r.id}" aria-label="${esc(r.title)}"><span></span></button>`).join('')}</div>
+    ${A.signed?'':`<p class="small muted">You're browsing as a guest. You only sign in when you post, comment or vote.</p>`}
+    <div class="col g8">${list.map(cardHTML).join('')}</div>`
+    :`<div class="callout"><b>Kiezruf isn't live in ${esc(t.name)} yet.</b><span class="small">You can still look around in places where it is live. Tap the camera to tell us you need it here.</span></div>`}
+  </div>`, navb('home'));
+}
+function appDetail(){
+  const r = R(A.rid) || REPORTS[0], voted = !!A.voted[r.id], fol = !!A.follow[r.id] || voted;
+  const steps = ['Open','Acknowledged','In progress','Resolved'], si = r.status==='Forwarded'?1:steps.indexOf(r.status);
+  const office = T(r.t).office || T(r.t).name;
+  return phone(`<div class="hdr"><button class="ib" data-act="screen:home" aria-label="Back">${I.back}</button><h2>Report</h2><span class="mono muted small">${r.id}</span></div>
+   <div class="scr-pad">
+    <div class="photo">${scene(r.scene)}<span class="tag">Faces and plates blurred</span></div>
+    <div class="col g4"><span class="small muted">${r.grp} · ${esc(r.sub)}</span><h2 style="font-size:1.3rem">${esc(r.title)}</h2><span class="small muted">${esc(r.loc)} · ${ago(r.ageH)}</span></div>
+    <div class="stepper">${steps.map((s,i)=>`<div class="${i<=si?'on':''}"><i></i>${s}</div>`).join('')}</div>
+    ${r.status==='Forwarded'?`<span class="status st-Forwarded" style="align-self:flex-start">Forwarded</span>`:''}
+    ${r.note?`<div class="office"><b>${esc(office)}</b>${esc(r.note)}</div>`:''}
+    <p>${esc(r.desc)}</p>
+    <div class="metoo"><button class="btn ${voted?'dark':'primary'} wide" data-act="vote:${r.id}">${voted?I.check:I.hand}${voted?`You and ${r.likes} others`:`Me too · ${r.likes}`}</button>
+     <span class="small muted">${r.rep} neighbours reported this${fol?' · you follow this report':''}</span></div>
+    <button class="btn sm ghost" data-act="follow:${r.id}">${I.bell}${fol?'Following':'Follow'}</button>
+    <div class="col g8"><b>Comments</b>${r.cmts.length?r.cmts.map(([a,t,w])=>`<div class="cmt"><span class="av">${a}</span><div class="grow">${esc(t)}<div class="meta">${w}</div></div></div>`).join(''):'<span class="small muted">No comments yet.</span>'}
+     <form class="row" data-form="comment:${r.id}"><input class="inp" id="cmt-in" placeholder="Add what you know" maxlength="500" aria-label="Comment"><button class="ib" aria-label="Send comment">${I.send}</button></form></div>
+   </div>`, navb(''));
+}
+function sheetHTML(){
+  const step = A.sheet.step;
+  const verb = A.pending?.verb || 'continue';
+  if(step==='email') return `<div class="sheet-bg"><div class="sheet" role="dialog" aria-label="Sign in">
+    <div class="row"><h2 style="font-size:1.15rem" class="grow">Sign in to ${verb}</h2><button class="ib" data-act="sheet-close" aria-label="Close">${I.close}</button></div>
+    <p class="small muted">Takes about a minute, and only once. We don't ask where you live. We check where you are when you post.</p>
+    <div class="field"><label for="si-id">Email or phone number</label><input class="inp" id="si-id" value="name@example.de"></div>
+    <button class="btn primary wide" data-act="sheet-code">Send me a code</button></div></div>`;
+  return `<div class="sheet-bg"><div class="sheet" role="dialog" aria-label="Enter code">
+    <div class="row"><h2 style="font-size:1.15rem" class="grow">Enter your code</h2><button class="ib" data-act="sheet-close" aria-label="Close">${I.close}</button></div>
+    <p class="small muted">We sent 6 digits to name@example.de</p>
+    <div class="field"><label for="si-code">Code</label><input class="inp" id="si-code" value="482913" style="letter-spacing:.3em;font-size:1.2rem"></div>
+    <p class="small muted">Prototype: any 6 digits work.</p>
+    <button class="btn primary wide" data-act="sheet-done">Confirm and ${verb}</button></div></div>`;
+}
+function appCamera(){
+  const t = locTenant(), live = isLive(t);
+  return phone(`<div class="viewfinder"><div class="photo">${scene('light')}</div>
+    <div class="vf-top"><button class="ib" style="color:#fff" data-act="screen:home" aria-label="Close camera">${I.close}</button>
+      <span class="gps ${live?'':'off'}"><i></i>${live?`${esc(t.name)} · ±12 m`:`${esc(t.name)} · not live yet`}</span></div>
+    <div class="vf-bot"><button class="shutter" data-act="shoot" aria-label="Take photo"></button><span class="small">Gallery: only photos taken here in the last 48 h</span></div>
+  </div>`);
+}
+function appCompose(){
+  const t = locTenant(), d = A.draft;
+  return phone(`<div class="hdr"><button class="ib" data-act="screen:camera" aria-label="Back">${I.back}</button><h2>New report</h2></div>
+   <div class="scr-pad">
+    <div class="photo">${scene('light', true)}<span class="tag">2 areas blurred automatically</span></div>
+    <button class="btn sm" style="align-self:flex-start">Blur more</button>
+    ${d.ai?`<div class="ai-chip">${I.spark}<div class="grow"><b>Suggested from photo</b><br>Traffic › Traffic light</div><button class="btn sm" data-act="ai-change">Change</button></div>`
+      :`<div class="field"><label for="cat">Category</label><select class="inp" id="cat"><option>Traffic › Traffic light</option><option>Traffic › Pothole</option><option>Traffic › Bike lane</option><option>Community › Illegal dumping</option><option>Community › Playground</option><option>Other</option></select></div>`}
+    <div class="field"><label for="desc">What's wrong?</label><textarea class="inp" id="desc" placeholder="e.g. Dark since this morning">${esc(d.desc)}</textarea></div>
+    <label class="toggle"><input type="checkbox" id="danger" ${d.danger?'checked':''} data-act="danger"><span><b>Dangerous right now?</b><br><span class="small muted">Helps the office act faster</span></span></label>
+    ${d.danger?`<div class="banner crit">If someone is in danger, call 112 or 110 first.</div>`:''}
+    <div class="list-row" style="padding:8px 0"><div class="row">${I.pin}<div><b>Karl-Marx-Straße 83</b><div class="meta">Taken here · inside ${esc(t.name)}</div></div></div><button class="btn sm ghost">Adjust</button></div>
+    <div class="banner info">Goes to <b>${esc(t.office||t.name)}</b></div>
+    <button class="btn primary wide" data-act="post">Post report</button>
+    ${A.signed?'':`<p class="small muted" style="text-align:center">You'll sign in once before it posts.</p>`}
+   </div>`);
+}
+function appDup(){
+  const r = R('BE-NK-2026-0112');
+  return phone(`<div class="hdr"><button class="ib" data-act="screen:compose" aria-label="Back">${I.back}</button><h2>Already reported?</h2></div>
+   <div class="scr-pad"><p>A similar report is 35 m away. Adding to it gives it more weight.</p>
+    <div class="card" style="flex-direction:column"><div class="photo">${scene(r.scene)}</div><b>${esc(r.title)}</b><span class="meta">${r.rep} neighbours · ${ago(r.ageH)} · same category · similar photo</span></div>
+    <button class="btn primary wide" data-act="join:${r.id}">Add my photo to this report</button>
+    <button class="btn wide" data-act="different">Mine is different, post it</button></div>`);
+}
+function appNotLive(){
+  const t = locTenant(), n = A.notify[t.id];
+  return phone(`<div class="hdr"><button class="ib" data-act="screen:camera" aria-label="Back">${I.back}</button><h2>Not live here yet</h2></div>
+   <div class="center-msg"><div class="big-ok" style="background:var(--sunk);color:var(--muted)">${I.pin}</div>
+    <h2 style="font-size:1.25rem">Kiezruf isn't live in ${esc(t.name)} yet</h2>
+    <p class="small muted">Your report can't reach an office here. We counted your attempt, so ${esc(t.name)} sees that people want this.</p>
+    <p class="small muted">Your photo is kept as a draft on this phone for 48 hours.</p>
+    <button class="btn ${n?'dark':'primary'} wide" data-act="notify:${t.id}">${n?I.check+'We will tell you':'Tell me when it starts here'}</button>
+    <button class="btn wide">${I.out}Find the city's own contact page</button></div>`);
+}
+function appPosted(){
+  const t = locTenant();
+  return phone(`<div class="center-msg" style="padding-top:80px"><div class="big-ok">${I.check}</div><h2 style="font-size:1.3rem">Report posted</h2>
+    <span class="mono">#${A.newId}</span><p class="small muted">Sent to ${esc(t.office||t.name)}. You follow this report and will hear when its status changes.</p>
+    <button class="btn primary wide" data-act="open:${A.newId}">See your report</button><button class="btn wide" data-act="screen:home">Back to map</button></div>`, navb(''));
+}
+function appMe(){
+  if(!A.signed) return phone(`<div class="scr-pad" style="padding-top:20px"><h2 style="font-size:1.4rem">Your account</h2>
+    <p class="muted small">Browse without an account. Sign in to post, vote or comment.</p>
+    <button class="btn primary wide" data-act="signin-plain">Sign in</button>
+    <div class="list-row"><span>Language</span><select class="inp" style="width:auto" id="lang1"><option>Deutsch</option><option selected>English</option></select></div></div>`, navb('me'));
+  const mine = REPORTS.filter(r=>A.voted[r.id]||A.follow[r.id]||r.id===A.newId);
+  return phone(`<div class="scr-pad" style="padding-top:20px"><h2 style="font-size:1.4rem">You</h2><span class="small muted">name@example.de · confirmed</span>
+    <b>Reports you follow</b>${mine.length?mine.map(cardHTML).join(''):'<p class="small muted">Vote, comment or post and the report shows up here.</p>'}
+    <label class="list-row"><span><b>Status updates</b><br><span class="small muted">Push when a report you follow changes</span></span><input type="checkbox" checked id="push"></label>
+    <div class="list-row"><span>Language</span><select class="inp" style="width:auto" id="lang2"><option>Deutsch</option><option selected>English</option></select></div>
+    <button class="btn wide" style="color:var(--crit)">Delete my account and data</button></div>`, navb('me'));
+}
+function renderApp(){
+  const scr = {home:appHome,detail:appDetail,signin:appDetailSign,camera:appCamera,compose:appCompose,dup:appDup,notlive:appNotLive,posted:appPosted,me:appMe}[A.screen] || appHome;
+  const sim = `<div class="sim"><label for="sim-loc">Simulate location</label><select id="sim-loc" data-change="loc">
+    ${['nk','sp','fk','uh','in'].map(id=>{const t=T(id);return `<option value="${id}" ${A.loc===id?'selected':''}>${esc(t.name)} (${STATUS_CHIP[t.status][1]})</option>`}).join('')}</select>
+    <span class="small muted">Signed in: ${A.signed?'yes':'no'} ${A.signed?'<button class="btn sm ghost" data-act="signout">Sign out</button>':''}</span></div>`;
+  return protoFrame('app', A.screen, scr(), sim);
+}
+function appDetailSign(){ if(!A.sheet){ A.sheet={step:'email'}; A.pending={verb:'vote',act:`vote:${A.rid||REPORTS[0].id}`}; } A.rid = A.rid || REPORTS[0].id; return appDetail(); }
+
+/* =====================================================================
+   CITIZEN WEB
+   ===================================================================== */
+function renderWeb(){
+  const W = S.web, r = R(W.rid), list = REPORTS.filter(x=>x.t==='nk'), voted=!!A.voted[r.id];
+  const modal = W.screen==='web-post';
+  const stage = `<div class="desk"><div class="chrome"><i></i><i></i><i></i><span class="url">kiezruf · /berlin/neukoelln/${r.id.toLowerCase()}</span></div>
+   <div class="desk-scroll"><div style="position:relative">
+    <div class="adm-top"><div class="brand" style="font-size:1rem"><i></i>Kiezruf</div><div class="crumb"><span>Berlin</span><span class="sep">/</span><b>Neukölln</b></div><span class="grow"></span>
+      <button class="btn sm primary" data-act="web-post">${I.cam}Report a problem</button><button class="btn sm">${A.signed?'You':'Sign in'}</button></div>
+    <div class="web">
+     <div class="web-list"><div class="fchips">${['All','Traffic','Community'].map(f=>`<span class="fchip" aria-pressed="${f==='All'}">${f}</span>`).join('')}</div>
+       ${list.map(x=>cardHTML(x).replace(`data-act="open:${x.id}"`,`data-act="web-open:${x.id}"`)+'').join('')}</div>
+     <div class="web-map"><div class="map">${streetMap()}${list.map(x=>`<button class="pin" style="left:${x.x}%;top:${x.y}%" data-act="web-open:${x.id}" aria-label="${esc(x.title)}"><span style="${x.id===r.id?'background:var(--signal)':''}"></span></button>`).join('')}</div></div>
+     <div class="web-detail"><div class="photo">${scene(r.scene)}</div><span class="small muted">${r.grp} · ${esc(r.sub)} · <span class="status ${statusCls(r.status)}">${r.status}</span></span><h3 style="font-size:1.15rem">${esc(r.title)}</h3>
+       <span class="small muted">${esc(r.loc)}</span>${r.note?`<div class="office"><b>${esc(T(r.t).office)}</b>${esc(r.note)}</div>`:''}<p class="small">${esc(r.desc)}</p>
+       <button class="btn ${voted?'dark':'primary'}" data-act="vote:${r.id}">${voted?I.check:I.hand}${voted?`You and ${r.likes} others`:`Me too · ${r.likes}`}</button>
+       <span class="small muted">${r.rep} neighbours reported this · ${r.com} commented</span></div>
+    </div>
+    ${modal?`<div class="sheet-bg" style="align-items:center;justify-content:center"><div class="sheet" style="max-width:420px;border-radius:18px" role="dialog" aria-label="Report from the web">
+      <div class="row"><h2 style="font-size:1.15rem" class="grow">Report from the web</h2><button class="ib" data-act="web-close" aria-label="Close">${I.close}</button></div>
+      <p class="small">Reports must be made on the spot. Your browser will ask for your location now.</p>
+      <div class="banner info small">Photos without location and time in their file are saved as a draft. Finish them in the app when you are back on site.</div>
+      <div class="row"><span class="gps" style="color:#fff"><i></i>Neukölln · ±35 m</span><span class="small muted">Location check passed</span></div>
+      <button class="btn primary wide" data-act="web-close">Choose a photo</button></div></div>`:''}
+   ${A.sheet?sheetHTML():''}</div></div></div>`;
+  return protoFrame('web', W.screen, stage, `<div class="sim"><span class="small muted">${A.signed?'Signed in (shared with app)':'Guest. Me too opens the same sign-in as the app.'}</span></div>`);
+}
+
+/* =====================================================================
+   ADMIN CONSOLE
+   ===================================================================== */
+const D = S.adm;
+function inScope(){ const ids = desc(D.scope); return REPORTS.filter(r=>ids.includes(r.t)).sort((a,b)=>score(b)-score(a)); }
+function canEdit(r){ return ROLES[D.role].edit && r && r.t === D.scope; }
+function trendFor(scope){
+  const ids = desc(scope); const out={};
+  for(const [k,arr] of Object.entries(TREND_BASE)) out[k]=arr.map(v=>Math.round(ids.reduce((s,id)=>s+v*(TREND_FACTOR[id]||0),0)));
+  return out;
+}
+function adminCrumb(){
+  const allowed = new Set(desc(ROLES[D.role].scope));
+  const path = chain(D.scope);
+  const children = kids(D.scope).filter(k=>allowed.has(k.id) && k.status!=='notlive');
+  return `<div class="crumb" aria-label="Scope">${path.map((t,i)=>`${i?'<span class="sep">/</span>':''}<button data-act="scope:${t.id}" aria-current="${t.id===D.scope}" ${allowed.has(t.id)?'':'disabled'}>${esc(t.name)}</button>`).join('')}
+   ${children.length?`<span class="sep">/</span><select class="inp" style="width:auto;padding:3px 8px" data-change="scope" id="scope-child" aria-label="Go to a level below"><option value="">Below…</option>${children.map(k=>`<option value="${k.id}">${esc(k.name)}</option>`).join('')}</select>`:''}</div>`;
+}
+function renderAdmin(){
+  const tabs = [['briefing','Briefing',I.spark],['queue','Queue',I.list],['hotspots','Hotspots',I.fire],['trends','Trends',I.chart],['flagged','Flagged',I.flag],['settings','Tenants & roles',I.tree]];
+  const flags = inScope().filter(r=>r.flag && !r.discount).length;
+  if(D.tab==='email') return protoFrame('admin','email',emailStage(),'');
+  const body = {briefing:admBriefing,queue:admQueue,hotspots:admHotspots,trends:admTrends,flagged:admFlagged,settings:admSettings}[D.tab]();
+  const stage = `<div class="desk"><div class="chrome"><i></i><i></i><i></i><span class="url">kiezruf · admin/${chain(D.scope).map(t=>t.id).join('/')}/${D.tab}</span></div>
+   <div class="desk-scroll"><div style="min-width:960px">
+    <div class="adm-top"><div class="brand" style="font-size:1rem"><i></i>Kiezruf <small>Municipal console</small></div>${adminCrumb()}<span class="grow"></span><span class="small muted">${esc(ROLES[D.role].n)}</span></div>
+    <div class="adm"><nav class="adm-nav" aria-label="Console">${tabs.map(([k,n,ic])=>`<button data-act="tab:${k}" aria-current="${D.tab===k}">${ic}${n}${k==='flagged'&&flags?`<span class="badge">${flags}</span>`:''}</button>`).join('')}</nav>
+    <div class="adm-main">${body}</div></div>
+    ${D.toast?`<div class="toast" style="position:sticky;bottom:12px;margin:0 16px 12px;left:auto;right:auto" role="status">${I.check}${esc(D.toast)}</div>`:''}
+   </div></div></div>`;
+  const sim = `<div class="sim"><label for="sim-role">Sign in as</label><select id="sim-role" data-change="role">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${D.role===k?'selected':''}>${esc(v.n)}</option>`).join('')}</select>
+    <span class="small muted">The breadcrumb only allows levels inside this role's subtree. Roll-up levels are read-only.</span></div>`;
+  return protoFrame('admin', D.tab, stage, sim);
+}
+function kpis(){
+  const list = inScope(), open = list.filter(r=>r.status!=='Resolved').length, crit = list.filter(r=>level(r)==='Critical').length;
+  const tr = trendFor(D.scope), wk = Object.values(tr).reduce((s,a)=>s+a[7],0), prev = Object.values(tr).reduce((s,a)=>s+(a[3]+a[4]+a[5]+a[6])/4,0);
+  const ch = prev? Math.round((wk-prev)/prev*100):0;
+  const ack = {nk:'1.6 d',sp:'3.4 d',be:'2.3 d',bec:'2.3 d'}[D.scope]||'—';
+  return `<div class="kpis"><div class="kpi"><span>Open reports</span><b>${open}</b></div><div class="kpi"><span>Critical now</span><b style="color:var(--crit)">${crit}</b></div>
+   <div class="kpi"><span>New this week (KW45)</span><b>${wk}</b><span>${ch>=0?'+':''}${ch} % vs 4-week average</span></div><div class="kpi"><span>Median time to acknowledge</span><b>${ack}</b></div></div>`;
+}
+function admBriefing(){
+  const b = BRIEFINGS[D.scope] || (D.scope==='bec' ? BRIEFINGS.be : null);
+  const t = T(D.scope);
+  if(!b){
+    const top = inScope().slice(0,3);
+    return `<h2>Weekly briefing · ${esc(t.name)}</h2>${kpis()}<div class="callout"><b>No briefing for this level yet.</b><span class="small">Briefings are written for each live tenant and for roll-up levels that have a viewer assigned. Top reports in scope right now: ${top.map(r=>`<button class="cite" data-act="cite:${r.id}">${r.id}</button>`).join(' ')||'none'}.</span></div>`;
+  }
+  return `<div class="row wrap"><h2 class="grow">Weekly briefing · ${esc(t.name)}</h2><span class="small muted">Monday 10 Nov 2026, 07:00 · covers ${b.range}</span><button class="btn sm" data-act="tab:email">See the email</button></div>
+   ${kpis()}
+   <div class="brief">${b.items.map((it,i)=>{const fb=D.fb[D.scope+i];return `<div class="bitem"><span class="lv lv-${it.lv}">${it.k}</span><div class="col g4"><h3>${esc(it.h)}</h3><p>${esc(it.p)} ${it.c.map(id=>`<button class="cite" data-act="cite:${id}">${id}</button>`).join('')}</p>
+     <div class="row small">${fb?`<span class="muted">${I.check} Thanks, noted as "${fb}"</span>`:`<button class="btn sm" data-act="fb:${i}:Useful">Useful</button><button class="btn sm" data-act="fb:${i}:Something is wrong">Something is wrong</button>`}</div></div></div>`}).join('')}</div>
+   <div class="ai-foot">${I.spark}<span>Written by AI from ${b.basis} in ${esc(t.name)}. Every point links to its reports. Check before acting.</span></div>`;
+}
+function emailStage(){
+  const scope = (BRIEFINGS[D.scope] || D.scope==='bec') ? D.scope : 'nk';
+  const b = BRIEFINGS[scope] || BRIEFINGS.be, t = T(scope), urgent = b.items.filter(i=>i.k==='Urgent').length;
+  return `<div class="desk" style="max-width:720px"><div class="chrome"><i></i><i></i><i></i><span class="url">Mail · Inbox</span></div>
+   <div style="padding:16px 20px;border-bottom:1px solid var(--line)" class="col g4">
+    <b style="font-size:1.05rem">Kiezruf briefing · ${esc(t.name)} · ${b.range}: ${urgent} urgent</b>
+    <span class="small muted">From: Kiezruf briefing · To: Tenant admins, ${esc(t.office||t.name)} · Mon 10 Nov 2026, 07:00</span></div>
+   <div style="padding:20px;display:flex;flex-direction:column;gap:14px;max-width:62ch">
+    <div class="brand" style="font-size:1rem"><i></i>Kiezruf</div>
+    <p>Good morning. Here is what needs attention in ${esc(t.name)} this week.</p>
+    ${b.items.map(it=>`<div class="col g4" style="border-left:3px solid var(--${({Critical:'crit',High:'high',Medium:'med',Low:'low'})[it.lv]});padding-left:12px"><span class="lv lv-${it.lv}" style="align-self:flex-start">${it.k}</span><b>${esc(it.h)}</b><span class="small">${esc(it.p)}</span>
+      ${it.c.length?`<span class="small">${it.c.map(id=>`<button class="cite" data-act="cite:${id}">Open ${id}</button>`).join(' ')}</span>`:''}</div>`).join('')}
+    <button class="btn primary" style="align-self:flex-start" data-act="tab:briefing">Open the briefing in Kiezruf</button>
+    <p class="small muted" style="border-top:1px solid var(--line);padding-top:12px">Written by AI from ${b.basis}. Every point links to its reports. Check before acting. No photos or personal data are included in this email. You get this email because you are a tenant admin for ${esc(t.name)} in Kiezruf. <u>Unsubscribe</u></p>
+   </div></div>`;
+}
+function admQueue(){
+  const list = inScope(); const roll = desc(D.scope).length>1;
+  const sel = list.find(r=>r.id===D.sel) || list[0];
+  if(sel) D.sel = sel.id;
+  return `<div class="row wrap"><h2 class="grow">Priority queue · ${esc(T(D.scope).name)}</h2><span class="small muted">Sorted by score · ${list.length} reports</span></div>
+   <div class="q"><div class="tbl-wrap"><table class="qt"><thead><tr><th>Level</th><th>Report</th>${roll?'<th>Tenant</th>':''}<th>Status</th><th class="num">Score</th></tr></thead><tbody>
+   ${list.map(r=>`<tr class="${r.id===D.sel?'sel':''}" data-act="sel:${r.id}"><td><span class="lv lv-${level(r)}">${level(r)}</span></td><td><b>${esc(r.title)}</b><div class="meta">${esc(r.sub)} · ${esc(r.loc)} · ${ago(r.ageH)}${r.flag&&!r.discount?' · <span style="color:var(--crit)">unusual voting</span>':''}</div></td>${roll?`<td class="small">${esc(T(r.t).name)}</td>`:''}<td><span class="status ${statusCls(r.status)}">${r.status}</span></td><td class="num mono">${score(r).toFixed(1)}</td></tr>`).join('')}
+   </tbody></table></div>${sel?queueDetail(sel):'<div class="panel">No reports in scope.</div>'}</div>`;
+}
+function queueDetail(r){
+  const b = breakdown(r), ed = canEdit(r), up = chain(r.t).slice(0,-1).reverse().filter(t=>t.status!=='group'||t.id==='be');
+  const ext = EXTERNAL[chain(r.t)[1].id]||[];
+  const sib = kids(T(r.t).parent).filter(t=>t.id!==r.t && isLive(t));
+  return `<div class="panel"><div class="photo">${scene(r.scene,true)}<span class="tag">Blurred · EXIF removed</span></div>
+   <div class="row"><span class="lv lv-${level(r)}">${level(r)}</span>${r.override?'<span class="chip c-changed">Override</span>':''}<span class="mono small muted">${r.id}</span></div>
+   <h3>${esc(r.title)}</h3><span class="small muted">${esc(r.loc)} · ${esc(T(r.t).name)}</span>
+   <div class="ai-chip small">${I.spark}<span class="grow">Photo AI: <b>${esc(r.ai.cat)}</b> (${Math.round(r.ai.conf*100)} %)${r.ai.conf<.8?' · below threshold, citizen chose':''}</span></div>
+   <div class="brk"><span>Co-reporters ${r.rep} × 5</span><span>${r.rep*5}</span><span>Commenters ${r.com} × 2</span><span>${r.com*2}</span><span>Me too ${b.likes} × 1${r.discount?` (−${r.discount} discounted)`:''}</span><span>${b.likes}</span>
+    <span>Recency (${ago(r.ageH)})</span><span>×${b.decay.toFixed(2)}</span><span>Danger (${r.danger} marks)</span><span>×${b.md}</span><span>Safety category</span><span>×${b.ms}</span><span class="tot">Score</span><span class="tot">${b.score.toFixed(1)}</span></div>
+   ${r.flag&&!r.discount?`<div class="flag"><b>Unusual voting.</b> ${esc(r.flag)}. <button class="btn sm ghost" data-act="tab:flagged">Review in Flagged</button></div>`:''}
+   ${r.merge?`<div class="banner info small"><b>Possible duplicate:</b> ${esc(r.merge.t)} · ${r.merge.d} · ${r.merge.a} <button class="btn sm" data-act="merge:${r.id}" ${ed?'':'disabled'}>Merge</button></div>`:''}
+   ${ed?`<div class="field"><label for="q-status">Status</label><select class="inp" id="q-status">${['Open','Acknowledged','In progress','Resolved','Rejected'].map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select></div>
+   <div class="field"><label for="q-note">Public note</label><textarea class="inp" id="q-note">${esc(r.note)}</textarea></div>
+   <div class="field"><label for="q-fwd">Forward to</label><select class="inp" id="q-fwd"><option value="">Don't forward</option>${up.map(t=>`<option>${esc(t.name)} (${esc(t.type)})</option>`).join('')}${sib.map(t=>`<option>${esc(t.name)} (${esc(t.type)})</option>`).join('')}${ext.map(e=>`<option>${esc(e)}</option>`).join('')}</select></div>
+   <div class="field"><label for="q-ov">Override level</label><select class="inp" id="q-ov"><option value="">Use score</option>${LEVELS.map(([l])=>`<option ${r.override===l?'selected':''}>${l}</option>`).join('')}</select><input class="inp" id="q-why" placeholder="Reason (required for an override)"></div>
+   <button class="btn primary" data-act="save:${r.id}">Save and notify followers</button>`
+   :`<div class="callout small">Read-only. ${ROLES[D.role].edit?`Open <b>${esc(T(r.t).name)}</b> in the breadcrumb to change this report.`:'Only the owning tenant changes status. This level can read, compare and receive forwarded reports.'}</div>`}
+  </div>`;
+}
+function admHotspots(){
+  const ids = desc(D.scope), roll = ids.length>1;
+  if(roll){
+    const rows = ids.filter(id=>T(id).status==='live'||T(id).status==='pilot');
+    const tr = id => Object.values(trendFor(id)).reduce((s,a)=>s+a[7],0);
+    return `<h2>Hotspots · ${esc(T(D.scope).name)}</h2><p class="small muted">At roll-up levels hotspots are compared by tenant. Open a tenant to see its map.</p>
+     <div class="tbl-wrap"><table><thead><tr><th>Tenant</th><th class="num">Open</th><th class="num">Critical</th><th class="num">New KW45</th><th>Top hotspot</th><th></th></tr></thead><tbody>
+     ${rows.map(id=>{const rs=REPORTS.filter(r=>r.t===id),h=(HOTSPOTS[id]||[])[0];return `<tr><td><b>${esc(T(id).name)}</b><div class="meta">${esc(T(id).type)}</div></td><td class="num mono">${rs.filter(r=>r.status!=='Resolved').length}</td><td class="num mono">${rs.filter(r=>level(r)==='Critical').length}</td><td class="num mono">${tr(id)}</td><td class="small">${h?`${esc(h.name)} · ${esc(h.cat)}`:'—'}</td><td><button class="btn sm" data-act="scope:${id}">Open</button></td></tr>`}).join('')}
+     </tbody></table></div>`;
+  }
+  const hs = HOTSPOTS[D.scope]||[], sel = hs.find(h=>h.id===D.hs)||hs[0];
+  return `<h2>Hotspots · ${esc(T(D.scope).name)}</h2>
+   <div class="hs"><div class="map" style="aspect-ratio:16/10">${streetMap()}${hs.map(h=>{const sz=22+h.n*4;return `<button class="cluster cl-${h.lv}" style="left:${h.x}%;top:${h.y}%;width:${sz}px;height:${sz}px" data-act="hs:${h.id}" aria-pressed="${sel&&sel.id===h.id}" aria-label="${esc(h.name)}, ${h.n} reports">${h.n}</button>`}).join('')}</div>
+   <div class="col g8">${sel?`<div class="panel"><span class="lv lv-${sel.lv}" style="align-self:flex-start">${sel.lv}</span><h3>${esc(sel.name)}</h3><span class="small muted">${esc(sel.cat)} · ${sel.n} report${sel.n>1?'s':''}</span><p class="small">${esc(sel.rec)}</p><div>${sel.ids.map(id=>`<button class="cite" data-act="cite:${id}">${id}</button>`).join('')}</div></div>`:'<div class="panel small muted">No hotspots.</div>'}
+    <div class="row wrap small muted"><span class="lv lv-Critical">Critical</span><span class="lv lv-High">High</span><span class="lv lv-Medium">Medium</span><span>Size = reports in cluster</span></div></div></div>`;
+}
+function barChart(name, vals, max){
+  const W=300,H=120,pl=22,pb=18,pt=14,bw=(W-pl-8)/vals.length;
+  const y=v=>H-pb-(v/max)*(H-pb-pt);
+  const ticks=[0,Math.round(max/2),max];
+  const last=vals[vals.length-1], avg=(vals[3]+vals[4]+vals[5]+vals[6])/4, ch=avg?Math.round((last-avg)/avg*100):0;
+  return `<div class="chart"><div class="row"><b class="grow small">${esc(name)}</b><span class="mono small" style="color:${ch>25?'var(--crit)':ch<-25?'var(--ok)':'var(--muted)'}">${ch>=0?'+':''}${ch} %</span></div>
+   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(name)}: ${vals.join(', ')} reports per week">
+    ${ticks.map(t=>`<line x1="${pl}" x2="${W}" y1="${y(t)}" y2="${y(t)}" style="stroke:var(--line);stroke-width:1"/><text x="${pl-4}" y="${y(t)+3}" text-anchor="end">${t}</text>`).join('')}
+    ${vals.map((v,i)=>`<rect x="${pl+i*bw+3}" y="${y(v)}" width="${bw-6}" height="${H-pb-y(v)}" rx="2" style="fill:${i===vals.length-1?'var(--tram)':'var(--tram-soft)'}"/>`).join('')}
+    <text class="lbl-end" x="${pl+(vals.length-1)*bw+bw/2}" y="${y(last)-4}" text-anchor="middle">${last}</text>
+    ${WEEKS.map((w,i)=>i%2===1?`<text x="${pl+i*bw+bw/2}" y="${H-4}" text-anchor="middle">${w}</text>`:'').join('')}
+   </svg><span class="small muted">KW45 vs 4-week average of ${avg.toFixed(1)}</span></div>`;
+}
+function admTrends(){
+  const tr = trendFor(D.scope), max = Math.max(4, ...Object.values(tr).flat());
+  const m = Math.ceil(max/4)*4;
+  return `<div class="row wrap"><h2 class="grow">Trends · ${esc(T(D.scope).name)}</h2><button class="btn sm" data-act="export">Export CSV</button></div>
+   ${kpis()}<p class="small muted">Reports per week, KW38–45. Same scale on every chart so categories can be compared.</p>
+   <div class="sm-grid">${Object.entries(tr).map(([k,v])=>barChart(k,v,m)).join('')}</div>`;
+}
+function admFlagged(){
+  const fl = inScope().filter(r=>r.flag);
+  return `<h2>Flagged · ${esc(T(D.scope).name)}</h2>
+   <p class="small muted">Spike rule: more than 10 votes in 60 minutes, more than half from accounts younger than 7 days. Without a residency check this is the main defence against manipulation.</p>
+   ${fl.map(r=>`<div class="panel"><div class="row"><b class="grow">Unusual voting on "${esc(r.title)}"</b>${r.discount?'<span class="chip c-live">Resolved</span>':''}</div><span class="small">${esc(r.flag)}</span>
+     ${r.discount?`<span class="small muted">${r.discount} votes discounted. Score now ${score(r).toFixed(1)} (${level(r)}).</span>`:`<div class="row wrap"><button class="btn sm primary" data-act="discount:${r.id}" ${canEdit(r)?'':'disabled'}>Count new accounts at half weight</button><button class="btn sm" data-act="cite:${r.id}">Open report</button></div>`}</div>`).join('')||''}
+   ${D.scope==='nk'||D.scope==='be'||D.scope==='bec'?`<div class="panel"><b>Comment flagged by 2 citizens</b><span class="small">On "Swing seat broken at playground" · offensive-language filter</span><div class="row"><button class="btn sm" ${ROLES[D.role].edit?'':'disabled'} data-act="toast:Comment hidden from citizens">Hide comment</button><button class="btn sm" ${ROLES[D.role].edit?'':'disabled'} data-act="toast:Comment restored">Keep</button></div></div>`:''}
+   ${!fl.length && !(D.scope==='nk'||D.scope==='be'||D.scope==='bec')?'<p class="muted">Nothing needs review.</p>':''}`;
+}
+function admSettings(){
+  const role = ROLES[D.role], root = role.scope==='de'?'de':role.scope;
+  if(!desc(root).includes(D.tnode)) D.tnode = root;
+  const t = T(D.tnode), [cls,lab] = STATUS_CHIP[t.status];
+  const ed = role.settings;
+  const staff = {nk:[['Case worker','4 people'],['Tenant admin','1 person']],sp:[['Case worker','3 people'],['Tenant admin','1 person']],be:[['Viewer','2 people (Senatsverwaltung)']],de:[['Platform admin','3 people']]}[t.id]||[];
+  return `<h2>Tenants &amp; roles</h2>${ed?'':'<div class="callout small">Read-only for this role. Tenant admins change their own tenant; platform admins change the tree.</div>'}
+   <div class="two"><div class="panel"><h3>Tree</h3><ul class="tree">${treeHTML(root,{clickable:true})}</ul></div>
+   <div class="panel"><div class="row"><h3 class="grow">${esc(t.name)}</h3><span class="chip ${cls}">${lab}</span></div><span class="small muted">${esc(t.type)} · ${esc(t.key)}</span>
+    <div class="field"><label for="ts">Status</label><select class="inp" id="ts" ${ed&&role.scope==='de'?'':'disabled'}>${Object.entries(STATUS_CHIP).map(([k,[,l]])=>`<option ${k===t.status?'selected':''}>${l}</option>`).join('')}</select></div>
+    <span class="small muted">Boundary: ${t.type==='Bezirk'?'Berlin open data, Bezirksgrenzen':'BKG VG250'} · Office: ${esc(t.office||'—')}</span>
+    <b class="small">Roles at this node</b>${staff.length?staff.map(([r,n])=>`<div class="list-row small" style="padding:6px 0"><span>${r}</span><span class="muted">${n}</span></div>`).join(''):'<span class="small muted">None. Access comes from a level above.</span>'}
+    ${(t.status==='live'||t.status==='pilot')?`<b class="small">Categories routed here</b><span class="small">Traffic: traffic light, pothole, bike lane, street lighting, road sign · Community: illegal dumping, playground, public toilet, youth centre, waste bins</span>
+    <b class="small">Score thresholds</b><span class="small mono">Critical ≥ 60 · High ≥ 25 · Medium ≥ 10</span>
+    <b class="small">Forwarding contacts (email)</b><span class="small">${(EXTERNAL[chain(t.id)[1]?.id]||[]).map(esc).join(' · ')||'None yet'}</span><span class="small muted">Addresses still to be collected (Q-07).</span>
+    <b class="small">Monday briefing email</b><span class="small">Mondays 07:00 to the tenant admins of this tenant</span>`:''}
+    <button class="btn sm" ${ed?'':'disabled'} data-act="toast:Invitation sent">Invite staff</button></div></div>`;
+}
+
+/* =====================================================================
+   ROUTER + EVENTS
+   ===================================================================== */
+const VIEWS = {plan:renderPlan, stories:renderStories, app:renderApp, web:renderWeb, admin:renderAdmin};
+function view(){ const h = location.hash.slice(1); return VIEWS[h]?h:'plan'; }
+function render(keepScroll){
+  const v = view(), scr = document.getElementById('scr'), st = scr?scr.scrollTop:0;
+  document.getElementById('page').innerHTML = VIEWS[v]();
+  document.querySelectorAll('.tabs a').forEach(a=>a.setAttribute('aria-current', a.getAttribute('href')==='#'+v?'page':'false'));
+  const ns = document.getElementById('scr'); if(ns && keepScroll) ns.scrollTop = st;
+}
+let toastTimer;
+function toast(where,msg){ where.toast=msg; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{where.toast='';render(true);},2600); }
+function needSign(verb, act){ if(A.signed) return false; A.sheet={step:'email'}; A.pending={verb,act}; return true; }
+function go(screen){ A.screen=screen; A.toast=''; }
+
+function act(a, el){
+  const [k, ...rest] = a.split(':'); const v = rest.join(':');
+  switch(k){
+   case 'goto': { const [surf,id]=v.split(':'); if(surf==='app'){ A.sheet=null; if(id==='detail'&&!A.rid) A.rid=REPORTS[0].id; if(id==='posted'&&!A.newId){A.newId='BE-NK-2026-0118';} go(id);} else if(surf==='web'){ S.web.screen=id; } else { D.tab=id; } break; }
+   case 'screen': A.sheet=null; go(v); break;
+   case 'open': A.rid=v; if(v===A.newId && !R(v)) addNew(); go('detail'); break;
+   case 'filter': A.filter=v; break;
+   case 'vote': if(needSign('vote',a)) break; A.voted[v]=!A.voted[v]; if(A.voted[v]) A.follow[v]=true; toast(A, A.voted[v]?'Thanks. You now follow this report.':'Vote removed'); break;
+   case 'follow': if(needSign('follow',a)) break; A.follow[v]=!A.follow[v]; break;
+   case 'sheet-close': A.sheet=null; A.pending=null; if(A.screen==='signin') go('detail'); break;
+   case 'sheet-code': A.sheet={step:'code'}; break;
+   case 'sheet-done': { A.signed=true; A.sheet=null; const p=A.pending; A.pending=null; if(A.screen==='signin') go('detail');
+     if(A._cmt){ const [id,val]=A._cmt; A._cmt=null; R(id).cmts.push(['Y',val,'now']); R(id).com++; A.follow[id]=true; toast(A,'Signed in. Comment posted.'); break; }
+     if(p&&p.act) return act(p.act); break; }
+   case 'signin-plain': A.sheet={step:'email'}; A.pending={verb:'continue'}; break;
+   case 'signout': A.signed=false; A.voted={}; A.follow={}; break;
+   case 'shoot': go(isLive(locTenant())?'compose':'notlive'); break;
+   case 'ai-change': saveDraft(); A.draft.ai=false; break;
+   case 'danger': saveDraft(); A.draft.danger=el.checked; break;
+   case 'post': saveDraft(); go(A.loc==='nk'?'dup':'compose'); if(A.loc!=='nk') return act('different'); break;
+   case 'join': if(needSign('add your photo',a)) break; R(v).rep++; A.voted[v]=true; A.follow[v]=true; A.rid=v; go('detail'); toast(A,'Your photo was added. You now follow this report.'); break;
+   case 'different': if(needSign('post','different')) break; { const t=locTenant(); const code={nk:'BE-NK',sp:'BE-SP'}[t.id]; A.newId=`${code}-2026-0${A.seq++}`; addNew(); go('posted'); } break;
+   case 'notify': A.notify[v]=!A.notify[v]; break;
+   case 'web-open': S.web.rid=v; S.web.screen='web-browse'; break;
+   case 'web-post': S.web.screen='web-post'; break;
+   case 'web-close': S.web.screen='web-browse'; break;
+   case 'tab': D.tab=v; break;
+   case 'scope': D.scope=v; D.sel=null; D.hs=null; break;
+   case 'sel': D.sel=v; break;
+   case 'hs': D.hs=v; break;
+   case 'tnode': D.tnode=v; break;
+   case 'cite': { const r=R(v); if(!r){ D.tab='queue'; D.sel='BE-NK-2026-0109'; toast(D,`${v} is a probable duplicate of BE-NK-2026-0109. Merge it there.`); break;} D.tab='queue'; D.sel=v; if(!desc(D.scope).includes(r.t)) D.scope=r.t; break; }
+   case 'fb': { const [i,lbl]=[v.split(':')[0], v.split(':').slice(1).join(':')]; D.fb[D.scope+i]=lbl; break; }
+   case 'merge': { const r=R(v); r.rep+=1; r.merge=null; toast(D,'Merged. Duplicate reporter counted once.'); break; }
+   case 'save': { const r=R(v), st=document.getElementById('q-status').value, note=document.getElementById('q-note').value, fwd=document.getElementById('q-fwd').value, ov=document.getElementById('q-ov').value, why=document.getElementById('q-why').value.trim();
+     if(ov && !why){ document.getElementById('q-why').focus(); document.getElementById('q-why').placeholder='Add a reason to override the level'; return; }
+     r.status = fwd?'Forwarded':st; r.note = fwd?`Forwarded to ${fwd}. ${note}`.trim():note; r.override = ov||null;
+     const isExt = Object.values(EXTERNAL).flat().includes(fwd), n = r.rep+r.com+r.likes;
+     toast(D, isExt ? `Forwarded by email to ${fwd}. ${n} followers notified.` : `Saved. ${n} followers notified.`); break; }
+   case 'discount': { const r=R(v); r.discount=8; toast(D,'15 new-account votes now count at half weight.'); break; }
+   case 'export': toast(D,'Export prepared: queue and trends, KW38–45'); break;
+   case 'toast': toast(view()==='admin'?D:A, v); break;
+  }
+  render(true);
+}
+function saveDraft(){ const d=document.getElementById('desc'); if(d) A.draft.desc=d.value; }
+function addNew(){
+  if(R(A.newId)) return; const t=locTenant();
+  REPORTS.push({id:A.newId,t:t.id,title:A.draft.desc?A.draft.desc.slice(0,40):'Pedestrian light not working',grp:'Traffic',sub:'Traffic light',loc:'Karl-Marx-Straße 83',ageH:0,status:'Open',rep:1,com:0,likes:0,danger:A.draft.danger?1:0,safety:true,x:48,y:46,scene:'light',dist:'0 m',ai:{cat:'Traffic light',conf:.94},note:'',desc:A.draft.desc||'No description.',cmts:[]});
+  A.follow[A.newId]=true;
+}
+
+document.addEventListener('click', e=>{
+  const go2 = e.target.closest('[data-goto]'); if(go2){ e.preventDefault(); document.getElementById(go2.dataset.goto)?.scrollIntoView({behavior:'smooth'}); return; }
+  const op = e.target.closest('[data-open]'); if(op){ const [surf,id]=op.dataset.open.split(':'); if(surf==='app'){ if(id==='detail'&&!A.rid)A.rid=REPORTS[0].id; if(id==='posted'&&!A.newId)A.newId='BE-NK-2026-0118'; A.sheet=null; go(id);} else if(surf==='web') S.web.screen=id; else D.tab=id; return; }
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  if(el.tagName==='INPUT' && el.type==='checkbox'){ act(el.dataset.act, el); return; }
+  e.preventDefault(); act(el.dataset.act, el);
+});
+document.addEventListener('change', e=>{
+  const c = e.target.dataset.change; if(!c) return;
+  if(c==='loc'){ A.loc=e.target.value; A.sheet=null; go('home'); A.filter='All'; }
+  if(c==='role'){ D.role=e.target.value; D.scope=ROLES[D.role].scope==='de'?'nk':ROLES[D.role].scope; D.sel=null; D.tnode=ROLES[D.role].scope; if(D.tab==='settings'&&!ROLES[D.role].settings){} }
+  if(c==='scope' && e.target.value){ D.scope=e.target.value; D.sel=null; D.hs=null; }
+  render(true);
+});
+document.addEventListener('submit', e=>{
+  const f = e.target.closest('[data-form]'); if(!f) return; e.preventDefault();
+  const id = f.dataset.form.split(':')[1], val = document.getElementById('cmt-in').value.trim();
+  if(!val) return;
+  if(!A.signed){ A.sheet={step:'email'}; A.pending={verb:'comment',act:null}; A._cmt=[id,val]; render(true); return; }
+  R(id).cmts.push(['Y',val,'now']); R(id).com++; A.follow[id]=true; toast(A,'Comment posted'); render(true);
+});
+window.addEventListener('hashchange', ()=>{ render(); window.scrollTo(0,0); });
+render();
+</script>

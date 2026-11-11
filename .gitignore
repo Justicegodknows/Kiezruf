@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+.expo/
+.env
+.env.local
+*.log
+.DS_Store
+.pnpm-store/
+.pnpm-cache/
+.npm-cache/
+.expo-home/
