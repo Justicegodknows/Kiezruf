@@ -1,4 +1,4 @@
-// API error codes (README, "API (citizen core)") and the client's own codes, mapped to translated messages.
+// API error codes (README, "API (citizen core)" and "API (admin console, Phase 2)") and the client's own codes, mapped to translated messages.
 import type { MessageKey } from '@/i18n';
 
 /** Codes the API answers with as `{ "error": "<code>" }`. */
@@ -21,6 +21,17 @@ export const API_ERROR_CODES = [
   'not_on_site',
   'already_live',
   'no_tenant',
+  // Console (README "API (admin console, Phase 2)").
+  'not_staff',
+  'invalid_totp',
+  'challenge_expired',
+  'read_only',
+  'invalid_transition',
+  'reason_required',
+  'not_same_tenant',
+  'invalid_target',
+  'link_expired',
+  'forbidden_role',
 ] as const;
 
 /** Codes the web client produces itself (network, browser location, uploads, the BFF). */
@@ -56,6 +67,7 @@ export function codeForStatus(status: number): ErrorCode {
   if (status === 401) return 'unauthorized';
   if (status === 403) return 'forbidden';
   if (status === 404) return 'not_found';
+  if (status === 410) return 'link_expired';
   if (status === 413) return 'too_large';
   if (status === 429) return 'rate_limited';
   if (status >= 500) return 'unavailable';

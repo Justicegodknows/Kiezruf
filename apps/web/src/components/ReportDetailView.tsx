@@ -91,6 +91,12 @@ export function ReportDetailView({ publicId }: { publicId: string }) {
         {r.dangerous ? <span className="tag danger">{t('report.dangerous')}</span> : null}
       </div>
       {r.description ? <p>{r.description}</p> : null}
+      {r.publicNote ? (
+        <section className="notice info" aria-labelledby="office-note-title">
+          <h3 id="office-note-title">{t('detail.officeNote', { office: r.office ?? r.tenantName })}</h3>
+          <p>{r.publicNote}</p>
+        </section>
+      ) : null}
       <dl className="facts small">
         <dt>{t('detail.office')}</dt>
         <dd>{r.office ? `${r.office} (${r.tenantName})` : r.tenantName}</dd>

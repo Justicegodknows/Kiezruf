@@ -71,6 +71,8 @@ export interface PublicReport {
 
 export interface ReportDetail extends PublicReport {
   photos: { url: string }[];
+  /** The office's note on the latest status change (US-28); shown to citizens. */
+  publicNote?: string | null;
 }
 
 /** GET /me/reports rows; GET /me/follows rows have `updatedAt` instead of `createdAt` and no description or office. */

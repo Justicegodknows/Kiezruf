@@ -10,7 +10,7 @@ export function groupLabel(t: Translate, key: string): string {
   return group ? t(`group.${group}` as MessageKey) : '';
 }
 
-const STATUS_KEYS = new Set(['processing', 'in_moderation', 'open', 'acknowledged', 'in_progress', 'resolved', 'rejected', 'forwarded']);
+const STATUS_KEYS = new Set(['processing', 'in_moderation', 'open', 'acknowledged', 'in_progress', 'resolved', 'rejected', 'forwarded', 'merged']);
 
 export function statusLabel(t: Translate, status: string): string {
   return STATUS_KEYS.has(status) ? t(`status.${status}` as MessageKey) : t('status.unknown');

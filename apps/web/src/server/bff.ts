@@ -6,6 +6,15 @@ import { REPORT_ID_PATTERN } from '@kiezruf/shared';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export const SESSION_COOKIE = 'kiezruf_session';
+/** The staff session (console). Its own cookie: staff routes never see the citizen token and vice versa. */
+export const STAFF_COOKIE = 'kiezruf_staff_session';
+/** The sign-in challenge between the email code and the TOTP step. Only the staff sign-in routes read it. */
+export const STAFF_CHALLENGE_COOKIE = 'kiezruf_staff_challenge';
+export const STAFF_CHALLENGE_PATH = '/api/staff/auth';
+/** Staff sessions last 12 hours (README, "API (admin console, Phase 2)"); used when the API sends no expiry. */
+export const STAFF_SESSION_HOURS = 12;
+const STAFF_CHALLENGE_SECONDS = 10 * 60;
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,200}$/;
 const MAX_BODY_BYTES = 64 * 1024;
 const API_TIMEOUT_MS = 15_000;
 
@@ -29,7 +38,54 @@ export function clearSessionCookie(response: NextResponse) {
 
 export function sessionToken(request: NextRequest): string | null {
   const value = request.cookies.get(SESSION_COOKIE)?.value;
-  return value && /^[A-Za-z0-9_-]{20,200}$/.test(value) ? value : null;
+  return value && TOKEN_PATTERN.test(value) ? value : null;
+}
+
+// --- Staff session (console) -------------------------------------------------------------------------------
+
+/**
+ * httpOnly, Secure, SameSite=Strict, whole site (the console pages under /console check it in src/proxy.ts).
+ * Strict: a link from another site (an invitation email) opens the console without the session, and the
+ * sign-in page then finds the session with a same-site request.
+ */
+export function staffCookieOptions(expires: Date) {
+  return { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/', expires };
+}
+
+/** Expires with the token: the API's `expiresAt`, or 12 hours from now when it is missing or unreadable. */
+export function setStaffCookie(response: NextResponse, token: string, expiresAt: string | undefined, now = new Date()) {
+  const fromApi = expiresAt ? new Date(expiresAt) : null;
+  const fallback = new Date(now.getTime() + STAFF_SESSION_HOURS * 3_600_000);
+  const expires = fromApi && !Number.isNaN(fromApi.getTime()) && fromApi > now ? fromApi : fallback;
+  response.cookies.set(STAFF_COOKIE, token, staffCookieOptions(expires));
+}
+
+export function clearStaffCookie(response: NextResponse) {
+  response.cookies.set(STAFF_COOKIE, '', { ...staffCookieOptions(new Date(0)), maxAge: 0 });
+}
+
+export function staffToken(request: NextRequest): string | null {
+  const value = request.cookies.get(STAFF_COOKIE)?.value;
+  return value && TOKEN_PATTERN.test(value) ? value : null;
+}
+
+export function setStaffChallenge(response: NextResponse, challenge: string) {
+  response.cookies.set(STAFF_CHALLENGE_COOKIE, challenge, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    path: STAFF_CHALLENGE_PATH,
+    maxAge: STAFF_CHALLENGE_SECONDS,
+  });
+}
+
+export function clearStaffChallenge(response: NextResponse) {
+  response.cookies.set(STAFF_CHALLENGE_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'strict', path: STAFF_CHALLENGE_PATH, maxAge: 0, expires: new Date(0) });
+}
+
+export function staffChallenge(request: NextRequest): string | null {
+  const value = request.cookies.get(STAFF_CHALLENGE_COOKIE)?.value;
+  return value && /^[A-Za-z0-9_.~+/=-]{8,512}$/.test(value) ? value : null;
 }
 
 export function json(body: unknown, status = 200): NextResponse {
@@ -125,54 +181,102 @@ type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 const ID = REPORT_ID_PATTERN.source.replace(/^\^|\$$/g, '');
 const UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+/** Forward-link tokens (US-45): opaque, URL-safe. */
+const LINK_TOKEN = '[A-Za-z0-9_-]{16,200}';
+
+/**
+ * Which token a route gets. `public`: none, so browsing stays anonymous even when signed in. `citizen`: the
+ * citizen cookie only. `staff`: the staff cookie only, so a citizen session can never reach a staff route and
+ * a staff session never acts as a citizen.
+ */
+export type Auth = 'public' | 'citizen' | 'staff';
 
 interface Rule {
   methods: Method[];
   pattern: RegExp;
-  /** Public endpoints get no token, so browsing stays anonymous even for signed-in citizens. */
-  auth: boolean;
+  auth: Auth;
+  /** Query parameters passed on for GET; anything else is dropped. */
+  query: ReadonlySet<string>;
 }
 
-const rule = (methods: Method[], path: string, auth: boolean): Rule => ({ methods, pattern: new RegExp(`^${path}$`), auth });
+/** Query parameters the public endpoints take. */
+const PUBLIC_QUERY = new Set(['lat', 'lon', 'radiusM', 'category', 'status', 'maxAgeDays', 'limit']);
+/** GET /staff/reports (US-25). */
+const QUEUE_QUERY = new Set(['status', 'level', 'category', 'tenantId', 'maxAgeDays', 'sort', 'limit', 'offset']);
+const NO_QUERY = new Set<string>();
 
-/** Every API endpoint the citizen web may reach through the catch-all proxy. Sign-in has its own routes. */
+const rule = (methods: Method[], path: string, auth: Auth, query: ReadonlySet<string> = auth === 'staff' ? NO_QUERY : PUBLIC_QUERY): Rule => ({
+  methods,
+  pattern: new RegExp(`^${path}$`),
+  auth,
+  query,
+});
+
+/**
+ * Every API endpoint the browser may reach through the catch-all proxy. Sign-in (citizen and staff) has its own
+ * routes, so `auth/*` and `staff/auth/*` are not here.
+ */
 export const PROXY_RULES: readonly Rule[] = [
-  rule(['GET'], 'public/route', false),
-  rule(['POST'], 'public/report-attempts', false),
-  rule(['GET'], 'public/reports', false),
-  rule(['GET'], `public/reports/${ID}`, false),
-  rule(['GET'], `public/reports/${ID}/comments`, false),
-  rule(['POST'], 'uploads', true),
-  rule(['POST'], 'reports', true),
-  rule(['GET'], 'me/reports', true),
-  rule(['GET'], 'me/follows', true),
-  rule(['GET'], `reports/${ID}/me`, true),
-  rule(['PUT', 'DELETE'], `reports/${ID}/me-too`, true),
-  rule(['PUT', 'DELETE'], `reports/${ID}/follow`, true),
-  rule(['POST'], `reports/${ID}/comments`, true),
-  rule(['POST'], `comments/${UUID}/flag`, true),
-  rule(['GET', 'PUT'], 'me/notification-settings', true),
-  rule(['POST'], 'go-live-alerts', true),
-  rule(['PATCH', 'DELETE'], 'me', true),
+  rule(['GET'], 'public/route', 'public'),
+  rule(['POST'], 'public/report-attempts', 'public'),
+  rule(['GET'], 'public/reports', 'public'),
+  rule(['GET'], `public/reports/${ID}`, 'public'),
+  rule(['GET'], `public/reports/${ID}/comments`, 'public'),
+  rule(['POST'], 'uploads', 'citizen'),
+  rule(['POST'], 'reports', 'citizen'),
+  rule(['GET'], 'me/reports', 'citizen'),
+  rule(['GET'], 'me/follows', 'citizen'),
+  rule(['GET'], `reports/${ID}/me`, 'citizen'),
+  rule(['PUT', 'DELETE'], `reports/${ID}/me-too`, 'citizen'),
+  rule(['PUT', 'DELETE'], `reports/${ID}/follow`, 'citizen'),
+  rule(['POST'], `reports/${ID}/comments`, 'citizen'),
+  rule(['POST'], `comments/${UUID}/flag`, 'citizen'),
+  rule(['GET', 'PUT'], 'me/notification-settings', 'citizen'),
+  rule(['POST'], 'go-live-alerts', 'citizen'),
+  rule(['PATCH', 'DELETE'], 'me', 'citizen'),
+  // Console (README "API (admin console, Phase 2)"). The API scopes every one to the caller's subtree (US-42).
+  rule(['GET'], 'staff/me', 'staff'),
+  rule(['GET'], 'staff/reports', 'staff', QUEUE_QUERY),
+  rule(['GET'], `staff/reports/${ID}`, 'staff'),
+  rule(['PATCH'], `staff/reports/${ID}/status`, 'staff'),
+  rule(['PUT'], `staff/reports/${ID}/override`, 'staff'),
+  rule(['POST'], `staff/reports/${ID}/forward`, 'staff'),
+  rule(['POST'], `staff/reports/${ID}/merge`, 'staff'),
+  rule(['POST'], `staff/reports/${ID}/spike`, 'staff'),
+  rule(['GET'], 'staff/moderation', 'staff'),
+  rule(['PATCH'], `staff/comments/${UUID}`, 'staff'),
+  rule(['POST'], `staff/accounts/${UUID}/ban`, 'staff'),
+  rule(['GET'], 'staff/tenants', 'staff'),
+  rule(['PATCH'], `staff/tenants/${UUID}`, 'staff'),
+  rule(['PUT'], `staff/tenants/${UUID}/settings`, 'staff'),
+  rule(['GET', 'POST'], `staff/tenants/${UUID}/contacts`, 'staff'),
+  rule(['DELETE'], `staff/tenants/${UUID}/contacts/${UUID}`, 'staff'),
+  rule(['GET', 'POST'], `staff/tenants/${UUID}/staff`, 'staff'),
+  rule(['DELETE'], `staff/tenants/${UUID}/staff/${UUID}`, 'staff'),
+  // Forward links (US-45): no login, so no token of either kind.
+  rule(['GET'], `forwarded/${LINK_TOKEN}`, 'public', NO_QUERY),
 ];
 
 export function matchRule(method: string, path: string): Rule | null {
   return PROXY_RULES.find((r) => (r.methods as string[]).includes(method) && r.pattern.test(path)) ?? null;
 }
 
-/** Query parameters the public endpoints take; anything else is dropped. */
-const QUERY_KEYS = new Set(['lat', 'lon', 'radiusM', 'category', 'status', 'maxAgeDays', 'limit']);
-
-function forwardQuery(request: NextRequest): string {
+function forwardQuery(request: NextRequest, keys: ReadonlySet<string>): string {
   const out = new URLSearchParams();
   request.nextUrl.searchParams.forEach((value, key) => {
-    if (QUERY_KEYS.has(key) && value.length <= 64) out.append(key, value);
+    if (keys.has(key) && value.length <= 64) out.append(key, value);
   });
   const qs = out.toString();
   return qs ? `?${qs}` : '';
 }
 
-/** The catch-all proxy: allowlisted path, token from the cookie, cookie cleared when the API says 401. */
+function tokenFor(auth: Auth, request: NextRequest): string | null {
+  if (auth === 'citizen') return sessionToken(request);
+  if (auth === 'staff') return staffToken(request);
+  return null;
+}
+
+/** The catch-all proxy: allowlisted path, token from the matching cookie, that cookie cleared when the API says 401. */
 export async function proxy(request: NextRequest, segments: string[]): Promise<NextResponse> {
   if (isCrossSite(request)) return json({ error: 'forbidden' }, 403);
   if (segments.some((s) => s === '' || s === '.' || s === '..')) return json({ error: 'not_found' }, 404);
@@ -180,13 +284,13 @@ export async function proxy(request: NextRequest, segments: string[]): Promise<N
   const found = matchRule(request.method, path);
   if (!found) return json({ error: 'not_found' }, 404);
 
-  const token = found.auth ? sessionToken(request) : null;
-  if (found.auth && !token) return json({ error: 'unauthorized' }, 401);
+  const token = tokenFor(found.auth, request);
+  if (found.auth !== 'public' && !token) return json({ error: 'unauthorized' }, 401);
 
   const body = await readJsonBody(request);
   if (!body.ok) return json({ error: body.error }, body.status);
 
-  const answer = await callApi(`${path}${request.method === 'GET' ? forwardQuery(request) : ''}`, {
+  const answer = await callApi(`${path}${request.method === 'GET' ? forwardQuery(request, found.query) : ''}`, {
     method: request.method,
     token,
     body: body.text,
@@ -194,7 +298,10 @@ export async function proxy(request: NextRequest, segments: string[]): Promise<N
   });
   const response = relay(answer);
   // The session is gone (expired, signed out elsewhere, account deleted): drop the cookie too.
-  if (found.auth && answer.status === 401) clearSessionCookie(response);
+  if (answer.status === 401) {
+    if (found.auth === 'citizen') clearSessionCookie(response);
+    if (found.auth === 'staff') clearStaffCookie(response);
+  }
   if (path === 'me' && request.method === 'DELETE' && answer.status >= 200 && answer.status < 300) clearSessionCookie(response);
   return response;
 }
