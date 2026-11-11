@@ -61,7 +61,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 ## Next up (in order)
 
 1. Citizen API, rest of Phase 1: comments with the 500-character limit, flag and offensive-language hold (US-19), follow with auto-follow for reporters and voters (US-20), notification settings and push tokens (US-29), "tell me when it starts here" (US-44). The comment table must follow the report scope for staff (open `it.todo`).
-2. Mobile app screens on the citizen API: sign-in sheet, camera, compose, review, not live, map and list, detail with Me too (needs E-04 for the map).
+2. Mobile app screens on the citizen API: sign-in sheet, camera, compose, review, not live, map and list, detail with Me too (MapLibre, ENG-13).
 3. Citizen web screens, with sessions in httpOnly cookies instead of bearer tokens (engineering plan, Sessions).
 4. Phase 0 leftovers: staging (E-03), then migrate and seed it; VG250 import for tenants outside Berlin; vlincta.com contract (E-01) and DPAs.
 5. Product owner: confirm ENG-05, ENG-06 and the parameters in ENG-10, and update the routing SQL in the engineering plan to match ENG-06.
@@ -76,8 +76,8 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | E-01 | Which vlincta.com endpoints exist, and what are the SLA, rate limits and EU-region guarantees? | Phase 3 photo pipeline |
 | E-02 | SMS one-time codes cost money per message. Do we offer email only during the pilot? Email sign-in is built; phone sign-in waits for this answer. | Phone sign-in |
 | E-03 | Which BSI C5 hosting provider (STACKIT, IONOS Cloud, Open Telekom Cloud)? Its PostgreSQL must offer PostGIS, ltree and pgvector, and a login role for the API that is not the table owner (ENG-05). | Staging environment |
-| E-04 | Mobile map library: react-native-maps or MapLibre? | Phase 1 map |
 | E-06 | Under which licence does Geoportal Berlin publish the Bezirk boundaries, and what attribution must the apps show? | Pilot go-live |
+| E-08 | Which tile host serves the production map? Every map view sends the viewer's IP address to it, so it needs to be in the EU and under a DPA (self-hosted on the E-03 provider, or a commercial EU provider). Development uses the public OpenFreeMap style. | Pilot go-live |
 | E-07 | Embedding size for `photo.embedding`. The column has no fixed dimension until the vlincta.com model is known (part of E-01). | US-13 similarity index |
 
 ## Engineering decisions
@@ -97,6 +97,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | ENG-10 | Parameters the product plan leaves open, to be confirmed: Me too counts as on-site within 150 m of the report (the duplicate-check radius); a report needs at least 1 photo; descriptions up to 1000 characters; 5 sign-in codes per address per hour; capture times up to 5 minutes in the future are accepted (clock skew). | 2026-11-11 |
 | ENG-11 | `packages/shared` is one ES module (`"type": "module"`, a single `index.ts`). Node needs ESM to see its named exports, and relative imports inside the package would need file extensions that tsc NodeNext, Next and Metro do not agree on. | 2026-11-11 |
 | ENG-12 | API coverage is measured on the integration tests (`pnpm --filter api test:int:coverage`, the CI integration job), because most API code needs a database. The unit-test figure for `apps/api` is no longer the one to watch. | 2026-11-11 |
+| ENG-13 | Maps use MapLibre on web and mobile (answers E-04, product owner, 2026-11-11). No Google services. The style URL is configuration. The mobile app therefore needs an Expo dev build. | 2026-11-11 |
 
 ## Change log
 
@@ -104,6 +105,7 @@ Newest first. Add one line per commit that changes project state.
 
 | Date | Change | By |
 | --- | --- | --- |
+| 2026-11-11 | Map library decided: MapLibre (ENG-13, closes E-04); tile host opened as E-08. Web gets `maplibre-gl` and `exifr`; mobile gets `expo-router`, `@maplibre/maplibre-react-native` and the Expo dev client. API contract for the rest of Phase 1 in `README.md`. | Claude |
 | 2026-11-11 | Phase 1 started with the citizen API: sign-in, uploads, posting, My reports, public map and detail, Me too, demand signals (ENG-08 to ENG-12). `routing.feature` no longer `@wip`. Fixed on the way: `packages/shared` was not loadable as ESM at runtime (the dev server would have failed). | Claude |
 | 2026-11-11 | Phase 0 items 1–3: schema v1 with three migrations, row-level security with database roles, Berlin tenant seed, routing query, `infra/postgres` image (ENG-04 to ENG-07). The row-level security, routing and pgvector `it.todo` tests are now real tests, except the 5 listed under *Tests*. Install fixes found on the way: `pnpm install` failed on three undecided build scripts (now denied in `pnpm-workspace.yaml`), mobile typecheck lacked jest types, web typecheck needed `next typegen`. | Claude |
 | 2026-11-11 | Added the test suites and the `ci` workflow (see *Tests* above). Split `apps/api` into `app.ts` (buildApp) and `server.ts`. Fixed a gate bug found by the new tests: a new file in a new folder under a symlinked checkout path was not seen as inside the repo, so the edit was not blocked. | Claude |

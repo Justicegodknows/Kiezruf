@@ -69,9 +69,24 @@ Sign in with an email code, then send `Authorization: Bearer <token>`. Errors ar
 | `POST /reports` | Post on-site: 1–3 photos, accuracy ≤ 100 m, capture ≤ 48 h old (US-03, US-41). Starts as `processing` |
 | `GET /me/reports` | The citizen's own reports (US-11) |
 | `PUT` / `DELETE /reports/:publicId/me-too` | Me too, on-site within 150 m; undo (US-18, D-03) |
+| `GET /public/reports/:publicId/comments` | Visible comments, oldest first, no author (US-19) |
+| `POST /reports/:publicId/comments` · `POST /comments/:id/flag` | Comment up to 500 characters; `held: true` when the language filter holds it for review. Flag any comment (US-19) |
+| `PUT` / `DELETE /reports/:publicId/follow` · `GET /me/follows` | Follow a report. Posting and Me too follow automatically (US-20) |
+| `GET /reports/:publicId/me` | The signed-in citizen's relation to a report: `{ following, meToo, mine }` |
+| `PUT` / `DELETE /me/push-token` | Register or remove an Expo push token `{ token, platform }` (US-29) |
+| `GET` / `PUT /me/notification-settings` | `{ statusChange: { push, email }, goLive: { push, email } }`, all on by default. Push goes to accounts with a push token; email goes when push is off or there is no token (US-29) |
+| `POST /go-live-alerts` | "Tell me when it starts here" for the tenant at `{ lat, lon }` (US-44) |
+| `PATCH /me` · `DELETE /me` | Change language `{ locale }` (US-35); delete the account at once, reports stay as "a neighbour" (US-34) |
+
+Error codes the apps translate: `unauthorized`, `invalid_request`, `invalid_code`, `too_many_attempts`, `too_many_codes`, `not_found`, `not_live`, `no_metadata`, `accuracy_too_low`, `capture_too_old`, `capture_in_future`, `description_required`, `pin_too_far`, `photo_missing`, `duplicate_photo`, `not_on_site`, `already_live`, `no_tenant`.
+
+Status changes and go-live are sent by the worker (`pnpm --filter api worker`). Push payloads carry only a generic text and the report ID (engineering plan, Push caveat).
+
+## Maps
+
+MapLibre on both clients (ENG-13): `maplibre-gl` on the web, `@maplibre/maplibre-react-native` in the app (needs an Expo dev build, not Expo Go). The style URL comes from `NEXT_PUBLIC_MAP_STYLE_URL` and `EXPO_PUBLIC_MAP_STYLE_URL`; development defaults to the public OpenFreeMap style. The production tile host is open (E-08).
 
 ## Not yet decided
 
-- Mobile map library (react-native-maps vs MapLibre) — add with `npx expo install` so versions match the Expo SDK.
 - AI provider SDK: vlincta.com endpoint and models (D-13, D-15). The API calls it over HTTP; no package needed yet.
 - Boundary import for tenants outside Berlin (BKG VG250) needs GDAL's `ogr2ogr`: `brew install gdal`. The script is not written yet.
