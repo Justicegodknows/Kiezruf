@@ -1,0 +1,186 @@
+// Schema v1 (engineering plan, "Data model and tenancy"): tenant, account, staff_role, report, photo.
+// Tables and indexes live here and drizzle-kit turns them into SQL (`pnpm --filter api db:generate`).
+// Triggers, database roles, row-level security and the public_report view are hand-written SQL in
+// drizzle/0002_tenant_isolation.sql, because drizzle-kit does not manage them.
+import { sql } from 'drizzle-orm';
+import {
+  boolean,
+  check,
+  customType,
+  index,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
+
+// PostgreSQL types Drizzle has no built-in column for. Values travel as text (ltree) or are written with PostGIS functions.
+const ltree = customType<{ data: string }>({ dataType: () => 'ltree' });
+const multiPolygon = customType<{ data: string }>({ dataType: () => 'geometry(MultiPolygon,4326)' });
+const geographyPoint = customType<{ data: string }>({ dataType: () => 'geography(Point,4326)' });
+// No fixed dimension yet: it depends on the vlincta.com embedding model (E-01).
+const vector = customType<{ data: string }>({ dataType: () => 'vector' });
+
+export const tenantType = pgEnum('tenant_type', [
+  'country',
+  'land',
+  'regierungsbezirk',
+  'kreis',
+  'kreisfreie_stadt',
+  'gemeinde',
+  'bezirk',
+]);
+export const tenantStatus = pgEnum('tenant_status', ['grouping', 'not_live', 'pilot', 'live']);
+export const staffRoleKind = pgEnum('staff_role_kind', ['platform_admin', 'tenant_admin', 'case_worker', 'viewer']);
+// US-28: Open → Acknowledged → In progress → Resolved; Rejected; Forwarded.
+// 'processing' = accepted, blur still running. 'in_moderation' = blur failed 3 times. Neither is ever public.
+export const reportStatus = pgEnum('report_status', [
+  'processing',
+  'in_moderation',
+  'open',
+  'acknowledged',
+  'in_progress',
+  'resolved',
+  'rejected',
+  'forwarded',
+]);
+export const blurStatus = pgEnum('blur_status', ['pending', 'done', 'failed']);
+
+export const tenant = pgTable(
+  'tenant',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    parentId: uuid('parent_id').references((): AnyPgColumn => tenant.id, { onDelete: 'restrict' }),
+    // Materialised path, e.g. de.be.bec.nk. A trigger checks it extends the parent's path and never changes.
+    path: ltree('path').notNull(),
+    type: tenantType('type').notNull(),
+    name: text('name').notNull(),
+    // Receiving office shown to the citizen before posting (US-41), e.g. "Bezirksamt Neukölln".
+    office: text('office'),
+    // Amtlicher Gemeindeschlüssel, or Berlin's 8-digit Bezirk key (11000008).
+    agsKey: text('ags_key'),
+    // Short code used in report IDs: BE (Land), NK (tenant) → BE-NK-2026-0118.
+    code: text('code'),
+    status: tenantStatus('status').notNull().default('grouping'),
+    boundary: multiPolygon('boundary'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('tenant_path_key').on(t.path),
+    index('tenant_path_gist').using('gist', t.path),
+    index('tenant_boundary_gist').using('gist', t.boundary),
+    index('tenant_parent_idx').on(t.parentId),
+    // A tenant that receives reports needs a boundary to route by and a code for report IDs.
+    check(
+      'tenant_receiving_complete',
+      sql`${t.status} NOT IN ('pilot', 'live') OR (${t.boundary} IS NOT NULL AND ${t.code} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const account = pgTable(
+  'account',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email'),
+    phone: text('phone'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    locale: text('locale').notNull().default('de'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // Set by the delete job (US-34), which also clears email and phone.
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('account_email_key').on(sql`lower(${t.email})`),
+    uniqueIndex('account_phone_key').on(t.phone),
+    check(
+      'account_has_contact',
+      sql`${t.deletedAt} IS NOT NULL OR ${t.email} IS NOT NULL OR ${t.phone} IS NOT NULL`,
+    ),
+  ],
+);
+
+// One role per account and node. A role applies to the node and everything below it (US-42).
+export const staffRole = pgTable(
+  'staff_role',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    role: staffRoleKind('role').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.accountId, t.tenantId] }), index('staff_role_tenant_idx').on(t.tenantId)],
+);
+
+export const report = pgTable(
+  'report',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    publicId: text('public_id').notNull(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'restrict' }),
+    // Copy of the tenant's path, filled by a trigger on insert, so row-level security is one indexed <@ check.
+    // The default only satisfies NOT NULL until the trigger overwrites it.
+    tenantPath: ltree('tenant_path')
+      .notNull()
+      .default(sql`''::ltree`),
+    // Category key. Becomes a foreign key when the category table arrives in Phase 1.
+    category: text('category').notNull(),
+    status: reportStatus('status').notNull().default('processing'),
+    description: text('description'),
+    dangerous: boolean('dangerous').notNull().default(false),
+    // Where the report is shown on the public map.
+    location: geographyPoint('location').notNull(),
+    // Private: the GPS fix and time at capture (US-31, US-32). Never in a public payload.
+    captureLocation: geographyPoint('capture_location').notNull(),
+    captureAccuracyM: real('capture_accuracy_m'),
+    captureAt: timestamp('capture_at', { withTimezone: true }).notNull(),
+    // Null after the author deletes their account: the report stays, attributed to "a neighbour" (US-34).
+    createdBy: uuid('created_by').references(() => account.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('report_public_id_key').on(t.publicId),
+    index('report_tenant_path_gist').using('gist', t.tenantPath),
+    index('report_location_gist').using('gist', t.location),
+    index('report_tenant_status_idx').on(t.tenantId, t.status),
+    index('report_created_by_idx').on(t.createdBy),
+  ],
+);
+
+export const photo = pgTable(
+  'photo',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    // Object key of the original in the private bucket.
+    originalKey: text('original_key').notNull(),
+    // Object key of the blurred, EXIF-free copy in the public bucket. Null until blur succeeds (US-16).
+    publicKey: text('public_key'),
+    blurStatus: blurStatus('blur_status').notNull().default('pending'),
+    phash: text('phash'),
+    embedding: vector('embedding'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('photo_report_idx').on(t.reportId),
+    check('photo_public_only_when_blurred', sql`${t.publicKey} IS NULL OR ${t.blurStatus} = 'done'`),
+  ],
+);
+
+export type StaffRoleKind = (typeof staffRoleKind.enumValues)[number];
+export type TenantStatus = (typeof tenantStatus.enumValues)[number];
+export type ReportStatus = (typeof reportStatus.enumValues)[number];
