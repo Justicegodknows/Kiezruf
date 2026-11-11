@@ -66,7 +66,7 @@ function ReportRows({ kind }: { kind: 'reports' | 'follows' }) {
             {!isPublicStatus(r.status) ? <p className="small">{t(r.status === 'rejected' ? 'myReports.rejectedNote' : 'myReports.notPublicYet')}</p> : null}
             {r.description ? <p className="card-desc">{r.description}</p> : null}
             <p className="small muted">
-              {r.office ? `${r.office} (${r.tenantName})` : r.tenantName} · {formatDateTime(locale, r.createdAt)}
+              {r.office ? `${r.office} (${r.tenantName})` : r.tenantName} · {formatDateTime(locale, r.createdAt ?? r.updatedAt ?? '')}
             </p>
           </li>
         ))}

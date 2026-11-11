@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Suspense } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useChangeLocale } from '@/auth/useChangeLocale';
 import { useI18n } from '@/i18n/I18nProvider';
 import { LOCALES, type MessageKey } from '@/i18n';
 
-const LINKS: { href: string; label: MessageKey; signedInOnly?: boolean }[] = [
+const LINKS: { href: string; label: MessageKey }[] = [
   { href: '/', label: 'nav.browse' },
   { href: '/new-report', label: 'nav.report' },
   { href: '/my-reports', label: 'nav.myReports' },
@@ -19,8 +20,6 @@ export function SiteHeader() {
   const { t, locale } = useI18n();
   const changeLocale = useChangeLocale();
   const { signedIn, loading, requireSignIn } = useAuth();
-  const pathname = usePathname();
-  const current = (href: string) => (href === '/' ? pathname === '/' || pathname.startsWith('/berlin/') : pathname.startsWith(href));
 
   return (
     <header className="site-header">
@@ -28,17 +27,9 @@ export function SiteHeader() {
         <span className="brand-mark" aria-hidden="true" />
         Kiezruf
       </Link>
-      <nav aria-label={t('nav.label')}>
-        <ul className="nav-list">
-          {LINKS.map((link) => (
-            <li key={link.href}>
-              <Link href={link.href} aria-current={current(link.href) ? 'page' : undefined} className={link.href === '/new-report' ? 'btn primary sm' : 'nav-link'}>
-                {t(link.label)}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <Suspense fallback={<NavLinks pathname={null} />}>
+        <CurrentNavLinks />
+      </Suspense>
       <div className="header-tools">
         <div role="group" aria-label={t('nav.language')} className="lang-switch">
           {LOCALES.map((l) => (
@@ -55,5 +46,29 @@ export function SiteHeader() {
         {signedIn ? <span className="muted small">{t('nav.signedIn')}</span> : null}
       </div>
     </header>
+  );
+}
+
+// The current path is request data on dynamic routes, so it streams in behind Suspense (Cache Components).
+function CurrentNavLinks() {
+  return <NavLinks pathname={usePathname()} />;
+}
+
+function NavLinks({ pathname }: { pathname: string | null }) {
+  const { t } = useI18n();
+  const current = (href: string) =>
+    pathname !== null && (href === '/' ? pathname === '/' || pathname.startsWith('/berlin/') : pathname.startsWith(href));
+  return (
+    <nav aria-label={t('nav.label')}>
+      <ul className="nav-list">
+        {LINKS.map((link) => (
+          <li key={link.href}>
+            <Link href={link.href} aria-current={current(link.href) ? 'page' : undefined} className={link.href === '/new-report' ? 'btn primary sm' : 'nav-link'}>
+              {t(link.label)}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

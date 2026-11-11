@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 
 // Definition of Done: automated axe checks pass with no serious issues (BITV 2.0 / WCAG 2.1 AA, US-36).
 // Add every new citizen and console page to this list.
-const PAGES = ['/'];
+// Citizen web: browse (map and list), report detail, posting, My reports, followed reports, account.
+// The pages render without the API too (empty, signed-out or error states), which is what the check sees in CI.
+const PAGES = ['/', '/berlin/neukoelln/be-nk-2026-0112', '/new-report', '/my-reports', '/following', '/account'];
 
 for (const path of PAGES) {
   test(`${path} has no serious or critical accessibility issues`, async ({ page }) => {

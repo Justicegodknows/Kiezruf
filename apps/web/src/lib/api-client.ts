@@ -73,14 +73,16 @@ export interface ReportDetail extends PublicReport {
   photos: { url: string }[];
 }
 
+/** GET /me/reports rows; GET /me/follows rows have `updatedAt` instead of `createdAt` and no description or office. */
 export interface OwnReport {
   publicId: string;
   category: string;
   status: ReportStatus;
-  description: string | null;
-  createdAt: string;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   tenantName: string;
-  office: string | null;
+  office?: string | null;
 }
 
 export interface Comment {

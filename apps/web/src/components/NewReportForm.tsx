@@ -73,7 +73,8 @@ export function NewReportForm() {
       }
       setFix(next);
       setPin({ lat: next.lat, lon: next.lon });
-      const answer = await api<RouteAnswer>(`public/route?lat=${next.lat.toFixed(6)}&lon=${next.lon.toFixed(6)}`);
+      // Counts as an attempted report where Kiezruf is not live yet (US-44).
+      const answer = await api<RouteAnswer>('public/report-attempts', { method: 'POST', body: { lat: next.lat, lon: next.lon } });
       if (answer.ok) setRoute(answer.data);
       else setLocationError(String(answer.error));
     } catch (err) {

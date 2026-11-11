@@ -138,6 +138,7 @@ const rule = (methods: Method[], path: string, auth: boolean): Rule => ({ method
 /** Every API endpoint the citizen web may reach through the catch-all proxy. Sign-in has its own routes. */
 export const PROXY_RULES: readonly Rule[] = [
   rule(['GET'], 'public/route', false),
+  rule(['POST'], 'public/report-attempts', false),
   rule(['GET'], 'public/reports', false),
   rule(['GET'], `public/reports/${ID}`, false),
   rule(['GET'], `public/reports/${ID}/comments`, false),
