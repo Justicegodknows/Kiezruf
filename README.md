@@ -83,6 +83,33 @@ Error codes the apps translate: `unauthorized`, `invalid_request`, `invalid_code
 
 Status changes and go-live are sent by the worker (`pnpm --filter api worker`). Push payloads carry only a generic text and the report ID (engineering plan, Push caveat).
 
+## API (admin console, Phase 2)
+
+Staff sign in with the email code (`POST /auth/code`), then a TOTP second factor, and get a 12-hour staff session (`Authorization: Bearer`). Every `/staff/*` route runs inside the caller's tenant subtree (US-42): a report outside it answers `404`, never `403`. Viewers read; case workers and tenant admins change reports of the tenant that owns them (ENG-05). Score and level appear only here (US-24).
+
+| Endpoint | What |
+| --- | --- |
+| `POST /staff/auth/verify` `{ email, code }` | Checks the email code. `{ challenge, next: "totp" }`, or `{ challenge, next: "enroll", otpauthUri, secret }` the first time. `403 not_staff` without a role |
+| `POST /staff/auth/totp` `{ challenge, totp }` | Confirms the 6-digit authenticator code (and enrolment) and returns `{ token, expiresAt }` |
+| `POST /staff/auth/logout` · `GET /staff/me` | End the session · `{ id, email, grants: [{ tenantId, tenantName, path, role }] }` |
+| `GET /staff/reports?status&level&category&tenantId&maxAgeDays&sort=score\|age&limit&offset` | Priority queue, by score by default (US-25). Rows carry `score`, `level`, `levelChangedAt`, `override`, `spike`, counts, `tenant`, `editable` |
+| `GET /staff/reports/:publicId` | Detail: photos (blurred URL and a short-lived original URL), location, capture data, `breakdown` (`coReporters`, `commenters`, `meToo`, `base`, `ageHours`, `decay`, `dangerMarks`, `dangerMultiplier`, `safetyCategory`, `safetyMultiplier`, `score`), `thresholds`, `publicNote`, all comments with flag counts, `history` (US-22, US-23, US-27) |
+| `PATCH /staff/reports/:publicId/status` `{ status, publicNote?, reason? }` | `open`, `acknowledged`, `in_progress`, `resolved`, or `rejected` (reason required). The public note shows to citizens; followers are notified (US-28) |
+| `PUT /staff/reports/:publicId/override` `{ level \| null, reason }` | Manual level with a required reason; `null` clears it (US-27) |
+| `POST /staff/reports/:publicId/forward` `{ tenantId \| contactId, publicNote }` | To a parent or sibling tenant (it becomes theirs; the original queue keeps it read-only) or to a saved external contact by email with a login-free link (US-45) |
+| `POST /staff/reports/:publicId/merge` `{ into }` | Merge a duplicate into another report of the same tenant. Votes, follows and comments move without double counting; the duplicate's author becomes a co-reporter (US-17) |
+| `POST /staff/reports/:publicId/spike` `{ action: "confirm" \| "clear", reason }` | Keep or lift the half weight of new accounts' votes on a flagged report (US-26, US-37) |
+| `GET /staff/moderation` | Held and flagged comments, flagged vote spikes, reports held after failed blur (US-33) |
+| `PATCH /staff/comments/:id` `{ state: "visible" \| "removed", reason }` · `POST /staff/accounts/:id/ban` `{ reason }` | Restore or remove a comment; ban an account (tenant admins) |
+| `GET /staff/tenants` · `PATCH /staff/tenants/:id` `{ status }` · `PUT /staff/tenants/:id/settings` `{ thresholds: { critical, high, medium }, office }` | Tenant tree in scope; activate a node (platform admin); thresholds and office name (tenant admin) (US-40, US-46) |
+| `GET` / `POST /staff/tenants/:id/contacts` · `DELETE /staff/tenants/:id/contacts/:contactId` | External contacts for forwarding `{ name, email }` |
+| `GET` / `POST /staff/tenants/:id/staff` · `DELETE /staff/tenants/:id/staff/:accountId` | Staff and roles at a node; inviting `{ email, role }` mails a console link (US-42, US-46) |
+| `GET /forwarded/:token` | The report behind a forward link, without login; `410 link_expired` after 90 days (US-45) |
+
+More error codes: `not_staff`, `invalid_totp`, `challenge_expired`, `read_only`, `invalid_transition`, `reason_required`, `not_same_tenant`, `invalid_target`, `link_expired`, `forbidden_role`.
+
+Citizen payloads gain `publicNote` on report detail (US-28). The first platform admin is created with `pnpm --filter api staff:grant <email> <tenant-path> platform_admin`.
+
 ## Maps
 
 MapLibre on both clients (ENG-13): `maplibre-gl` on the web, `@maplibre/maplibre-react-native` in the app (needs an Expo dev build, not Expo Go). The style URL comes from `NEXT_PUBLIC_MAP_STYLE_URL` and `EXPO_PUBLIC_MAP_STYLE_URL`; development defaults to the public OpenFreeMap style. The production tile host is open (E-08).
