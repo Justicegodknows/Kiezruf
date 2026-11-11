@@ -1,9 +1,11 @@
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyServerOptions } from 'fastify';
 import { priorityLevel, priorityScore } from '@kiezruf/shared';
+import { accountRoutes } from './account/routes.js';
 import { registerAuth } from './auth/plugin.js';
 import { authRoutes } from './auth/routes.js';
 import type { AppDeps } from './deps.js';
+import { engagementRoutes } from './engagement/routes.js';
 import { publicRoutes } from './public/routes.js';
 import { reportRoutes } from './reports/routes.js';
 
@@ -25,6 +27,8 @@ export async function buildApp(deps: AppDeps, opts: FastifyServerOptions = {}) {
   authRoutes(app, deps);
   reportRoutes(app, deps);
   publicRoutes(app, deps);
+  engagementRoutes(app, deps);
+  accountRoutes(app, deps);
 
   return app;
 }

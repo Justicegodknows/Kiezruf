@@ -36,6 +36,20 @@
       "when": 1794412127684,
       "tag": "0004_citizen_access",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794413791539,
+      "tag": "0005_engagement",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794413791952,
+      "tag": "0006_engagement_access",
+      "breakpoints": true
     }
   ]
 }

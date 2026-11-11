@@ -31,3 +31,24 @@ export class FakePhotoStorage implements PhotoStorage {
     return this.uploaded.has(key);
   }
 }
+
+import type { PushMessage, PushResult, PushSender } from '../../src/notifications/push.js';
+
+/** Records push messages. Tokens in `unregistered` answer DeviceNotRegistered; `failNext` makes the next send fail. */
+export class FakePushSender implements PushSender {
+  readonly sent: PushMessage[] = [];
+  readonly unregistered = new Set<string>();
+  failNext = false;
+
+  async send(messages: PushMessage[]): Promise<PushResult[]> {
+    if (this.failNext) {
+      this.failNext = false;
+      return messages.map(() => ({ ok: false, unregistered: false, error: 'Expo push answered 503' }));
+    }
+    return messages.map((m) => {
+      if (this.unregistered.has(m.to)) return { ok: false, unregistered: true, error: 'DeviceNotRegistered' };
+      this.sent.push(m);
+      return { ok: true };
+    });
+  }
+}

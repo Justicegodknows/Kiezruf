@@ -34,6 +34,10 @@ export class KiezrufWorld extends World {
   lastResponse?: { statusCode: number; body: Record<string, unknown> };
   capture = { lat: 52.4795, lon: 13.4365, accuracyM: 20 };
   before: { reports: number; signals: Map<string, number> } = { reports: 0, signals: new Map() };
+  /** Session tokens of the same account on several devices. */
+  devices: string[] = [];
+  email?: string;
+  publicId?: string;
 
   constructor(options: IWorldOptions) {
     super(options);

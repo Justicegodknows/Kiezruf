@@ -108,6 +108,8 @@ export async function postReport(deps: AppDeps, accountId: string, input: NewRep
       })
       .returning({ id: report.id });
     await tx.insert(photo).values(input.photoKeys.map((originalKey) => ({ reportId: created!.id, originalKey })));
+    // Reporters follow their report automatically (US-20).
+    await tx.execute(sql`INSERT INTO follow (report_id, account_id) VALUES (${created!.id}, ${accountId})`);
     return { ok: true, publicId, tenant: { name: tenant.name, office: tenant.office } } as const;
   });
 }
@@ -131,6 +133,8 @@ export async function addMeToo(deps: AppDeps, accountId: string, publicId: strin
     await tx.execute(sql`
       INSERT INTO reaction (report_id, account_id, kind) VALUES (${target.id}, ${accountId}, 'me_too')
       ON CONFLICT DO NOTHING`);
+    // Voters follow automatically (US-20). Taking the vote back keeps the follow.
+    await tx.execute(sql`INSERT INTO follow (report_id, account_id) VALUES (${target.id}, ${accountId}) ON CONFLICT DO NOTHING`);
     return { ok: true, voted: true, meTooCount: await meTooCount(tx, publicId) } as const;
   });
 }

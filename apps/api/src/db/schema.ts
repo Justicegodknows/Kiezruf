@@ -9,6 +9,7 @@ import {
   customType,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -53,6 +54,10 @@ export const reportStatus = pgEnum('report_status', [
 export const blurStatus = pgEnum('blur_status', ['pending', 'done', 'failed']);
 export const reactionKind = pgEnum('reaction_kind', ['co_reporter', 'comment', 'me_too', 'danger']);
 export const sessionKind = pgEnum('session_kind', ['citizen', 'staff']);
+// 'held': the language filter stopped it; staff review it in the moderation queue (US-19, US-33).
+export const commentState = pgEnum('comment_state', ['visible', 'held', 'removed']);
+export const pushPlatform = pgEnum('push_platform', ['ios', 'android']);
+export const notificationKind = pgEnum('notification_kind', ['status_change', 'go_live']);
 
 export const tenant = pgTable(
   'tenant',
@@ -259,6 +264,121 @@ export const reaction = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.reportId, t.accountId, t.kind] }), index('reaction_account_idx').on(t.accountId)],
+);
+
+// --- Phase 1: comments, follow, notifications --------------------------------------------------------
+
+// Flat comments on a report (US-19). The author is never shown publicly.
+export const comment = pgTable(
+  'comment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    state: commentState('state').notNull().default('visible'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('comment_report_idx').on(t.reportId, t.createdAt),
+    check('comment_body_length', sql`char_length(${t.body}) BETWEEN 1 AND 500`),
+  ],
+);
+
+// "Flag on every comment" (US-19). One flag per account and comment.
+export const commentFlag = pgTable(
+  'comment_flag',
+  {
+    commentId: uuid('comment_id')
+      .notNull()
+      .references(() => comment.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.commentId, t.accountId] })],
+);
+
+// Followers get every status change (US-20). Reporters and Me too voters follow automatically.
+export const follow = pgTable(
+  'follow',
+  {
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.reportId, t.accountId] }), index('follow_account_idx').on(t.accountId)],
+);
+
+// Expo push tokens (US-29). A token belongs to the account last signed in on that device.
+export const pushToken = pgTable(
+  'push_token',
+  {
+    token: text('token').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    platform: pushPlatform('platform').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('push_token_account_idx').on(t.accountId)],
+);
+
+// Per-type notification switches (US-29). No row means everything is on.
+export const notificationSetting = pgTable('notification_setting', {
+  accountId: uuid('account_id')
+    .primaryKey()
+    .references(() => account.id, { onDelete: 'cascade' }),
+  statusChangePush: boolean('status_change_push').notNull().default(true),
+  statusChangeEmail: boolean('status_change_email').notNull().default(true),
+  goLivePush: boolean('go_live_push').notNull().default(true),
+  goLiveEmail: boolean('go_live_email').notNull().default(true),
+});
+
+// "Tell me when it starts here" (US-44).
+export const goLiveAlert = pgTable(
+  'go_live_alert',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.accountId, t.tenantId] }), index('go_live_alert_tenant_idx').on(t.tenantId)],
+);
+
+// Outbox: written by database triggers in the same transaction as the change, delivered by the worker.
+export const notification = pgTable(
+  'notification',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    kind: notificationKind('kind').notNull(),
+    reportId: uuid('report_id').references(() => report.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id').references(() => tenant.id, { onDelete: 'cascade' }),
+    payload: jsonb('payload').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+  },
+  (t) => [index('notification_pending_idx').on(t.createdAt).where(sql`${t.sentAt} IS NULL`)],
 );
 
 export type StaffRoleKind = (typeof staffRoleKind.enumValues)[number];

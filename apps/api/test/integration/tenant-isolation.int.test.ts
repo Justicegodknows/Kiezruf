@@ -150,8 +150,7 @@ describe('row-level security (US-42)', () => {
     expect(await withStaffScope(db, scopes.noGrants, (tx) => tx.select().from(photo))).toEqual([]);
   });
 
-  // Vote rows: test/integration/citizen-api.int.test.ts.
-  it.todo('comment rows follow the scope of their report (the comment table arrives with US-19)');
+  // Vote rows: citizen-api.int.test.ts. Comment rows: engagement.int.test.ts.
 
   it('staff cannot move a report to another tenant', async () => {
     const spandau = await tenantId(SP);
