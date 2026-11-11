@@ -1,42 +1,86 @@
 // forward-by-email.feature (US-45) and delete-account.feature (US-34)
 import assert from 'node:assert/strict';
+import { createHash, randomBytes } from 'node:crypto';
 import { Given, Then, When } from '@cucumber/cucumber';
-import { parseReportId } from '@kiezruf/shared';
+import { FORWARD_LINK_DAYS, parseReportId } from '@kiezruf/shared';
 import { sql } from 'drizzle-orm';
 import { signIn, uploadPhotos } from '../../test/support/app.js';
-import { PENDING, SCENARIO_NOW, type KiezrufWorld } from '../support/world.js';
+import { reportWithId } from '../support/helpers.js';
+import { SCENARIO_NOW, type KiezrufWorld } from '../support/world.js';
 
 // --- forward by email ---
-Given('{string} is a saved external contact', function (_contact: string) {
-  return PENDING;
+Given('{string} is a saved external contact', async function (this: KiezrufWorld, name: string) {
+  // Saved at Land level, so every Bezirk below can use it.
+  await this.db.execute(sql`
+    INSERT INTO external_contact (tenant_id, name, email)
+    SELECT id, ${name}, 'verkehrslenkung@example.org' FROM tenant WHERE path = 'de.be'
+      AND NOT EXISTS (SELECT 1 FROM external_contact WHERE name = ${name})`);
 });
 
-Given('a forward link was created {int} days ago', function (_days: number) {
-  return PENDING;
+When('I forward {string} to {string} with a public note', async function (this: KiezrufWorld, publicId: string, contact: string) {
+  const reportId = await reportWithId(this, publicId);
+  // A blurred photo, as the photo pipeline (Phase 3) will leave it.
+  await this.db.execute(sql`
+    UPDATE photo SET blur_status = 'done', public_key = 'blurred/' || id || '.jpg' WHERE report_id = ${reportId}`);
+  // A second follower besides the reporter.
+  const follower = await signIn(this.t, `feature-follower-${Date.now()}@example.org`);
+  await this.t.app.inject({ method: 'PUT', url: `/reports/${publicId}/follow`, headers: { authorization: `Bearer ${follower}` } });
+  this.reportIds.push(publicId);
+
+  const [c] = await this.db.execute<{ id: string }>(sql`SELECT id FROM external_contact WHERE name = ${contact}`);
+  this.mailsBefore = this.t.mailer.sent.length;
+  const res = await this.t.app.inject({
+    method: 'POST',
+    url: `/staff/reports/${publicId}/forward`,
+    headers: { authorization: `Bearer ${this.staffToken}` },
+    payload: { contactId: c!.id, publicNote: 'An die Verkehrslenkung Berlin weitergeleitet.' },
+  });
+  assert.equal(res.statusCode, 200, res.body);
 });
 
-When('I forward {string} to {string} with a public note', function (_id: string, _contact: string) {
-  return PENDING;
+Then('one email is sent with the blurred photo, the location and a link', function (this: KiezrufWorld) {
+  const mails = this.t.mailer.sent.slice(this.mailsBefore);
+  assert.equal(mails.length, 1);
+  const text = mails[0]!.text;
+  assert.match(text, /https:\/\/photos\.test\/public\/blurred\/[0-9a-f-]+\.jpg/);
+  assert.match(text, /Ort: \d+\.\d{6}, \d+\.\d{6}/);
+  const link = /https:\/\/kiezruf\.test\/forwarded\/([A-Za-z0-9_-]+)/.exec(text);
+  assert.ok(link, 'No forward link in the email');
+  this.forwardToken = link[1];
 });
 
-When('someone opens the link', function () {
-  return PENDING;
+Then('the link opens the report without a login', async function (this: KiezrufWorld) {
+  const res = await this.t.app.inject({ method: 'GET', url: `/forwarded/${this.forwardToken}` });
+  assert.equal(res.statusCode, 200, res.body);
+  assert.equal(res.json().publicId, this.reportIds.at(-1));
 });
 
-Then('one email is sent with the blurred photo, the location and a link', function () {
-  return PENDING;
+Then('every follower is notified', async function (this: KiezrufWorld) {
+  const [row] = await this.db.execute<{ followers: number; notified: number }>(sql`
+    SELECT (SELECT count(*)::int FROM follow f WHERE f.report_id = r.id) AS followers,
+           (SELECT count(DISTINCT n.account_id)::int FROM notification n
+             WHERE n.report_id = r.id AND n.kind = 'status_change' AND n.payload->>'status' = 'forwarded') AS notified
+    FROM report r WHERE r.public_id = ${this.reportIds.at(-1)!}`);
+  assert.ok(row!.followers >= 2);
+  assert.equal(row!.notified, row!.followers);
 });
 
-Then('the link opens the report without a login', function () {
-  return PENDING;
+Given('a forward link was created {int} days ago', async function (this: KiezrufWorld, days: number) {
+  const reportId = await reportWithId(this, 'BE-SP-2026-0230');
+  const token = randomBytes(32).toString('base64url');
+  await this.db.execute(sql`
+    WITH c AS (INSERT INTO external_contact (tenant_id, name, email)
+               SELECT tenant_id, 'Old contact', 'old@example.org' FROM report WHERE id = ${reportId} RETURNING id)
+    INSERT INTO forward (report_id, contact_id, token_hash, created_at, expires_at)
+    SELECT ${reportId}, c.id, ${createHash('sha256').update(token).digest('hex')},
+           now() - make_interval(days => ${days}), now() - make_interval(days => ${days}) + make_interval(days => ${FORWARD_LINK_DAYS})
+    FROM c`);
+  this.forwardToken = token;
 });
 
-Then('every follower is notified', function () {
-  return PENDING;
-});
-
-Then('they see {string}', function (_message: string) {
-  return PENDING;
+When('someone opens the link', async function (this: KiezrufWorld) {
+  const res = await this.t.app.inject({ method: 'GET', url: `/forwarded/${this.forwardToken}` });
+  this.lastResponse = { statusCode: res.statusCode, body: res.json() };
 });
 
 // --- delete account ---

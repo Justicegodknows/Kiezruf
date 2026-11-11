@@ -162,9 +162,13 @@ describe('row-level security (US-42)', () => {
     );
   });
 
-  it('staff cannot read accounts or role grants through the staff role', async () => {
+  it('staff cannot read accounts, and see role grants only inside their subtree', async () => {
     await expectDbError(withStaffScope(db, scopes.berlinAdmin, (tx) => tx.select().from(account)), /permission denied/);
-    await expectDbError(withStaffScope(db, scopes.berlinAdmin, (tx) => tx.select().from(staffRole)), /permission denied/);
+    const grants = await withStaffScope(db, scopes.nkCaseWorker, (tx) =>
+      tx.select({ path: tenant.path }).from(staffRole).innerJoin(tenant, eq(tenant.id, staffRole.tenantId)),
+    );
+    // The Berlin-level grants are above Neukölln, so a Neukölln case worker does not see them.
+    expect(grants.map((g) => g.path)).toEqual([NK]);
   });
 
   it('keeps report.tenant_path equal to the path of its tenant', async () => {
@@ -190,7 +194,7 @@ describe('citizen access (US-24, US-31)', () => {
   it('public_report has no capture location, capture time or author', async () => {
     const rows = await withCitizenAccess(db, (tx) => tx.execute(sql`SELECT * FROM public_report LIMIT 1`));
     expect(Object.keys(rows[0]!).sort()).toEqual(
-      ['category', 'created_at', 'dangerous', 'description', 'id', 'location', 'me_too_count', 'public_id', 'status', 'tenant_id', 'updated_at'],
+      ['category', 'created_at', 'dangerous', 'description', 'id', 'location', 'me_too_count', 'public_id', 'public_note', 'status', 'tenant_id', 'updated_at'],
     );
   });
 
@@ -203,11 +207,7 @@ describe('citizen access (US-24, US-31)', () => {
   });
 });
 
-describe('staff endpoints (US-42)', () => {
-  it.todo('GET /staff/reports returns only reports inside the caller subtree');
-  it.todo('GET /staff/reports/BE-SP-2026-0233 answers 404 for a Neukölln case worker');
-  it.todo('PATCH /staff/reports/:id answers 404 for a report outside the subtree');
-});
+// Staff endpoints (US-42): staff.int.test.ts, "staff endpoints stay inside the caller subtree".
 
 describe('tenant seed (US-40)', () => {
   it('seeds Berlin with its 12 Bezirke, Neukölln and Spandau as pilot', async () => {

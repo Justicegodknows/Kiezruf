@@ -13,6 +13,7 @@ beforeAll(async () => {
     storage: new FakePhotoStorage(),
     authSecret: 'unit-test-secret-at-least-32-characters',
     publicPhotoBaseUrl: 'https://photos.test',
+    webBaseUrl: 'https://kiezruf.test',
   });
   await app.ready();
 });

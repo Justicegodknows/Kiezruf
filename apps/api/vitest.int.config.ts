@@ -13,7 +13,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/server.ts', 'src/worker.ts', 'src/db/seed/run.ts', 'src/db/migrate.ts'],
+      exclude: ['src/**/*.test.ts', 'src/server.ts', 'src/worker.ts', 'src/staff/grant-cli.ts', 'src/db/seed/run.ts', 'src/db/migrate.ts'],
       reportsDirectory: 'coverage/integration',
     },
   },

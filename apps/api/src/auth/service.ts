@@ -54,7 +54,51 @@ export async function requestCode(db: Db, secret: string, rawEmail: string): Pro
 
 export type VerifyCodeResult =
   | { ok: true; token: string; expiresAt: Date; accountId: string; isNewAccount: boolean }
-  | { ok: false; reason: 'invalid_code' | 'too_many_attempts' };
+  | { ok: false; reason: 'invalid_code' | 'too_many_attempts' | 'account_banned' };
+
+type AuthTx = Parameters<Parameters<typeof withAuthAccess>[1]>[0];
+
+/** Checks and uses up the latest code for `email`. Shared by citizen and staff sign-in. Run inside withAuthAccess. */
+export async function consumeLoginCode(
+  tx: AuthTx,
+  secret: string,
+  email: string,
+  code: string,
+): Promise<{ ok: true } | { ok: false; reason: 'invalid_code' | 'too_many_attempts' }> {
+  const [row] = await tx
+    .select({ id: loginCode.id, codeHash: loginCode.codeHash, attempts: loginCode.attempts })
+    .from(loginCode)
+    .where(and(eq(loginCode.email, email), isNull(loginCode.consumedAt), gt(loginCode.expiresAt, sql`now()`)))
+    .orderBy(desc(loginCode.createdAt))
+    .limit(1)
+    .for('update');
+  if (!row) return { ok: false, reason: 'invalid_code' };
+
+  const attempts = row.attempts + 1;
+  const expected = Buffer.from(row.codeHash, 'hex');
+  const given = Buffer.from(hashCode(secret, email, code), 'hex');
+  const matches = expected.length === given.length && timingSafeEqual(expected, given);
+  if (!matches) {
+    const locked = attempts >= MAX_CODE_ATTEMPTS;
+    await tx
+      .update(loginCode)
+      .set({ attempts, ...(locked ? { consumedAt: sql`now()` } : {}) })
+      .where(eq(loginCode.id, row.id));
+    return { ok: false, reason: locked ? 'too_many_attempts' : 'invalid_code' };
+  }
+  await tx.update(loginCode).set({ attempts, consumedAt: sql`now()` }).where(eq(loginCode.id, row.id));
+  return { ok: true };
+}
+
+/** A new session token for `accountId`. The token is shown once; only its hash is stored. */
+export async function createSession(tx: AuthTx, accountId: string, kind: 'citizen' | 'staff', hours: number) {
+  const token = randomBytes(32).toString('base64url');
+  const [created] = await tx
+    .insert(session)
+    .values({ tokenHash: hashToken(token), accountId, kind, expiresAt: sql`now() + make_interval(hours => ${hours})` })
+    .returning({ expiresAt: session.expiresAt });
+  return { token, expiresAt: created!.expiresAt };
+}
 
 /**
  * Checks a code. On success it creates the account on first sign-in (no address, no residency check: D-03)
@@ -63,45 +107,17 @@ export type VerifyCodeResult =
 export async function verifyCode(db: Db, secret: string, rawEmail: string, code: string, locale: Locale): Promise<VerifyCodeResult> {
   const email = normaliseEmail(rawEmail);
   return withAuthAccess(db, async (tx) => {
-    const [row] = await tx
-      .select({ id: loginCode.id, codeHash: loginCode.codeHash, attempts: loginCode.attempts })
-      .from(loginCode)
-      .where(and(eq(loginCode.email, email), isNull(loginCode.consumedAt), gt(loginCode.expiresAt, sql`now()`)))
-      .orderBy(desc(loginCode.createdAt))
-      .limit(1)
-      .for('update');
-    if (!row) return { ok: false, reason: 'invalid_code' } as const;
+    const checked = await consumeLoginCode(tx, secret, email, code);
+    if (!checked.ok) return checked;
 
-    const attempts = row.attempts + 1;
-    const expected = Buffer.from(row.codeHash, 'hex');
-    const given = Buffer.from(hashCode(secret, email, code), 'hex');
-    const matches = expected.length === given.length && timingSafeEqual(expected, given);
-    if (!matches) {
-      const locked = attempts >= MAX_CODE_ATTEMPTS;
-      await tx
-        .update(loginCode)
-        .set({ attempts, ...(locked ? { consumedAt: sql`now()` } : {}) })
-        .where(eq(loginCode.id, row.id));
-      return { ok: false, reason: locked ? 'too_many_attempts' : 'invalid_code' } as const;
-    }
-    await tx.update(loginCode).set({ attempts, consumedAt: sql`now()` }).where(eq(loginCode.id, row.id));
-
-    const [acct] = await tx.execute<{ id: string; inserted: boolean }>(sql`
+    const [acct] = await tx.execute<{ id: string; inserted: boolean; banned: boolean }>(sql`
       INSERT INTO account (email, verified_at, locale) VALUES (${email}, now(), ${locale})
       ON CONFLICT ((lower(email))) DO UPDATE SET verified_at = COALESCE(account.verified_at, EXCLUDED.verified_at)
-      RETURNING id, (xmax = 0) AS inserted`);
+      RETURNING id, (xmax = 0) AS inserted, banned_at IS NOT NULL AS banned`);
+    if (acct!.banned) return { ok: false, reason: 'account_banned' } as const;
 
-    const token = randomBytes(32).toString('base64url');
-    const [created] = await tx
-      .insert(session)
-      .values({
-        tokenHash: hashToken(token),
-        accountId: acct!.id,
-        kind: 'citizen',
-        expiresAt: sql`now() + make_interval(days => ${CITIZEN_SESSION_DAYS})`,
-      })
-      .returning({ expiresAt: session.expiresAt });
-    return { ok: true, token, expiresAt: created!.expiresAt, accountId: acct!.id, isNewAccount: acct!.inserted } as const;
+    const created = await createSession(tx, acct!.id, 'citizen', CITIZEN_SESSION_DAYS * 24);
+    return { ok: true, ...created, accountId: acct!.id, isNewAccount: acct!.inserted } as const;
   });
 }
 
@@ -117,7 +133,9 @@ export async function resolveSession(db: Db, token: string): Promise<SessionAcco
       .select({ accountId: session.accountId, kind: session.kind })
       .from(session)
       .innerJoin(account, eq(account.id, session.accountId))
-      .where(and(eq(session.tokenHash, hashToken(token)), gt(session.expiresAt, sql`now()`), isNull(account.deletedAt)));
+      .where(
+        and(eq(session.tokenHash, hashToken(token)), gt(session.expiresAt, sql`now()`), isNull(account.deletedAt), isNull(account.bannedAt)),
+      );
     return row ?? null;
   });
 }

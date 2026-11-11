@@ -38,6 +38,16 @@ export class KiezrufWorld extends World {
   devices: string[] = [];
   email?: string;
   publicId?: string;
+  /** A signed-in citizen, created on first use. */
+  citizen?: string;
+  /** The signed-in staff member's session. */
+  staffToken?: string;
+  /** Report IDs a step created or looked at. */
+  reportIds: string[] = [];
+  /** The token of the last forward link. */
+  forwardToken?: string;
+  mailsBefore = 0;
+  spike?: { votes: number; minutes: number; fresh?: number };
 
   constructor(options: IWorldOptions) {
     super(options);

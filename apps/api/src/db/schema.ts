@@ -50,6 +50,8 @@ export const reportStatus = pgEnum('report_status', [
   'resolved',
   'rejected',
   'forwarded',
+  // A duplicate merged into another report (US-17). Never public; merged_into_id names the report it joined.
+  'merged',
 ]);
 export const blurStatus = pgEnum('blur_status', ['pending', 'done', 'failed']);
 export const reactionKind = pgEnum('reaction_kind', ['co_reporter', 'comment', 'me_too', 'danger']);
@@ -58,6 +60,21 @@ export const sessionKind = pgEnum('session_kind', ['citizen', 'staff']);
 export const commentState = pgEnum('comment_state', ['visible', 'held', 'removed']);
 export const pushPlatform = pgEnum('push_platform', ['ios', 'android']);
 export const notificationKind = pgEnum('notification_kind', ['status_change', 'go_live']);
+export const spikeState = pgEnum('spike_state', ['none', 'flagged', 'confirmed', 'cleared']);
+export const auditKind = pgEnum('audit_kind', [
+  'status',
+  'override',
+  'forward',
+  'merge',
+  'spike',
+  'comment',
+  'ban',
+  'role_grant',
+  'role_revoke',
+  'tenant_status',
+  'settings',
+  'contact',
+]);
 
 export const tenant = pgTable(
   'tenant',
@@ -102,6 +119,8 @@ export const account = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // Set by the delete job (US-34), which also clears email and phone.
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    // Banned by a moderator (US-33): no sign-in, no session.
+    bannedAt: timestamp('banned_at', { withTimezone: true }),
   },
   (t) => [
     uniqueIndex('account_email_key').on(sql`lower(${t.email})`),
@@ -155,6 +174,12 @@ export const report = pgTable(
     captureAt: timestamp('capture_at', { withTimezone: true }).notNull(),
     // Null after the author deletes their account: the report stays, attributed to "a neighbour" (US-34).
     createdBy: uuid('created_by').references(() => account.id, { onDelete: 'set null' }),
+    // The office's note to citizens, shown with the status (US-28).
+    publicNote: text('public_note'),
+    mergedIntoId: uuid('merged_into_id').references((): AnyPgColumn => report.id, { onDelete: 'set null' }),
+    // Set when a report was forwarded to another tenant: the original tenant keeps reading it (US-45).
+    forwardedFromTenantId: uuid('forwarded_from_tenant_id').references(() => tenant.id, { onDelete: 'set null' }),
+    forwardedFromPath: ltree('forwarded_from_path'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -380,6 +405,127 @@ export const notification = pgTable(
   },
   (t) => [index('notification_pending_idx').on(t.createdAt).where(sql`${t.sentAt} IS NULL`)],
 );
+
+// --- Phase 2: admin console -------------------------------------------------------------------------
+
+// The priority score per report (US-22, US-23, US-26, US-27). The worker recomputes rows marked dirty;
+// triggers mark them when votes, comments or the report change. Staff-only (US-24).
+export const reportScore = pgTable('report_score', {
+  reportId: uuid('report_id')
+    .primaryKey()
+    .references(() => report.id, { onDelete: 'cascade' }),
+  score: real('score').notNull().default(0),
+  // The computed level, before any override.
+  level: text('level').notNull().default('Low'),
+  breakdown: jsonb('breakdown').notNull().default({}),
+  overrideLevel: text('override_level'),
+  overrideReason: text('override_reason'),
+  overrideBy: uuid('override_by').references(() => account.id, { onDelete: 'set null' }),
+  overrideAt: timestamp('override_at', { withTimezone: true }),
+  // The level staff see: the override if set, else the computed level. Compared on each recompute.
+  effectiveLevel: text('effective_level').notNull().default('Low'),
+  // When the effective level last changed (US-23).
+  levelChangedAt: timestamp('level_changed_at', { withTimezone: true }).notNull().defaultNow(),
+  spikeState: spikeState('spike_state').notNull().default('none'),
+  spikeReason: text('spike_reason'),
+  dirty: boolean('dirty').notNull().default(true),
+  computedAt: timestamp('computed_at', { withTimezone: true }),
+});
+
+// Per-tenant score thresholds (US-23, US-46). No row means the defaults 60 / 25 / 10.
+export const tenantSettings = pgTable(
+  'tenant_settings',
+  {
+    tenantId: uuid('tenant_id')
+      .primaryKey()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    critical: real('critical').notNull().default(60),
+    high: real('high').notNull().default(25),
+    medium: real('medium').notNull().default(10),
+  },
+  (t) => [check('tenant_settings_falling', sql`${t.critical} > ${t.high} AND ${t.high} > ${t.medium} AND ${t.medium} > 0`)],
+);
+
+// Saved outside authorities a tenant forwards to by email, e.g. Verkehrslenkung Berlin (US-45, D-10).
+export const externalContact = pgTable(
+  'external_contact',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('external_contact_tenant_idx').on(t.tenantId)],
+);
+
+// One forwarding of a report (US-45): to another tenant, or to an external contact with a login-free link.
+export const forward = pgTable(
+  'forward',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    targetTenantId: uuid('target_tenant_id').references(() => tenant.id, { onDelete: 'set null' }),
+    contactId: uuid('contact_id').references(() => externalContact.id, { onDelete: 'set null' }),
+    // SHA-256 of the link token; only for external contacts.
+    tokenHash: text('token_hash'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    publicNote: text('public_note'),
+    actorId: uuid('actor_id').references(() => account.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('forward_report_idx').on(t.reportId),
+    uniqueIndex('forward_token_key').on(t.tokenHash),
+    check('forward_one_target', sql`(${t.targetTenantId} IS NULL) <> (${t.contactId} IS NULL)`),
+  ],
+);
+
+// Audit log: status changes, overrides, forwards, merges, moderation, bans, role grants, tenant changes.
+// Retained for 3 years (engineering plan, Security: "Audit"). Written only by the API's staff paths.
+export const auditEvent = pgTable(
+  'audit_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: auditKind('kind').notNull(),
+    reportId: uuid('report_id').references(() => report.id, { onDelete: 'set null' }),
+    tenantId: uuid('tenant_id').references(() => tenant.id, { onDelete: 'set null' }),
+    actorId: uuid('actor_id').references(() => account.id, { onDelete: 'set null' }),
+    fromValue: text('from_value'),
+    toValue: text('to_value'),
+    publicNote: text('public_note'),
+    reason: text('reason'),
+    data: jsonb('data').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('audit_event_report_idx').on(t.reportId, t.createdAt), index('audit_event_tenant_idx').on(t.tenantId, t.createdAt)],
+);
+
+// Staff second factor (ENG-09): a TOTP secret, encrypted with a key derived from AUTH_SECRET.
+export const staffTotp = pgTable('staff_totp', {
+  accountId: uuid('account_id')
+    .primaryKey()
+    .references(() => account.id, { onDelete: 'cascade' }),
+  secretEnc: text('secret_enc').notNull(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  // The last accepted 30-second step: a code is never accepted twice.
+  lastStep: integer('last_step'),
+});
+
+// Between the email code and the authenticator code: valid 10 minutes, 5 tries.
+export const staffChallenge = pgTable('staff_challenge', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id')
+    .notNull()
+    .references(() => account.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+});
 
 export type StaffRoleKind = (typeof staffRoleKind.enumValues)[number];
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];

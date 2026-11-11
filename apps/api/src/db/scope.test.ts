@@ -6,11 +6,13 @@ describe('scopeFromGrants (US-42)', () => {
     expect(scopeFromGrants([{ path: 'de.be.bec.nk', role: 'case_worker' }])).toEqual({
       readPaths: ['de.be.bec.nk'],
       writePaths: ['de.be.bec.nk'],
+      adminPaths: [],
+      platformPaths: [],
     });
   });
 
   it('gives a viewer read access only', () => {
-    expect(scopeFromGrants([{ path: 'de.be', role: 'viewer' }])).toEqual({ readPaths: ['de.be'], writePaths: [] });
+    expect(scopeFromGrants([{ path: 'de.be', role: 'viewer' }])).toEqual({ readPaths: ['de.be'], writePaths: [], adminPaths: [], platformPaths: [] });
   });
 
   it('combines several grants', () => {
@@ -20,10 +22,20 @@ describe('scopeFromGrants (US-42)', () => {
     ]);
     expect(scope.readPaths).toEqual(['de.be', 'de.be.bec.sp']);
     expect(scope.writePaths).toEqual(['de.be.bec.sp']);
+    expect(scope.adminPaths).toEqual(['de.be.bec.sp']);
+  });
+
+  it('lets a platform admin configure but not triage', () => {
+    expect(scopeFromGrants([{ path: 'de', role: 'platform_admin' }])).toEqual({
+      readPaths: ['de'],
+      writePaths: [],
+      adminPaths: ['de'],
+      platformPaths: ['de'],
+    });
   });
 
   it('gives no access without grants', () => {
-    expect(scopeFromGrants([])).toEqual({ readPaths: [], writePaths: [] });
+    expect(scopeFromGrants([])).toEqual({ readPaths: [], writePaths: [], adminPaths: [], platformPaths: [] });
   });
 });
 

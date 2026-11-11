@@ -12,6 +12,7 @@ const base = {
   S3_SECRET_KEY: 's',
   S3_BUCKET_PRIVATE: 'photos-private',
   PUBLIC_PHOTO_BASE_URL: 'http://localhost:9000/photos-public',
+  WEB_BASE_URL: 'http://localhost:3000',
 };
 
 describe('loadConfig', () => {

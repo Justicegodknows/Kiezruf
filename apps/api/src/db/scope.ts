@@ -4,7 +4,7 @@
 //   withCitizenAccess   anyone: the tenant tree and the public views
 //   withAuthAccess      sign-in bookkeeping before the caller is known
 // Each switches the transaction to a database role and sets what row-level security needs.
-// Roles and policies: drizzle/0002_tenant_isolation.sql and drizzle/0004_citizen_access.sql.
+// Roles and policies: drizzle/0002_tenant_isolation.sql, 0004_citizen_access.sql and 0008_console_access.sql.
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { Db, Tx } from './client.js';
 import { account, staffRole, tenant, type StaffRoleKind } from './schema.js';
@@ -14,6 +14,12 @@ export interface StaffScope {
   readPaths: string[];
   /** Tenant paths whose own reports the caller may change: grants with a role other than viewer. */
   writePaths: string[];
+  /** Subtrees the caller administers (staff, settings, contacts): tenant admin and platform admin grants. */
+  adminPaths: string[];
+  /** Subtrees where the caller may switch tenants live: platform admin grants. */
+  platformPaths: string[];
+  /** The staff member, recorded in audit rows. Absent only in tests of the read rules. */
+  accountId?: string;
 }
 
 export interface StaffGrant {
@@ -21,11 +27,17 @@ export interface StaffGrant {
   role: StaffRoleKind;
 }
 
-/** Roles inherit down the tree for reading. Changing a report needs a non-viewer role at the tenant that owns it. */
+/**
+ * Roles inherit down the tree for reading. Changing a report needs a case worker or tenant admin role at the tenant
+ * that owns it; platform admins configure but do not triage (product plan, ROLES: platform admin "edit: false").
+ */
 export function scopeFromGrants(grants: readonly StaffGrant[]): StaffScope {
+  const paths = (keep: (g: StaffGrant) => boolean) => [...new Set(grants.filter(keep).map((g) => g.path))];
   return {
-    readPaths: [...new Set(grants.map((g) => g.path))],
-    writePaths: [...new Set(grants.filter((g) => g.role !== 'viewer').map((g) => g.path))],
+    readPaths: paths(() => true),
+    writePaths: paths((g) => g.role === 'case_worker' || g.role === 'tenant_admin'),
+    adminPaths: paths((g) => g.role === 'tenant_admin' || g.role === 'platform_admin'),
+    platformPaths: paths((g) => g.role === 'platform_admin'),
   };
 }
 
@@ -37,9 +49,9 @@ export async function loadStaffScope(db: Db, accountId: string): Promise<StaffSc
       .from(staffRole)
       .innerJoin(tenant, eq(tenant.id, staffRole.tenantId))
       .innerJoin(account, eq(account.id, staffRole.accountId))
-      .where(and(eq(staffRole.accountId, accountId), isNull(account.deletedAt))),
+      .where(and(eq(staffRole.accountId, accountId), isNull(account.deletedAt), isNull(account.bannedAt))),
   );
-  return scopeFromGrants(grants);
+  return { ...scopeFromGrants(grants), accountId };
 }
 
 const LTREE_PATH = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
@@ -56,11 +68,15 @@ export function toLtreeArrayLiteral(paths: readonly string[]): string {
 export function withStaffScope<T>(db: Db, scope: StaffScope, fn: (tx: Tx) => Promise<T>): Promise<T> {
   const read = toLtreeArrayLiteral(scope.readPaths);
   const write = toLtreeArrayLiteral(scope.writePaths);
+  const admin = toLtreeArrayLiteral(scope.adminPaths ?? []);
+  const platform = toLtreeArrayLiteral(scope.platformPaths ?? []);
+  if (scope.accountId !== undefined && !UUID.test(scope.accountId)) throw new Error('Invalid account id');
   return db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL ROLE kiezruf_staff`);
-    await tx.execute(
-      sql`SELECT set_config('app.scope_paths', ${read}, true), set_config('app.write_paths', ${write}, true)`,
-    );
+    await tx.execute(sql`
+      SELECT set_config('app.scope_paths', ${read}, true), set_config('app.write_paths', ${write}, true),
+             set_config('app.admin_paths', ${admin}, true), set_config('app.platform_paths', ${platform}, true),
+             set_config('app.account_id', ${scope.accountId ?? ''}, true)`);
     return fn(tx);
   });
 }

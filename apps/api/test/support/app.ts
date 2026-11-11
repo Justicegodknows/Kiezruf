@@ -22,6 +22,7 @@ export async function buildTestApp(db: Db, overrides: Partial<AppDeps> = {}): Pr
     storage,
     authSecret: TEST_AUTH_SECRET,
     publicPhotoBaseUrl: 'https://photos.test/public',
+    webBaseUrl: 'https://kiezruf.test',
     rateLimits: false,
     ...overrides,
   };

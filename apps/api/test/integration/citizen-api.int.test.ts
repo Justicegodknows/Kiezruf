@@ -316,7 +316,7 @@ describe('browsing without an account (US-01, US-15, US-24)', () => {
     await publish(publicId);
   });
 
-  const PUBLIC_KEYS = ['category', 'createdAt', 'dangerous', 'description', 'lat', 'lon', 'meTooCount', 'office', 'publicId', 'status', 'tenantName', 'updatedAt'];
+  const PUBLIC_KEYS = ['category', 'createdAt', 'dangerous', 'description', 'lat', 'lon', 'meTooCount', 'office', 'publicId', 'publicNote', 'status', 'tenantName', 'updatedAt'];
 
   it('lists public reports near a point, nearest first, with no score, level, capture data or author', async () => {
     const res = await t.app.inject({ method: 'GET', url: `/public/reports?lat=${KARL_MARX_STR_100.lat}&lon=${KARL_MARX_STR_100.lon}&category=street_lighting` });

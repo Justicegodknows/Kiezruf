@@ -30,6 +30,10 @@ export class FakePhotoStorage implements PhotoStorage {
   async exists(key: string) {
     return this.uploaded.has(key);
   }
+
+  async presignDownload(key: string) {
+    return `https://storage.test/private/${key}?signature=download`;
+  }
 }
 
 import type { PushMessage, PushResult, PushSender } from '../../src/notifications/push.js';

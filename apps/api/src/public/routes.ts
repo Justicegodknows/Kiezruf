@@ -32,7 +32,7 @@ const PublicIdParams = z.object({ publicId: z.string().regex(REPORT_ID_PATTERN) 
 const PUBLIC_FIELDS = sql.raw(`
   p.public_id AS "publicId", p.category, p.status, p.description, p.dangerous,
   ST_Y(p.location::geometry) AS lat, ST_X(p.location::geometry) AS lon,
-  p.created_at AS "createdAt", p.updated_at AS "updatedAt", p.me_too_count AS "meTooCount",
+  p.created_at AS "createdAt", p.updated_at AS "updatedAt", p.me_too_count AS "meTooCount", p.public_note AS "publicNote",
   t.name AS "tenantName", t.office`);
 
 export function publicRoutes(app: FastifyInstance, deps: AppDeps) {

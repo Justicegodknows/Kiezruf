@@ -50,6 +50,20 @@
       "when": 1794413791952,
       "tag": "0006_engagement_access",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794435796422,
+      "tag": "0007_console",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794435796830,
+      "tag": "0008_console_access",
+      "breakpoints": true
     }
   ]
 }

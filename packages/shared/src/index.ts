@@ -17,19 +17,101 @@ export interface ScoreInput {
 
 export const DEFAULT_THRESHOLDS: Record<Exclude<Level, 'Low'>, number> = { Critical: 60, High: 25, Medium: 10 };
 
-export function priorityScore(r: ScoreInput): number {
-  const base = r.coReporters * 5 + r.commenters * 2 + r.meToo;
-  const decay = Math.pow(0.5, r.ageHours / (24 * 14));
-  const danger = r.dangerMarks >= 3 ? 1.5 : r.dangerMarks >= 1 ? 1.2 : 1;
-  const safety = r.safetyCategory ? 1.3 : 1;
-  return base * decay * danger * safety;
+/** Every factor of the score, for the console's breakdown (US-22: "Breakdown visible to staff"). */
+export interface ScoreBreakdown extends ScoreInput {
+  base: number;
+  decay: number;
+  dangerMultiplier: number;
+  safetyMultiplier: number;
+  /** base × decay × dangerMultiplier × safetyMultiplier */
+  score: number;
 }
 
-export function priorityLevel(score: number, t = DEFAULT_THRESHOLDS): Level {
+export function scoreBreakdown(r: ScoreInput): ScoreBreakdown {
+  const base = r.coReporters * 5 + r.commenters * 2 + r.meToo;
+  const decay = Math.pow(0.5, r.ageHours / (24 * 14));
+  const dangerMultiplier = r.dangerMarks >= 3 ? 1.5 : r.dangerMarks >= 1 ? 1.2 : 1;
+  const safetyMultiplier = r.safetyCategory ? 1.3 : 1;
+  return { ...r, base, decay, dangerMultiplier, safetyMultiplier, score: base * decay * dangerMultiplier * safetyMultiplier };
+}
+
+export function priorityScore(r: ScoreInput): number {
+  return scoreBreakdown(r).score;
+}
+
+export type Thresholds = Record<Exclude<Level, 'Low'>, number>;
+
+export const LEVELS: readonly Level[] = ['Critical', 'High', 'Medium', 'Low'];
+
+/** Per-tenant thresholds must fall strictly from Critical to Medium and stay positive (US-23). */
+export function validThresholds(t: Thresholds): boolean {
+  return t.Critical > t.High && t.High > t.Medium && t.Medium > 0;
+}
+
+export function priorityLevel(score: number, t: Thresholds = DEFAULT_THRESHOLDS): Level {
   if (score >= t.Critical) return 'Critical';
   if (score >= t.High) return 'High';
   if (score >= t.Medium) return 'Medium';
   return 'Low';
+}
+
+// === Vote spikes (US-26, US-37, D-04) ==================================================================
+
+/** The spike rule: more than 10 Me too votes within 60 minutes, over half of them from accounts younger than 7 days. */
+export const SPIKE_WINDOW_MINUTES = 60;
+export const SPIKE_MIN_VOTES = 10;
+export const NEW_ACCOUNT_DAYS = 7;
+/** Weight of a new account's vote while a spike is flagged. */
+export const NEW_ACCOUNT_DISCOUNT = 0.5;
+
+export interface Vote {
+  accountId: string;
+  at: Date;
+  /** When the voting account was created. */
+  accountCreatedAt: Date;
+}
+
+/** An account counts as new if it was younger than 7 days when it voted. */
+export function isNewAccountVote(v: Vote): boolean {
+  return v.at.getTime() - v.accountCreatedAt.getTime() < NEW_ACCOUNT_DAYS * 86_400_000;
+}
+
+/** One vote per account: the earliest. Merged duplicates can bring the same account twice (US-17). */
+export function uniqueVotes(votes: readonly Vote[]): Vote[] {
+  const first = new Map<string, Vote>();
+  for (const v of votes) {
+    const seen = first.get(v.accountId);
+    if (!seen || v.at < seen.at) first.set(v.accountId, v);
+  }
+  return [...first.values()].sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/** True when any 60-minute window holds more than 10 votes with over half from new accounts. */
+export function detectSpike(votes: readonly Vote[]): boolean {
+  const sorted = uniqueVotes(votes);
+  const windowMs = SPIKE_WINDOW_MINUTES * 60_000;
+  let start = 0;
+  for (let end = 0; end < sorted.length; end++) {
+    while (sorted[end]!.at.getTime() - sorted[start]!.at.getTime() > windowMs) start++;
+    const inWindow = sorted.slice(start, end + 1);
+    const fresh = inWindow.filter(isNewAccountVote).length;
+    if (inWindow.length > SPIKE_MIN_VOTES && fresh * 2 > inWindow.length) return true;
+  }
+  return false;
+}
+
+/** The Me too part of the score: one per account, new accounts at half weight while a spike is flagged. */
+export function meTooWeight(votes: readonly Vote[], discountNewAccounts: boolean): number {
+  return uniqueVotes(votes).reduce((sum, v) => sum + (discountNewAccounts && isNewAccountVote(v) ? NEW_ACCOUNT_DISCOUNT : 1), 0);
+}
+
+// === Forward links (US-45) ==========================================================================
+
+/** A forward link opens the report without a login for this many days. */
+export const FORWARD_LINK_DAYS = 90;
+
+export function forwardLinkExpired(createdAt: Date, now: Date): boolean {
+  return now.getTime() - createdAt.getTime() > FORWARD_LINK_DAYS * 86_400_000;
 }
 
 // === Report IDs ==================================================================================
@@ -123,24 +205,30 @@ export interface Category {
   group: CategoryGroup;
   /** The English name from the product plan, used in tests and Gherkin steps. */
   name: string;
+  /** Safety-relevant: the score gets ×1.3 (US-22). From the product plan's sample reports. */
+  safety: boolean;
 }
 
 export const CATEGORIES: readonly Category[] = [
-  { key: 'traffic_light', group: 'traffic', name: 'Traffic light' },
-  { key: 'pothole', group: 'traffic', name: 'Pothole' },
-  { key: 'bike_lane', group: 'traffic', name: 'Bike lane' },
-  { key: 'road_sign', group: 'traffic', name: 'Road sign' },
-  { key: 'street_lighting', group: 'traffic', name: 'Street lighting' },
-  { key: 'traffic_other', group: 'traffic', name: 'Other' },
-  { key: 'illegal_dumping', group: 'community', name: 'Illegal dumping' },
-  { key: 'playground', group: 'community', name: 'Playground' },
-  { key: 'public_toilet', group: 'community', name: 'Public toilet' },
-  { key: 'waste_bins', group: 'community', name: 'Waste bins' },
-  { key: 'youth_centre', group: 'community', name: 'Youth centre' },
-  { key: 'community_other', group: 'community', name: 'Other' },
+  { key: 'traffic_light', group: 'traffic', name: 'Traffic light', safety: true },
+  { key: 'pothole', group: 'traffic', name: 'Pothole', safety: true },
+  { key: 'bike_lane', group: 'traffic', name: 'Bike lane', safety: false },
+  { key: 'road_sign', group: 'traffic', name: 'Road sign', safety: true },
+  { key: 'street_lighting', group: 'traffic', name: 'Street lighting', safety: true },
+  { key: 'traffic_other', group: 'traffic', name: 'Other', safety: false },
+  { key: 'illegal_dumping', group: 'community', name: 'Illegal dumping', safety: false },
+  { key: 'playground', group: 'community', name: 'Playground', safety: true },
+  { key: 'public_toilet', group: 'community', name: 'Public toilet', safety: false },
+  { key: 'waste_bins', group: 'community', name: 'Waste bins', safety: false },
+  { key: 'youth_centre', group: 'community', name: 'Youth centre', safety: false },
+  { key: 'community_other', group: 'community', name: 'Other', safety: false },
 ];
 
 export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
+
+export function isSafetyCategory(key: string): boolean {
+  return CATEGORIES.some((c) => c.key === key && c.safety);
+}
 
 /** "Other" requires a description (US-08). */
 export function categoryNeedsDescription(key: string): boolean {

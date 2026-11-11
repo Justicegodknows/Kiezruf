@@ -11,6 +11,8 @@ export interface AppDeps {
   authSecret: string;
   /** Base URL of the public bucket with blurred photos. */
   publicPhotoBaseUrl: string;
+  /** Base URL of the web app, for links in invite and forwarding emails. */
+  webBaseUrl: string;
   /** Current time. Tests and Gherkin scenarios fix it; defaults to the system clock. */
   clock?: () => Date;
   /** Per-IP and per-account request limits. On by default; integration tests turn them off. */

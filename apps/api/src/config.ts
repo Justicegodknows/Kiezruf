@@ -16,6 +16,8 @@ const Env = z.object({
   S3_BUCKET_PRIVATE: z.string().min(1),
   // Base URL under which blurred public copies are served, e.g. http://localhost:9000/photos-public
   PUBLIC_PHOTO_BASE_URL: z.url(),
+  // The web app (citizen pages and console), for links in emails.
+  WEB_BASE_URL: z.url(),
   // Proxies whose X-Forwarded-For the API believes, e.g. the citizen web server: comma-separated IPs or CIDRs.
   // Empty: no proxy is trusted, and rate limits key on the connecting IP. Never trust every proxy: clients could
   // then fake their address to dodge the limits.

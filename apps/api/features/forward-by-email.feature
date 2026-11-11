@@ -1,4 +1,4 @@
-@US-45 @wip
+@US-45
 Feature: Forward a report by email
 
   Scenario: Forward to an external contact

@@ -1,4 +1,4 @@
-@US-42 @wip
+@US-42
 Feature: Staff see only their subtree
 
   Scenario: Case worker in one Bezirk

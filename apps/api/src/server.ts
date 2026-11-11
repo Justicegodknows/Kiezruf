@@ -19,6 +19,7 @@ const app = await buildApp(
     }),
     authSecret: config.AUTH_SECRET,
     publicPhotoBaseUrl: config.PUBLIC_PHOTO_BASE_URL,
+    webBaseUrl: config.WEB_BASE_URL.replace(/\/$/, ''),
   },
   // Never log request bodies or headers: they carry email addresses, codes and tokens.
   {
