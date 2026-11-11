@@ -159,6 +159,17 @@ describe('citizen app screens', () => {
     expect(await screen.findByTestId('detail-metoo-error')).toHaveTextContent('Me too zählt nur vor Ort', { exact: false });
   });
 
+  test("report detail: shows the office's public note (US-28)", async () => {
+    params.mockReturnValue({ publicId: ID });
+    mockApi({
+      [`GET /public/reports/${ID}`]: { body: { ...REPORT, publicNote: 'Das Straßenamt repariert die Ampel diese Woche.' } },
+      [`GET /public/reports/${ID}/comments`]: { body: { comments: [] } },
+    });
+    await renderApp(<ReportDetailScreen />);
+    expect(await screen.findByTestId('detail-office-note')).toHaveTextContent('Hinweis des Amts', { exact: false });
+    expect(screen.getByText('Das Straßenamt repariert die Ampel diese Woche.')).toBeTruthy();
+  });
+
   test('report detail: status steps, Forwarded and comments with flag; a held comment says so (US-19, US-20)', async () => {
     params.mockReturnValue({ publicId: ID });
     await signInAs();

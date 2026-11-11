@@ -179,7 +179,12 @@ export default function ReportDetailScreen() {
       {report.status === 'forwarded' ? (
         <Banner tone="neutral" testID="detail-forwarded">
           <Text style={styles.bold}>{t('status.forwarded')}</Text>
-          <Text style={styles.body}>{t('detail.forwardedNote')}</Text>
+          <Text style={styles.body}>{report.publicNote ?? t('detail.forwardedNote')}</Text>
+        </Banner>
+      ) : report.publicNote ? (
+        <Banner tone="neutral" testID="detail-office-note">
+          <Text style={styles.bold}>{t('detail.officeNote')}</Text>
+          <Text style={styles.body}>{report.publicNote}</Text>
         </Banner>
       ) : null}
       {report.office ? <Text style={styles.body}>{t('detail.office', { office: report.office })}</Text> : null}

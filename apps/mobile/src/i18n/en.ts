@@ -94,6 +94,7 @@ export const en: Translations = {
     stepPending: '{{step}}, not yet',
     forwardedNote: 'Forwarded to the responsible authority.',
     office: 'Handled by {{office}}',
+    officeNote: 'Note from the office',
     meToo: 'Me too · {{count}}',
     meTooVoted: 'You and {{count}} others',
     meTooA11y: 'Me too. {{count}} people are affected too.',

@@ -93,6 +93,7 @@ export const de = {
     stepPending: '{{step}}, noch offen',
     forwardedNote: 'Weitergeleitet an die zuständige Stelle.',
     office: 'Zuständig: {{office}}',
+    officeNote: 'Hinweis des Amts',
     meToo: 'Me too · {{count}}',
     meTooVoted: 'Du und {{count}} weitere',
     meTooA11y: 'Me too. {{count}} Personen sind auch betroffen.',

@@ -34,6 +34,8 @@ export const PublicReport = z.object({
   meTooCount: num.default(0),
   tenantName: z.string().nullish(),
   office: z.string().nullish(),
+  /** The office's note to citizens, shown with the status (US-28). */
+  publicNote: z.string().nullish(),
   distanceM: num.optional(),
 });
 export type PublicReport = z.infer<typeof PublicReport>;
