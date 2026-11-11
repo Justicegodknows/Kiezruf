@@ -65,6 +65,9 @@ export default function ReportDetailScreen() {
       queryClient.setQueryData<ReportDetail>(['report', publicId], (d) => (d ? { ...d, meTooCount: result.meTooCount } : d));
       // Voting follows automatically (US-20); undoing a vote does not unfollow.
       setRelation(result.voted ? { meToo: true, following: true } : { meToo: false });
+      // A relation request started at sign-in may still be in flight with the old state; ask again.
+      void queryClient.invalidateQueries({ queryKey: ['me', 'relation', publicId] });
+      void queryClient.invalidateQueries({ queryKey: ['me', 'follows'] });
     },
     onError: (e) => setVoteError(errorMessage(t, e)),
   });
@@ -73,6 +76,7 @@ export default function ReportDetailScreen() {
     mutationFn: async (on: boolean) => (on ? follow(publicId) : unfollow(publicId)),
     onSuccess: (_r, on) => {
       setRelation({ following: on });
+      void queryClient.invalidateQueries({ queryKey: ['me', 'relation', publicId] });
       void queryClient.invalidateQueries({ queryKey: ['me', 'follows'] });
     },
   });

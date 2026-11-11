@@ -39,6 +39,9 @@ export const deleteMe = () => api('DELETE', '/me');
 
 // --- browsing (US-15, US-24, US-41, US-44) ---
 export const routeAt = (p: Point) => api('GET', '/public/route', { query: { lat: p.lat, lon: p.lon }, schema: RouteResult });
+/** The camera's check: like routeAt, but a not-live answer counts as an attempted report (US-44). */
+export const reportAttemptAt = (p: Point) =>
+  api('POST', '/public/report-attempts', { body: { lat: p.lat, lon: p.lon }, schema: RouteResult });
 
 export interface NearbyFilters {
   category?: string;

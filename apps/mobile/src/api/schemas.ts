@@ -78,10 +78,17 @@ export const MyReport = z.object({
 export type MyReport = z.infer<typeof MyReport>;
 export const MyReports = z.object({ reports: z.array(MyReport) });
 
-/** GET /me/follows. Assumed to list reports like My reports; extra fields are dropped. */
-export const FollowedReports = z
-  .object({ reports: z.array(MyReport).optional(), follows: z.array(MyReport).optional() })
-  .transform((v) => ({ reports: v.reports ?? v.follows ?? [] }));
+/** GET /me/follows (apps/api/src/engagement/routes.ts): publicId, category, status, updatedAt, tenantName. */
+export const FollowedReport = z
+  .object({
+    publicId: z.string(),
+    category: z.string(),
+    status: Status,
+    updatedAt: z.string(),
+    tenantName: z.string().nullish(),
+  })
+  .transform((r) => ({ ...r, createdAt: r.updatedAt }));
+export const FollowedReports = z.object({ reports: z.array(FollowedReport) });
 
 export const MeTooResult = z.object({ voted: z.boolean(), meTooCount: num });
 

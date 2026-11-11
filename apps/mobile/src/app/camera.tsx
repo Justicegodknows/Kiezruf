@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { routeAt } from '../api/endpoints';
+import { reportAttemptAt } from '../api/endpoints';
 import { errorMessage } from '../api/errors';
 import { currentFix, currentFixOrNull } from '../lib/location';
 import { useDraft } from '../report/DraftProvider';
@@ -49,7 +49,7 @@ export default function CameraScreen() {
 
   /** Checks the tenant for the first photo; returns false when it navigated to "not live here yet". */
   async function routeFirst(capture: Capture): Promise<boolean> {
-    const decision = decideRoute(await routeAt(capture));
+    const decision = decideRoute(await reportAttemptAt(capture));
     if (decision.kind === 'not_live') {
       router.replace({
         pathname: '/not-live',

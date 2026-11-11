@@ -1,5 +1,5 @@
 # Maestro flow: camera and post path (engineering plan, "Tests"). Runs on a simulator or emulator with a dev build.
-# The testIDs below must be set on the matching components when the screens are built (see the prototype's "Citizen app" tab).
+# The UI follows the device language (German, or English on an English device), so text checks accept both.
 appId: ${APP_ID}
 name: Post a report inside Neukölln
 tags:
@@ -22,16 +22,25 @@ tags:
     id: "camera-viewfinder"
 - tapOn:
     id: "camera-shutter"
-- assertVisible: "Goes to Bezirksamt Neukölln"
+- assertVisible: "(Geht an|Goes to) Bezirksamt Neukölln"
+- tapOn:
+    id: "category-traffic_light"
 - tapOn:
     id: "report-description"
 - inputText: "Pedestrian light dark since this morning"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "report-post"
 - tapOn:
     id: "report-post"
 - runFlow:
     when:
-      visible: "Sign in to post"
+      visible:
+        id: "signin-sheet"
     file: subflows/sign-in.yaml
-- assertVisible: "Report posted"
 - assertVisible:
+    id: "posted-title"
+- assertVisible:
+    id: "posted-id"
     text: "#BE-NK-2026-\\d{4}"

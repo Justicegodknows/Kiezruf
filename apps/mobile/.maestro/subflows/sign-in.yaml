@@ -4,7 +4,8 @@ appId: ${APP_ID}
 - tapOn:
     id: "signin-identifier"
 - inputText: ${TEST_EMAIL}
-- tapOn: "Send me a code"
+- tapOn:
+    id: "signin-send"
 - tapOn:
     id: "signin-code"
 - inputText: ${TEST_CODE}

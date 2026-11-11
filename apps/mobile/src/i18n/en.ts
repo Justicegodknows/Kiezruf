@@ -206,7 +206,7 @@ export const en: Translations = {
     title: 'Not live here yet',
     heading: "Kiezruf isn't live in {{tenant}} yet",
     headingUnknown: "Kiezruf isn't live here yet",
-    body: "Your report can't reach an office here. We counted your attempt, so the administration sees that people want this.",
+    body: "Your report can't reach an office here yet. Ask us to tell you when Kiezruf starts here. That also shows the administration that people want it.",
     notify: 'Tell me when it starts here',
     notified: 'We will tell you',
     backToMap: 'Back to map',

@@ -205,7 +205,7 @@ export const de = {
     title: 'Hier noch nicht live',
     heading: 'Kiezruf ist in {{tenant}} noch nicht live',
     headingUnknown: 'Kiezruf ist hier noch nicht live',
-    body: 'Deine Meldung kann hier kein Amt erreichen. Wir haben deinen Versuch gezählt, damit die Verwaltung sieht, dass Menschen das hier wollen.',
+    body: 'Deine Meldung kann hier noch kein Amt erreichen. Lass dich benachrichtigen, wenn Kiezruf hier startet. So sieht die Verwaltung auch, dass Menschen das hier wollen.',
     notify: 'Sag mir Bescheid, wenn es hier losgeht',
     notified: 'Wir sagen dir Bescheid',
     backToMap: 'Zurück zur Karte',
