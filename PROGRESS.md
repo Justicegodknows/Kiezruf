@@ -8,7 +8,7 @@
 > How to acknowledge that you read it: run `pnpm progress:read` (humans, or any agent),
 > or, in Claude Code, read this file in full with the Read tool.
 
-**Last updated:** 2026-11-11 · **Phase:** 0 (Setup) and 1 (Citizen core) · **Overall:** the citizen API exists (sign-in, posting, browsing, Me too) and passes locally; no app or web screens yet
+**Last updated:** 2026-11-11 · **Phase:** 0 (Setup) and 1 (Citizen core) · **Overall:** Phase 1 code is complete (API, citizen web, mobile app) and its automated tests pass locally; nothing has run in a real browser or on a device yet
 
 ## Sources of truth
 
@@ -25,7 +25,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | Phase | Weeks | Status | Exit criterion |
 | --- | --- | --- | --- |
 | 0 · Setup, DPAs, boundaries | 1–2 | In progress | A seeded tenant tree on staging; the RLS isolation test passes |
-| 1 · Citizen core | 3–8 | In progress | A citizen posts on iOS, Android and web; the report lands in the right tenant |
+| 1 · Citizen core | 3–8 | In progress: code complete, exit not verified | A citizen posts on iOS, Android and web; the report lands in the right tenant |
 | 2 · Admin console | 7–12 | Not started | A case worker triages a Neukölln report end to end with no access to Spandau |
 | 3 · Analysis and AI | 11–14 | Not started | The Monday briefing runs on staging with valid citations only |
 | Gate · Pilot go-live | 15 | Not started | DPAs, DSFA, pen test, BITV audit and Q-07 contacts closed |
@@ -36,17 +36,17 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | Area | State |
 | --- | --- |
 | Monorepo | pnpm workspace with `apps/api`, `apps/web`, `apps/mobile`, `packages/shared`. First commit `7afe4b0`. |
-| `apps/api` | Citizen API: email one-time-code sign-in and sessions (US-01), photo upload URLs, posting with the on-site gate and routing (US-03, US-06, US-08, US-10, US-41, US-44), My reports (US-11), public map, list and detail (US-15, US-24), Me too (US-18). Endpoint list in `README.md`. No staff endpoints, no OpenAPI spec yet. |
-| `apps/api` database | Schema v1 in `src/db/schema.ts`: `tenant`, `account`, `staff_role`, `report`, `photo`. Phase 1 adds `login_code`, `session`, `report_sequence`, `demand_signal`, `reaction`. Five migrations in `apps/api/drizzle`: extensions, tables, tenant isolation (0002), Phase 1 tables (0003), citizen and sign-in access (0004: roles, policies, `public_report` with Me too count, `public_photo`). `pnpm --filter api db:migrate` and `db:seed`. |
+| `apps/api` | Citizen API: email one-time-code sign-in and sessions (US-01), photo upload URLs, posting with the on-site gate and routing (US-03, US-06, US-08, US-10, US-41, US-44), report attempts as demand signals (US-44), My reports (US-11), public map, list and detail (US-15, US-24), Me too (US-18), comments with flag and language filter (US-19), follow and auto-follow (US-20), push tokens and notification settings (US-29), go-live alerts (US-44), language and account deletion (US-34, US-35). Worker (`pnpm --filter api worker`, pg-boss) delivers status-change and go-live notifications by Expo push or email. Endpoint list in `README.md`. No staff endpoints, no OpenAPI spec yet. |
+| `apps/api` database | Schema v1 in `src/db/schema.ts`: `tenant`, `account`, `staff_role`, `report`, `photo`. Phase 1 adds `login_code`, `session`, `report_sequence`, `demand_signal`, `reaction`, `comment`, `comment_flag`, `follow`, `push_token`, `notification_setting`, `go_live_alert` and the `notification` outbox. Seven migrations in `apps/api/drizzle`: extensions, tables, tenant isolation (0002), Phase 1 tables (0003, 0005), citizen access (0004, 0006: roles, policies, views `public_report`, `public_photo`, `public_comment`, notification triggers, `delete_my_account()`). `pnpm --filter api db:migrate` and `db:seed`. |
 | Tenant isolation | Every API query runs under a database role (ENG-05, ENG-08): `withStaffScope`, `withCitizenSession`, `withCitizenAccess`, `withAuthAccess` in `src/db/scope.ts`. Citizen routes use them; no staff endpoint exists yet. |
 | Tenant seed | `src/db/seed/tenants.ts`: Deutschland → Berlin (Land) → Berlin (Stadt) → 12 Bezirke with boundaries from Berlin open data. Neukölln and Spandau are pilot, the other 10 Bezirke not live. No tenants outside Berlin. |
-| Routing | `routeTenant` in `src/db/routing.ts` (ENG-06), used by `POST /reports` and `GET /public/route`. Not-live attempts are stored as demand signals without account or location. |
-| `apps/web` | Fresh Next.js template. No Kiezruf screens. |
-| `apps/mobile` | Fresh Expo template. No Kiezruf screens. |
+| Routing | `routeTenant` in `src/db/routing.ts` (ENG-06), used by `POST /reports`, `GET /public/route` and `POST /public/report-attempts`. Not-live attempts are stored as demand signals without account or location. |
+| `apps/web` | Citizen web (Next.js 16): browse with map and list, report detail at `/berlin/<bezirk>/<id>` with Me too, comments and follow, posting from the web with EXIF check and browser-only drafts (US-04), My reports, followed reports, account. Backend-for-frontend: the session token lives in an httpOnly cookie and `src/server/bff.ts` forwards an allowlist of API endpoints. German and English, system fonts only. |
+| `apps/mobile` | Citizen app (Expo SDK 58, expo-router): home map and list with tenant chip, report detail, sign-in sheet, camera with on-site gate and gallery 48 h rule, compose, not live, posted, account. Token in SecureStore, push token registration (skipped until E-09), German and English. Photos are re-encoded to JPEG on the device (ENG-15). Needs an Expo dev build (MapLibre). |
 | `packages/shared` | One ES module (ENG-11): priority score and levels (US-22, US-23), report IDs (US-41), on-site gate and limits (US-03, US-06, US-10, D-03), default categories (US-08). 63 unit tests. 15 `it.todo` tests list the rules still to write (spike detection, briefing validation, pseudonymisation, forward links). |
 | `infra` | `docker-compose.yml` with PostgreSQL 16, MinIO and Mailpit. `infra/postgres/Dockerfile` builds the database image with PostGIS, ltree and pgvector (ENG-04). |
 | Governance | GOV-01 progress gate: `PROGRESS.md`, `AGENTS.md`, hooks, CI check. 27 tests in `scripts/progress-gate.test.mjs`. |
-| Tests | Vitest unit tests (shared, api, web). API integration tests via Testcontainers on the `infra/postgres` image (`apps/api/test/integration`): 75 tests on the real migrations and seed, covering isolation, sign-in, posting, browsing, Me too and citizen row-level security; 86 % statement coverage of `apps/api/src` (ENG-12); 4 `it.todo` remain (3 staff endpoints, comment rows). The 8 Gherkin features from the engineering plan in `apps/api/features` (cucumber-js) and `apps/web/features` (playwright-bdd): `routing.feature` runs for real against a test database (4 scenarios); the other 7 stay `@wip` with pending steps. Axe check for web pages. Jest (jest-expo) for mobile. Maestro flows in `apps/mobile/.maestro` (`wip`). |
+| Tests | API: 135 tests (unit and integration on the real migrations and seed), 90 % statement coverage of `apps/api/src` (ENG-12); 3 `it.todo` for staff endpoints. Gherkin: `routing.feature` and `delete-account.feature` run for real (5 scenarios); the other 6 stay `@wip`. Web: 53 Vitest tests; axe checks cover the new pages but have not run (see *In progress*). Mobile: 88 jest-expo tests; Maestro flows use the app's testIDs and stay `wip`. Shared: 63 tests. |
 | CI | `progress-gate` workflow, plus `ci` workflow: typecheck, lint, gate tests, unit with coverage, integration, features, axe, dependency audit. |
 
 ## In progress
@@ -54,18 +54,18 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | Item | Owner | Story / ref | Notes |
 | --- | --- | --- | --- |
 | Progress gate (GOV-01) | — | — | Done once a collaborator runs `pnpm install` (sets the hooks path) and CI runs on GitHub |
-| First green `ci` run | — | — | Locally green on 2026-11-11: install, typecheck, lint, gate tests, unit tests, integration tests, API Gherkin features (run through Cucumber's JavaScript API, because the CLI refuses Node 25; CI uses Node 22 and the CLI). Not run locally: Playwright, dependency audit. The run on GitHub is still pending. |
+| First green `ci` run | — | — | Locally green on 2026-11-11: install, typecheck, lint, gate tests, unit tests, integration tests, API Gherkin features (run through Cucumber's JavaScript API, because the CLI refuses Node 25; CI uses Node 22 and the CLI), web production build, mobile iOS bundle (`expo export`, offline). Not run locally: Playwright end-to-end and axe (the installed browser is the wrong version and the sandbox blocks local ports), dependency audit. The run on GitHub is still pending. |
 | Tenant tree on staging | — | Phase 0 exit | The seed runs locally and in tests. Staging does not exist yet (E-03). |
-| Citizen core | — | Phase 1 | API slice done (see *What exists*). Left: comments (US-19), follow (US-20), notifications (US-29), "tell me when it starts here" (US-44), and every screen in the app and the citizen web. |
+| Citizen core | — | Phase 1 exit | Code complete. Exit criterion not verified: a citizen posting on iOS, Android and web against a running stack. Needs an Expo dev build on devices, a browser run of the web (map, pin drag, axe), and E-09 for push. |
 
 ## Next up (in order)
 
-1. Citizen API, rest of Phase 1: comments with the 500-character limit, flag and offensive-language hold (US-19), follow with auto-follow for reporters and voters (US-20), notification settings and push tokens (US-29), "tell me when it starts here" (US-44). The comment table must follow the report scope for staff (open `it.todo`).
-2. Mobile app screens on the citizen API: sign-in sheet, camera, compose, review, not live, map and list, detail with Me too (MapLibre, ENG-13).
-3. Citizen web screens, with sessions in httpOnly cookies instead of bearer tokens (engineering plan, Sessions).
-4. Phase 0 leftovers: staging (E-03), then migrate and seed it; VG250 import for tenants outside Berlin; vlincta.com contract (E-01) and DPAs.
-5. Product owner: confirm ENG-05, ENG-06 and the parameters in ENG-10, and update the routing SQL in the engineering plan to match ENG-06.
-6. Phase 3 photo job, when it is built: cap upload size (presigned PUT does not), and check the EXIF location and time of each original against the declared capture (the API trusts the client's values until then).
+1. Verify Phase 1 end to end: run the stack locally (`pnpm db:up`, migrate, seed, API, worker, web), post from the web in a browser, build an Expo dev build and post from an iPhone and an Android phone; run the Playwright and axe suites; run the Maestro flows and drop their `wip` tag. Fix what turns up.
+2. Phase 2 (admin console), starting with staff sign-in with a second factor (ENG-09), then the staff endpoints and the 3 staff-endpoint `it.todo` tests (US-42), and the moderation queue for held and flagged comments (US-33).
+3. Phase 0 leftovers: staging (E-03), then migrate and seed it; VG250 import for tenants outside Berlin; vlincta.com contract (E-01) and DPAs.
+4. Product owner: confirm ENG-05, ENG-06, ENG-10 and ENG-14, and update the routing SQL in the engineering plan to match ENG-06.
+5. Phase 3 photo job: cap upload size (presigned PUT does not), and blur. The app strips EXIF before upload (ENG-15), so the job cannot cross-check capture data; the declared capture stays the evidence.
+6. Small follow-ups: move the accepted upload types into `@kiezruf/shared` (the web copies them in `src/lib/photo-check.ts`); the web session cookie is always `Secure`, which Safari refuses on `http://localhost`; set `TRUST_PROXY` to the web server's address in every environment.
 
 ## Blockers and open questions
 
@@ -78,6 +78,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | E-03 | Which BSI C5 hosting provider (STACKIT, IONOS Cloud, Open Telekom Cloud)? Its PostgreSQL must offer PostGIS, ltree and pgvector, and a login role for the API that is not the table owner (ENG-05). | Staging environment |
 | E-06 | Under which licence does Geoportal Berlin publish the Bezirk boundaries, and what attribution must the apps show? | Pilot go-live |
 | E-08 | Which tile host serves the production map? Every map view sends the viewer's IP address to it, so it needs to be in the EU and under a DPA (self-hosted on the E-03 provider, or a commercial EU provider). Development uses the public OpenFreeMap style. | Pilot go-live |
+| E-09 | Who creates the Expo (EAS) project for the app? Push registration needs its project ID in `app.json` (`extra.eas.projectId`); until then the app skips push and notifications go by email. | Push on mobile (US-29) |
 | E-07 | Embedding size for `photo.embedding`. The column has no fixed dimension until the vlincta.com model is known (part of E-01). | US-13 similarity index |
 
 ## Engineering decisions
@@ -98,6 +99,9 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | ENG-11 | `packages/shared` is one ES module (`"type": "module"`, a single `index.ts`). Node needs ESM to see its named exports, and relative imports inside the package would need file extensions that tsc NodeNext, Next and Metro do not agree on. | 2026-11-11 |
 | ENG-12 | API coverage is measured on the integration tests (`pnpm --filter api test:int:coverage`, the CI integration job), because most API code needs a database. The unit-test figure for `apps/api` is no longer the one to watch. | 2026-11-11 |
 | ENG-13 | Maps use MapLibre on web and mobile (answers E-04, product owner, 2026-11-11). No Google services. The style URL is configuration. The mobile app therefore needs an Expo dev build. | 2026-11-11 |
+| ENG-14 | Notifications use an outbox: database triggers write a `notification` row in the same transaction as a report's status change (except the system publishing it) or a tenant going live; the worker delivers every minute. Push when it is on and the account has a device token, else email. Push payloads are generic text plus the report ID. Comments that trip the language filter are stored as `held`; the term list in `src/moderation/language.ts` is a seed for the moderation team. Account deletion is immediate (`delete_my_account()`), not within 30 days. Further parameters: a gallery photo without GPS accuracy counts as on-site only if the device is now within 100 m of it; extra photos in one report must be within 150 m of the first. | 2026-11-11 |
+| ENG-15 | The app re-encodes photos to JPEG (long edge 2048 px) before upload, which also strips their EXIF, location included. The server therefore cannot check a photo's own metadata; the on-site evidence is the capture the client declares. The citizen web uploads originals. | 2026-11-11 |
+| ENG-16 | The report flows call `POST /public/report-attempts` for their location check, so an attempt in a not-live area counts as demand (US-44); the map's tenant chip uses the read-only `GET /public/route`. The API trusts `X-Forwarded-For` only from the proxies in `TRUST_PROXY` (empty by default), so per-IP limits work behind the web server and cannot be dodged with a forged header. | 2026-11-11 |
 
 ## Change log
 
@@ -105,6 +109,7 @@ Newest first. Add one line per commit that changes project state.
 
 | Date | Change | By |
 | --- | --- | --- |
+| 2026-11-11 | Phase 1 code complete. API: comments, follow, push tokens, notification settings, go-live alerts, account language and deletion, report attempts, notification outbox and worker, trusted proxies (ENG-14 to ENG-16). Citizen web and mobile app built on it. `delete-account.feature` no longer `@wip`. Device and browser verification still open. | Claude |
 | 2026-11-11 | Map library decided: MapLibre (ENG-13, closes E-04); tile host opened as E-08. Web gets `maplibre-gl` and `exifr`; mobile gets `expo-router`, `@maplibre/maplibre-react-native` and the Expo dev client. API contract for the rest of Phase 1 in `README.md`. | Claude |
 | 2026-11-11 | Phase 1 started with the citizen API: sign-in, uploads, posting, My reports, public map and detail, Me too, demand signals (ENG-08 to ENG-12). `routing.feature` no longer `@wip`. Fixed on the way: `packages/shared` was not loadable as ESM at runtime (the dev server would have failed). | Claude |
 | 2026-11-11 | Phase 0 items 1–3: schema v1 with three migrations, row-level security with database roles, Berlin tenant seed, routing query, `infra/postgres` image (ENG-04 to ENG-07). The row-level security, routing and pgvector `it.todo` tests are now real tests, except the 5 listed under *Tests*. Install fixes found on the way: `pnpm install` failed on three undecided build scripts (now denied in `pnpm-workspace.yaml`), mobile typecheck lacked jest types, web typecheck needed `next typegen`. | Claude |

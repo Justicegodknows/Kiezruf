@@ -21,7 +21,10 @@ const app = await buildApp(
     publicPhotoBaseUrl: config.PUBLIC_PHOTO_BASE_URL,
   },
   // Never log request bodies or headers: they carry email addresses, codes and tokens.
-  { logger: { redact: ['req.headers.authorization'] } },
+  {
+    logger: { redact: ['req.headers.authorization'] },
+    ...(config.TRUST_PROXY.length > 0 ? { trustProxy: config.TRUST_PROXY } : {}),
+  },
 );
 
 await app.listen({ port: config.PORT, host: '0.0.0.0' });

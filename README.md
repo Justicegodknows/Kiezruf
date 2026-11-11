@@ -64,6 +64,7 @@ Sign in with an email code, then send `Authorization: Bearer <token>`. Errors ar
 | --- | --- |
 | `POST /auth/code` · `POST /auth/verify` · `POST /auth/logout` · `GET /me` | Email one-time code (6 digits, 10 min, 5 tries), 30-day session (US-01) |
 | `GET /public/route?lat&lon` | Receiving office for a point, or not live (US-41, US-44) |
+| `POST /public/report-attempts` `{ lat, lon }` | Same answer, for the report flow: a not-live answer counts as demand (US-44). No account needed |
 | `GET /public/reports?lat&lon[&radiusM&category&status&maxAgeDays]` · `GET /public/reports/:publicId` | Map, list and detail without an account. No score, level or capture data (US-15, US-24) |
 | `POST /uploads` | Presigned PUT URL for one original photo in the private bucket (US-06) |
 | `POST /reports` | Post on-site: 1–3 photos, accuracy ≤ 100 m, capture ≤ 48 h old (US-03, US-41). Starts as `processing` |

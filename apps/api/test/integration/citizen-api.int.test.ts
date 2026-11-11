@@ -350,6 +350,19 @@ describe('browsing without an account (US-01, US-15, US-24)', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('counts a report attempt where Kiezruf is not live, without an account, and not where it is live (US-44)', async () => {
+    const attempt = (p: { lat: number; lon: number }) => t.app.inject({ method: 'POST', url: '/public/report-attempts', payload: p });
+    const fk = await countSignals('Friedrichshain-Kreuzberg');
+    const nk = await countSignals('Neukölln');
+    expect((await attempt(KOTTBUSSER_TOR)).json()).toMatchObject({ live: false, tenant: { name: 'Friedrichshain-Kreuzberg' } });
+    expect((await attempt(KARL_MARX_STR_100)).json()).toMatchObject({ live: true, tenant: { name: 'Neukölln' } });
+    expect(await countSignals('Friedrichshain-Kreuzberg')).toBe(fk + 1);
+    expect(await countSignals('Neukölln')).toBe(nk);
+    // The read-only lookup counts nothing.
+    await t.app.inject({ method: 'GET', url: `/public/route?lat=${KOTTBUSSER_TOR.lat}&lon=${KOTTBUSSER_TOR.lon}` });
+    expect(await countSignals('Friedrichshain-Kreuzberg')).toBe(fk + 1);
+  });
+
   it('names the receiving office for a point, or says the area is not live (US-41, US-44)', async () => {
     const at = (p: { lat: number; lon: number }) => t.app.inject({ method: 'GET', url: `/public/route?lat=${p.lat}&lon=${p.lon}` });
     expect((await at(KARL_MARX_STR_100)).json()).toEqual({ live: true, tenant: { name: 'Neukölln', office: 'Bezirksamt Neukölln', status: 'pilot' } });

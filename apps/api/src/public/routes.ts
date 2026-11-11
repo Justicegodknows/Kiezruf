@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../deps.js';
 import { routeTenant } from '../db/routing.js';
-import { reportStatus } from '../db/schema.js';
+import { demandSignal, reportStatus } from '../db/schema.js';
 import { withCitizenAccess } from '../db/scope.js';
 import { parseOr400, sendError } from '../http.js';
 
@@ -42,6 +42,21 @@ export function publicRoutes(app: FastifyInstance, deps: AppDeps) {
     const q = parseOr400(PointQuery, request.query, reply);
     if (!q) return reply;
     const result = await withCitizenAccess(deps.db, (tx) => routeTenant(tx, q));
+    const tenant = result.tenant && { name: result.tenant.name, office: result.tenant.office, status: result.tenant.status };
+    return reply.send({ live: result.live, tenant });
+  });
+
+  // The report flow's location check (camera, web posting). Same answer as /public/route, but a not-live answer
+  // also counts as an attempted report, so onboarding sees the demand (US-44). Anonymous: the camera opens before
+  // sign-in. Stores only the area, never the point or the person.
+  app.post('/public/report-attempts', { config: { rateLimit: { max: 20, timeWindow: '1 hour' } } }, async (request, reply) => {
+    const body = parseOr400(PointQuery, request.body, reply);
+    if (!body) return reply;
+    const result = await withCitizenAccess(deps.db, async (tx) => {
+      const routed = await routeTenant(tx, body);
+      if (!routed.live) await tx.insert(demandSignal).values({ tenantId: routed.tenant?.id ?? null });
+      return routed;
+    });
     const tenant = result.tenant && { name: result.tenant.name, office: result.tenant.office, status: result.tenant.status };
     return reply.send({ live: result.live, tenant });
   });
