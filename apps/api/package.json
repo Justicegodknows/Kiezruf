@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/seed/run.ts",
+    "db:seed:demo": "tsx --env-file-if-exists=../../.env src/db/seed/demo-run.ts",
     "staff:grant": "tsx --env-file-if-exists=../../.env src/staff/grant-cli.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

@@ -23,12 +23,15 @@ cp .env.example .env  # the API, worker, migrations and seed read it; check the 
 pnpm --filter api db:migrate   # applies the SQL migrations in apps/api/drizzle to the Supabase database
 pnpm --filter api db:seed      # loads the tenant tree: Berlin and its 12 Bezirke
 pnpm --filter api staff:grant you@example.org de platform_admin   # first console user
+pnpm --filter api db:seed:demo   # optional: demo citizens, reports with photos, comments, votes and demo staff
 # MinIO: create the buckets photos-private and photos-public once in the console (http://localhost:9001)
 pnpm dev:api          # http://localhost:4000/health
 pnpm --filter api worker   # photo pipeline, notifications, scores, briefings
 pnpm dev:web          # http://localhost:3000 (copy apps/web/.env.example to apps/web/.env.local first)
 pnpm dev:mobile       # Expo dev server (EXPO_PUBLIC_SUPABASE_* and EXPO_PUBLIC_API_BASE_URL)
 ```
+
+Demo data (`db:seed:demo`) follows the product plan's sample reports: 14 reports in Neukölln and Spandau with drawn photos, comments, Me too votes, co-reporters, status history, a forwarded report, a vote spike, a held and a flagged comment, a recurring hotspot and this week's briefing. All demo accounts use the domain `kiezruf-demo.invalid`, which can receive no mail. Demo staff: `fallbearbeitung.neukoelln@`, `admin.neukoelln@`, `admin.spandau@`, `senatsverwaltung@` (Berlin viewer) and `plattform@` (platform admin); sign in with Supabase and read the code in the local mail catcher. `--reset` replaces the demo data, `--remove` deletes it; real accounts and reports are not touched. It refuses `NODE_ENV=production` and needs `--yes` for a database that is not on this machine (staging).
 
 Sign-in codes arrive in Supabase's local mail catcher (http://127.0.0.1:54324); app emails (notifications, briefings) in Mailpit (http://localhost:8025). MinIO console: http://localhost:9001. The compose file still starts the plain PostgreSQL image (`infra/postgres`) if you want to run the API without Supabase; sign-in then needs a Supabase project anyway.
 

@@ -92,6 +92,13 @@
       "when": 1794492228130,
       "tag": "0012_supabase_access",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794496062244,
+      "tag": "0013_score_dirty_deleted_reports",
+      "breakpoints": true
     }
   ]
 }

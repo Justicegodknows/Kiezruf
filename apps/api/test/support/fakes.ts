@@ -48,6 +48,10 @@ export class FakePhotoStorage implements PhotoStorage {
     this.publicObjects.set(key, body);
   }
 
+  async putOriginal(key: string, body: Buffer, _contentType: string) {
+    this.objects.set(key, body);
+  }
+
   async presignDownload(key: string) {
     return `https://storage.test/private/${key}?signature=download`;
   }
