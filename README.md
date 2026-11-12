@@ -56,13 +56,28 @@ How the suites map to the plan:
 - Every API query runs under one database role (`apps/api/src/db/scope.ts`): `withStaffScope` for staff (tenant subtree), `withCitizenSession` for a signed-in citizen (public data plus their own rows), `withCitizenAccess` for anonymous reads, `withAuthAccess` for sign-in. Never query through the plain connection in a route.
 - Berlin Bezirk boundaries in `apps/api/src/db/seed/berlin-bezirke.geojson` come from Geoportal Berlin (ALKIS Bezirke) through the Technologiestiftung Berlin open-data copy.
 
+## Hosting and sign-in (ENG-22)
+
+| Part | Runs on |
+| --- | --- |
+| Web app and console (`apps/web`) | Vercel, region `fra1` |
+| Sign-in and database | Supabase (EU, Frankfurt): Supabase Auth and its Postgres |
+| API and worker (`apps/api`) | vlincta.com |
+| Photos | S3-compatible storage (MinIO locally) |
+
+Sign-in is Supabase Auth. Clients sign in with `supabase.auth.signInWithOtp({ email })` and `verifyOtp({ email, token, type: 'email' })` (6-digit code), then call the API with `Authorization: Bearer <access_token>`; supabase-js refreshes it. The API verifies the token (Supabase JWT signing keys, or `SUPABASE_JWT_SECRET` for HS256 projects) and links it to an `account` row on first use: by Supabase user id, or by the verified email for staff who were invited before they first signed in. Signing out is `supabase.auth.signOut()`.
+
+Staff also need Supabase MFA (TOTP): `mfa.enroll({ factorType: 'totp' })` the first time (show `totp.qr_code`), then `mfa.challenge` + `mfa.verify`. Staff routes accept only tokens at `aal2` whose TOTP check is at most 12 hours old; otherwise they answer `401 mfa_required`.
+
+Supabase exposes the `public` schema through its Data API. Migration 0011 revokes every grant the `anon` and `authenticated` roles hold on our schema, so the Data API reaches nothing; also remove `public` from the exposed schemas in the project's API settings. Connect `DATABASE_URL` to the direct connection or the session pooler (port 5432), not the transaction pooler: the API uses prepared statements.
+
 ## API (citizen core)
 
-Sign in with an email code, then send `Authorization: Bearer <token>`. Errors are `{ "error": "<code>" }`; the apps translate the codes.
+Sign in with Supabase (see above), then send `Authorization: Bearer <access_token>`. Errors are `{ "error": "<code>" }`; the apps translate the codes.
 
 | Endpoint | What |
 | --- | --- |
-| `POST /auth/code` · `POST /auth/verify` · `POST /auth/logout` · `GET /me` | Email one-time code (6 digits, 10 min, 5 tries), 30-day session (US-01) |
+| `GET /me` | The signed-in citizen's account, created on first use (US-01). Sign-in itself is Supabase Auth |
 | `GET /public/route?lat&lon` | Receiving office for a point, or not live (US-41, US-44) |
 | `POST /public/report-attempts` `{ lat, lon }` | Same answer, for the report flow: a not-live answer counts as demand (US-44). No account needed |
 | `GET /public/reports?lat&lon[&radiusM&category&status&maxAgeDays]` · `GET /public/reports/:publicId` | Map, list and detail without an account. No score, level or capture data (US-15, US-24) |
@@ -85,13 +100,11 @@ Status changes and go-live are sent by the worker (`pnpm --filter api worker`). 
 
 ## API (admin console, Phase 2)
 
-Staff sign in with the email code (`POST /auth/code`), then a TOTP second factor, and get a 12-hour staff session (`Authorization: Bearer`). Every `/staff/*` route runs inside the caller's tenant subtree (US-42): a report outside it answers `404`, never `403`. Viewers read; case workers and tenant admins change reports of the tenant that owns them (ENG-05). Score and level appear only here (US-24).
+Staff sign in with Supabase: email code, then TOTP (`aal2`, at most 12 hours old). Every `/staff/*` route runs inside the caller's tenant subtree (US-42): a report outside it answers `404`, never `403`. Viewers read; case workers and tenant admins change reports of the tenant that owns them (ENG-05). Score and level appear only here (US-24).
 
 | Endpoint | What |
 | --- | --- |
-| `POST /staff/auth/verify` `{ email, code }` | Checks the email code. `{ challenge, next: "totp" }`, or `{ challenge, next: "enroll", otpauthUri, secret }` the first time. `403 not_staff` without a role |
-| `POST /staff/auth/totp` `{ challenge, totp }` | Confirms the 6-digit authenticator code (and enrolment) and returns `{ token, expiresAt }` |
-| `POST /staff/auth/logout` · `GET /staff/me` | End the session · `{ id, email, grants: [{ tenantId, tenantName, path, role }] }` |
+| `GET /staff/me` | `{ id, email, grants: [{ tenantId, tenantName, path, role }], preferences }`. `401 mfa_required` without a fresh TOTP check; `403 not_staff` without a role |
 | `GET /staff/reports?status&level&category&tenantId&maxAgeDays&sort=score\|age&limit&offset` | Priority queue, by score by default (US-25). Rows carry `score`, `level`, `levelChangedAt`, `override`, `spike`, counts, `tenant`, `editable` |
 | `GET /staff/reports/:publicId` | Detail: photos (blurred URL and a short-lived original URL), location, capture data, `breakdown` (`coReporters`, `commenters`, `meToo`, `base`, `ageHours`, `decay`, `dangerMarks`, `dangerMultiplier`, `safetyCategory`, `safetyMultiplier`, `score`), `thresholds`, `publicNote`, all comments with flag counts, `history` (US-22, US-23, US-27) |
 | `PATCH /staff/reports/:publicId/status` `{ status, publicNote?, reason? }` | `open`, `acknowledged`, `in_progress`, `resolved`, or `rejected` (reason required). The public note shows to citizens; followers are notified (US-28) |
@@ -106,7 +119,7 @@ Staff sign in with the email code (`POST /auth/code`), then a TOTP second factor
 | `GET` / `POST /staff/tenants/:id/staff` · `DELETE /staff/tenants/:id/staff/:accountId` | Staff and roles at a node; inviting `{ email, role }` mails a console link (US-42, US-46) |
 | `GET /forwarded/:token` | The report behind a forward link, without login; `410 link_expired` after 90 days (US-45) |
 
-More error codes: `not_staff`, `invalid_totp`, `challenge_expired`, `read_only`, `invalid_transition`, `reason_required`, `not_same_tenant`, `invalid_target`, `link_expired`, `forbidden_role`.
+More error codes: `not_staff`, `mfa_required`, `read_only`, `invalid_transition`, `reason_required`, `not_same_tenant`, `invalid_target`, `link_expired`, `forbidden_role`.
 
 Citizen payloads gain `publicNote` on report detail (US-28). The first platform admin is created with `pnpm --filter api staff:grant <email> <tenant-path> platform_admin`.
 
