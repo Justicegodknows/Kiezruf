@@ -1,4 +1,6 @@
-# Sign in with an email one-time code (US-01). Staging accepts the fixed test code below for the test address only.
+# Sign in with a 6-digit email code from Supabase Auth (US-01, ENG-22). Supabase has no fixed test code for
+# email sign-in: TEST_CODE must be read from the test inbox (e.g. Inbucket/Mailpit of a local `supabase start`)
+# before this subflow runs. The flows using it stay tagged wip until that is wired up.
 appId: ${APP_ID}
 ---
 - tapOn:

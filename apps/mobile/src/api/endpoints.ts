@@ -16,7 +16,6 @@ import {
   ReportDetail,
   ReportRelation,
   RouteResult,
-  Session,
   UploadTicket,
 } from './schemas';
 
@@ -31,11 +30,7 @@ export interface PositionFix extends Point {
 
 const enc = encodeURIComponent;
 
-// --- sign-in (US-01) ---
-export const requestCode = (email: string, locale: Locale) => api('POST', '/auth/code', { body: { email, locale } });
-export const verifyCode = (email: string, code: string, locale: Locale) =>
-  api('POST', '/auth/verify', { body: { email, code, locale }, schema: Session });
-export const logout = () => api('POST', '/auth/logout');
+// --- account (US-01, US-34, US-35). Sign-in itself is Supabase Auth (src/auth); GET /me creates the account on first use.
 export const getMe = () => api('GET', '/me', { schema: Me });
 export const updateMe = (patch: { locale: Locale }) => api('PATCH', '/me', { body: patch });
 export const deleteMe = () => api('DELETE', '/me');

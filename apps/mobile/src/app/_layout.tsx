@@ -1,3 +1,5 @@
+// URL and URLSearchParams for supabase-js, before anything else loads.
+import 'react-native-url-polyfill/auto';
 import '../i18n';
 import { REPORT_ID_PATTERN } from '@kiezruf/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

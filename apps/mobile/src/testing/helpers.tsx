@@ -1,11 +1,11 @@
 // Test helpers: a fake API behind global fetch, and a render with the app's providers.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
-import * as SecureStore from 'expo-secure-store';
 import type { ReactElement } from 'react';
 import { AuthProvider } from '../auth/AuthProvider';
 import { SignInSheet } from '../auth/SignInSheet';
 import { type Draft, DraftProvider, EMPTY_DRAFT } from '../report/DraftProvider';
+import { setFakeSession } from './fakeSupabase';
 
 export interface Call {
   method: string;
@@ -47,8 +47,9 @@ export function mockApi(routes: Record<string, Reply>): Call[] {
   return calls;
 }
 
+/** Starts the test with a stored Supabase session whose access token is `token`. */
 export async function signInAs(token = 'test-token') {
-  await SecureStore.setItemAsync('kiezruf.session', token);
+  setFakeSession(token);
 }
 
 const clients: QueryClient[] = [];
@@ -74,8 +75,7 @@ export function renderApp(ui: ReactElement, { draft = EMPTY_DRAFT }: { draft?: D
   );
 }
 
-/** Sign-in sheet steps against a mockApi that answers /auth/code and /auth/verify. */
+/** Routes the app calls right after sign-in (the language goes to PATCH /me). Sign-in itself is the fake Supabase. */
 export const SIGN_IN_ROUTES = {
-  'POST /auth/code': { status: 202, body: { sent: true } },
-  'POST /auth/verify': { body: { token: 'fresh-token', expiresAt: '2026-12-11T00:00:00.000Z', newAccount: true } },
+  'PATCH /me': { status: 204 },
 };

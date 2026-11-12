@@ -18,6 +18,10 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
+// Supabase Auth (ENG-22) is an in-memory fake: tests never reach the network or the real secure store.
+jest.mock('./src/auth/supabase', () => require('./src/testing/fakeSupabase'));
+jest.mock('react-native-url-polyfill/auto', () => ({}));
+
 jest.mock('expo-router', () => {
   const router = {
     push: jest.fn(),
@@ -91,4 +95,5 @@ jest.mock('expo-notifications', () => ({
 
 beforeEach(() => {
   (require('expo-secure-store').__store as Map<string, string>).clear();
+  require('./src/testing/fakeSupabase').resetFakeSupabase();
 });

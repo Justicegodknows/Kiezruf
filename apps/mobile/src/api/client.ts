@@ -14,12 +14,15 @@ export class ApiError extends Error {
   }
 }
 
-let currentToken: string | null = null;
+let tokenProvider: (() => Promise<string | null>) | null = null;
 let onUnauthorized: (() => void) | null = null;
 
-/** Called by the auth provider whenever the session token changes. */
-export function setApiToken(token: string | null) {
-  currentToken = token;
+/**
+ * Set once by the auth layer: returns the current Supabase access token, or null when signed out.
+ * Asked before every request, so a refreshed token goes out at once (ENG-22).
+ */
+export function setAccessTokenProvider(provider: (() => Promise<string | null>) | null) {
+  tokenProvider = provider;
 }
 
 /** Called when the API answers 401 to a request that carried a token (expired or revoked session). */
@@ -27,8 +30,12 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
-export function hasApiToken() {
-  return currentToken !== null;
+async function currentToken(): Promise<string | null> {
+  try {
+    return (await tokenProvider?.()) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -53,7 +60,7 @@ export async function api<S extends z.ZodType | undefined = undefined>(
 ): Promise<S extends z.ZodType ? z.infer<S> : void> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
-  const token = currentToken;
+  const token = await currentToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;

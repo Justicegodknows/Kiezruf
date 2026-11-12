@@ -272,7 +272,7 @@ export const de = {
     invalid_request: 'Die Angaben sind unvollständig oder ungültig.',
     invalid_code: 'Der Code stimmt nicht oder ist abgelaufen.',
     too_many_attempts: 'Zu viele Versuche. Fordere einen neuen Code an.',
-    too_many_codes: 'Zu viele Codes angefordert. Versuch es in einer Stunde wieder.',
+    too_many_codes: 'Zu viele Codes angefordert. Warte etwas und versuch es dann noch einmal.',
     not_found: 'Nicht gefunden.',
     not_live: 'Kiezruf ist hier noch nicht live.',
     no_metadata: 'Das Foto hat keine Orts- oder Zeitangaben.',

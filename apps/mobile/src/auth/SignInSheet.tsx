@@ -1,14 +1,15 @@
 // Sign-in sheet (US-01, US-37): email + 6-digit code. It opens the first time someone posts, comments,
 // votes or follows; after the code is confirmed, the action they started completes on its own.
+// The code comes from Supabase Auth (ENG-22): signInWithOtp sends it, verifyOtp exchanges it for a session.
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { requestCode, verifyCode } from '../api/endpoints';
-import { errorMessage } from '../api/errors';
 import { currentLocale } from '../i18n';
 import { Button, ErrorText } from '../ui/components';
 import { colors, radius, space, TOUCH } from '../ui/theme';
+import { type SignInStep, signInErrorCode } from './authErrors';
 import { useAuth } from './AuthProvider';
+import { supabase } from './supabase';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -31,16 +32,26 @@ export function SignInSheet() {
 
   if (!sheet) return null;
 
+  const failed = (e: unknown, stepName: SignInStep) => {
+    const reason = signInErrorCode(e, stepName);
+    setError(reason === 'email_invalid' ? t('signin.emailInvalid') : t(`errors.${reason}`));
+  };
+
   const sendCode = async () => {
     const address = email.trim();
     if (!EMAIL.test(address)) return setError(t('signin.emailInvalid'));
     setBusy(true);
     setError(null);
     try {
-      await requestCode(address, currentLocale());
+      // data.locale lands in the new user's metadata, so the email template can pick German or English (US-35).
+      const { error: sendError } = await supabase.auth.signInWithOtp({
+        email: address,
+        options: { shouldCreateUser: true, data: { locale: currentLocale() } },
+      });
+      if (sendError) throw sendError;
       setStep('code');
     } catch (e) {
-      setError(errorMessage(t, e));
+      failed(e, 'send');
     } finally {
       setBusy(false);
     }
@@ -51,12 +62,14 @@ export function SignInSheet() {
     setBusy(true);
     setError(null);
     try {
-      const session = await verifyCode(email.trim(), code, currentLocale());
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' });
+      if (verifyError) throw verifyError;
+      if (!data.session) throw new Error('no session');
       setBusy(false);
-      await completeSignIn(session.token);
+      await completeSignIn(data.session);
     } catch (e) {
       setBusy(false);
-      setError(errorMessage(t, e));
+      failed(e, 'verify');
     }
   };
 

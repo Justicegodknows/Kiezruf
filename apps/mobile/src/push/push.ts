@@ -1,5 +1,5 @@
 // Push registration (US-29). After sign-in the app asks for notification permission and registers the Expo
-// push token with the API; sign-out removes it. Payloads are generic and carry only the report ID (README).
+// push token with the API; sign-out removes it from the API before the Supabase session ends. Payloads are generic and carry only the report ID (README).
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
@@ -46,6 +46,11 @@ export async function unregisterPush(): Promise<void> {
   } finally {
     if (token) await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY).catch(() => undefined);
   }
+}
+
+/** Forgets this device's token locally only, when the session or the account is already gone. */
+export async function forgetPushToken(): Promise<void> {
+  await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY).catch(() => undefined);
 }
 
 /** The report ID in a notification's data, if it carries a valid one. */

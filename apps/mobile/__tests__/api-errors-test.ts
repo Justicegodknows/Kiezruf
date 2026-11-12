@@ -1,6 +1,6 @@
 // Error-code mapping: every API code from the README has a translation, and the client turns error bodies
 // into codes the app knows.
-import { ApiError, api, setApiToken, setUnauthorizedHandler } from '../src/api/client';
+import { ApiError, api, setAccessTokenProvider, setUnauthorizedHandler } from '../src/api/client';
 import { API_ERROR_CODES, AppError, CLIENT_ERROR_CODES, errorCode, errorMessage } from '../src/api/errors';
 import { de } from '../src/i18n/de';
 import { en } from '../src/i18n/en';
@@ -8,7 +8,7 @@ import i18n from '../src/i18n';
 import { mockApi } from '../src/testing/helpers';
 
 afterEach(() => {
-  setApiToken(null);
+  setAccessTokenProvider(null);
   setUnauthorizedHandler(null);
 });
 
@@ -61,10 +61,20 @@ describe('api client', () => {
   test('sends the bearer token and reports a 401 to the auth layer', async () => {
     const calls = mockApi({ 'GET /me': { status: 401, body: { error: 'unauthorized' } } });
     const onUnauthorized = jest.fn();
-    setApiToken('abc');
+    setAccessTokenProvider(async () => 'abc');
     setUnauthorizedHandler(onUnauthorized);
     await expect(api('GET', '/me')).rejects.toMatchObject({ code: 'unauthorized' });
     expect(calls[0]!.headers.Authorization).toBe('Bearer abc');
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  test('without a session no Authorization header goes out, and a 401 is not reported', async () => {
+    const calls = mockApi({ 'GET /me': { status: 401, body: { error: 'unauthorized' } } });
+    const onUnauthorized = jest.fn();
+    setAccessTokenProvider(async () => null);
+    setUnauthorizedHandler(onUnauthorized);
+    await expect(api('GET', '/me')).rejects.toMatchObject({ code: 'unauthorized' });
+    expect(calls[0]!.headers.Authorization).toBeUndefined();
+    expect(onUnauthorized).not.toHaveBeenCalled();
   });
 });

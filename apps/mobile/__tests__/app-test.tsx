@@ -1,7 +1,6 @@
 // Screen tests from the product plan (the prototype's "Citizen app" tab). The UI runs in German, the default.
 // In @testing-library/react-native 14, render and fireEvent are async.
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,6 +14,7 @@ import PostedScreen from '../src/app/posted';
 import ReportDetailScreen from '../src/app/report/[publicId]';
 import i18n from '../src/i18n';
 import { EMPTY_DRAFT, type Draft } from '../src/report/DraftProvider';
+import { fakeAccessToken, fakeAuth } from '../src/testing/fakeSupabase';
 import { mockApi, renderApp, SIGN_IN_ROUTES, signInAs } from '../src/testing/helpers';
 
 const ID = 'BE-NK-2026-0112';
@@ -311,7 +311,6 @@ describe('citizen app screens', () => {
     const calls = mockApi({ 'POST /go-live-alerts': { status: 201, body: {} } });
     await renderApp(<NotLiveScreen />);
     expect(screen.getByTestId('notlive-heading')).toHaveTextContent('Kiezruf ist in Friedrichshain-Kreuzberg noch nicht live');
-    await waitFor(async () => expect(await SecureStore.getItemAsync('kiezruf.session')).toBe('test-token'));
     await fireEvent.press(screen.getByTestId('notlive-notify'));
     await waitFor(() => expect(screen.getByTestId('notlive-notify')).toHaveTextContent('Wir sagen dir Bescheid', { exact: false }));
     expect(calls.find((c) => c.path === '/go-live-alerts')?.body).toEqual({ lat: 52.5023, lon: 13.4185 });
@@ -383,7 +382,8 @@ describe('citizen app screens', () => {
     await waitFor(async () => buttons.find((b) => b.style === 'destructive')!.onPress!());
     expect(await screen.findByTestId('account-notice')).toHaveTextContent('Dein Konto wurde gelöscht.');
     expect(calls.some((c) => c.method === 'DELETE' && c.path === '/me')).toBe(true);
-    expect(await SecureStore.getItemAsync('kiezruf.session')).toBeNull();
+    expect(fakeAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(fakeAccessToken()).toBeNull();
     expect(screen.getByTestId('account-signin')).toBeTruthy();
   });
 });

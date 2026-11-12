@@ -142,4 +142,3 @@ export type NotificationSettings = z.infer<typeof NotificationSettings>;
 export const Me = z.object({ id: z.string(), email: z.string(), locale: z.string(), createdAt: z.string().optional() });
 export type Me = z.infer<typeof Me>;
 
-export const Session = z.object({ token: z.string(), expiresAt: z.string(), newAccount: z.boolean().optional() });

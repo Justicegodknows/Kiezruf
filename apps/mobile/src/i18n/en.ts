@@ -273,7 +273,7 @@ export const en: Translations = {
     invalid_request: 'Some details are missing or invalid.',
     invalid_code: 'The code is wrong or has expired.',
     too_many_attempts: 'Too many tries. Ask for a new code.',
-    too_many_codes: 'Too many codes requested. Try again in an hour.',
+    too_many_codes: 'Too many codes requested. Wait a while and try again.',
     not_found: 'Not found.',
     not_live: "Kiezruf isn't live here yet.",
     no_metadata: 'The photo has no location or time.',
