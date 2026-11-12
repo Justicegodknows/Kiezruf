@@ -101,6 +101,8 @@ describe('staff sign-in: email code, then TOTP (ENG-09)', () => {
   });
 
   it('sets the staff cookie (httpOnly, Secure, SameSite=Strict, expiring with the token) and never returns the token', async () => {
+    // The token's expiry must lie in the future, or the 12-hour fallback applies.
+    vi.useFakeTimers({ now: new Date('2026-11-11T23:00:00.000Z'), toFake: ['Date'] });
     mockApi(() => ({ status: 200, body: { token: STAFF, expiresAt: '2026-11-12T11:00:00.000Z' } }));
     const response = await postStaffTotp(request('/api/staff/auth/totp', { method: 'POST', body: { totp: '654321' }, challenge: CHALLENGE }));
     expect(response.status).toBe(200);

@@ -113,6 +113,12 @@ describe('posting with an early upload and a shown suggestion', () => {
     expect(calls.find((c) => c.path === '/api/reports')?.body).not.toHaveProperty('suggestion');
   });
 
+  it('says "too far from this report" when the API answers not_on_site to a co-report', async () => {
+    mockFetch(({ path }) => (path === '/api/reports/BE-NK-2026-0112/co-report' ? { status: 422, body: { error: 'not_on_site' } } : undefined));
+    const result = await coReport('BE-NK-2026-0112', { fix, capturedAt, files: [files[0]!], uploadedKeys: ['k1'] }, vi.fn());
+    expect(result).toMatchObject({ ok: false, error: 'too_far' });
+  });
+
   it('co-reports with the same capture and photo keys (US-13)', async () => {
     const calls = mockFetch(({ path }) => (path === '/api/reports/BE-NK-2026-0112/co-report' ? { status: 201, body: { publicId: 'BE-NK-2026-0112' } } : undefined));
     const result = await coReport('BE-NK-2026-0112', { fix, capturedAt, files: [files[0]!], uploadedKeys: ['k1'] }, vi.fn());

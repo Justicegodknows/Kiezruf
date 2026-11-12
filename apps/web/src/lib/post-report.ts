@@ -114,8 +114,11 @@ export interface CoReport {
 export async function coReport(publicId: string, input: CoReport, put: Put = defaultPut): Promise<ApiResult<{ publicId: string }>> {
   const keys = await uploadAll(input.files, input.uploadedKeys, put);
   if (!keys.ok) return keys;
-  return api<{ publicId: string }>(`reports/${encodeURIComponent(publicId)}/co-report`, {
+  const result = await api<{ publicId: string }>(`reports/${encodeURIComponent(publicId)}/co-report`, {
     method: 'POST',
     body: { capture: captureBody(input.fix, input.capturedAt), photoKeys: keys.data },
   });
+  // The API says not_on_site for both Me too and co-reporting; here it means "too far from this report".
+  if (!result.ok && result.error === 'not_on_site') return { ...result, error: 'too_far' };
+  return result;
 }
