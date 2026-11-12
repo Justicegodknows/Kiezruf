@@ -1,9 +1,14 @@
 // Browser-side mocks for console pages in Playwright (axe checks and the console feature steps). The console is
 // rendered in the browser and fetches everything from this site's /api routes, so intercepting those requests
-// gives the pages realistic data without a running Kiezruf API. src/proxy.ts only checks that a staff cookie is
-// present; the fake one below passes it, and the mocked /api/staff/session answers for it.
+// gives the pages realistic data without a running Kiezruf API.
+//
+// NOT YET UPDATED FOR SUPABASE AUTH (ENG-22): src/proxy.ts now verifies a real Supabase session at aal2 on the
+// server (getClaims), so the fake cookie below no longer gets past it and console pages redirect to sign-in.
+// These tests need a sign-in fixture against a local Supabase stack (`supabase start`): a seeded staff user with a
+// known TOTP secret, signed in once in a global setup, with its `sb-<ref>-auth-token` cookies stored for the tests.
 import type { BrowserContext, Page } from '@playwright/test';
 
+/** The old staff cookie (before ENG-22). Kept until the Supabase sign-in fixture replaces it. */
 export const STAFF_COOKIE = 'kiezruf_staff_session';
 export const REPORT_ID = 'BE-NK-2026-0112';
 export const FORWARD_TOKEN = 'fwd_0123456789abcdefghij';

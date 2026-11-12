@@ -1,8 +1,10 @@
 'use client';
 
-// The staff session in the console. The token stays in the httpOnly staff cookie; the browser only knows who is
-// signed in and their grants (GET /api/staff/session, which calls GET /staff/me). Any staff call that answers
-// 401 sends the staff member back to the console sign-in, with the page they were on as `next`.
+// The staff session in the console: the one Supabase session (ENG-22), at `aal2`. Its tokens stay in httpOnly
+// cookies; the browser only knows who is signed in and their grants (GET /api/staff/session, which calls
+// GET /staff/me). Any staff call that answers 401 (`unauthorized`, or `mfa_required` when the TOTP check is older
+// than 12 hours) sends the staff member back to the console sign-in, with the page they were on as `next`; the
+// sign-in page then asks only for the step that is missing.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { createContext, use, useCallback, useEffect, useMemo, type ReactNode } from 'react';
@@ -35,9 +37,11 @@ function onSignInPage(): boolean {
 }
 
 export async function fetchStaffSession(): Promise<StaffSession> {
-  const result = await api<{ signedIn?: boolean; me?: unknown }>('staff/session');
+  const result = await api<{ signedIn?: boolean; me?: unknown; reason?: unknown }>('staff/session');
   if (!result.ok) throw new ApiError(String(result.error), result.status);
-  return result.data?.signedIn ? { signedIn: true, me: normalizeMe(result.data.me) } : { signedIn: false };
+  if (result.data?.signedIn) return { signedIn: true, me: normalizeMe(result.data.me) };
+  const reason = result.data?.reason;
+  return reason === 'mfa_required' || reason === 'not_staff' ? { signedIn: false, reason } : { signedIn: false };
 }
 
 export function StaffProvider({ children }: { children: ReactNode }) {
@@ -52,7 +56,7 @@ export function StaffProvider({ children }: { children: ReactNode }) {
     router.replace(signInUrl(here));
   }, [queryClient, router]);
 
-  // Signed out (cookie gone or expired): every console page except sign-in needs a session.
+  // Signed out, or the TOTP step is missing: every console page except sign-in needs a staff session.
   const signedOut = session.data?.signedIn === false;
   useEffect(() => {
     if (signedOut && !onSignInPage()) toSignIn();
@@ -77,7 +81,8 @@ export function StaffProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await api('staff/auth/logout', { method: 'POST' });
+    // One Supabase session for citizen pages and the console: this signs out of both, in this browser.
+    await api('auth/logout', { method: 'POST' });
     queryClient.removeQueries({ predicate: (q) => q.queryKey[0] === 'staff' });
     queryClient.setQueryData<StaffSession>(STAFF_SESSION_KEY, { signedIn: false });
     router.replace(CONSOLE_SIGN_IN);

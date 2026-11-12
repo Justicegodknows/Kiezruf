@@ -1,3 +1,8 @@
-import { getStaffSession } from '@/server/staff-auth-handlers';
+import { connection, type NextRequest } from 'next/server';
+import { getStaffSession } from '@/server/auth-handlers';
 
-export const GET = getStaffSession;
+// Per request, never prerendered (see src/app/api/session/route.ts).
+export async function GET(request: NextRequest) {
+  await connection();
+  return getStaffSession(request);
+}

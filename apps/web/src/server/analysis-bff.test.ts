@@ -1,9 +1,13 @@
 // @vitest-environment node
 // Backend-for-frontend rules for the Phase 3 endpoints (README "API (analysis and AI, Phase 3)"): which token each
-// gets, which query keys pass, and the CSV export passed through unchanged (US-55).
+// gets, which query keys pass, and the CSV export passed through unchanged (US-55). One Supabase session (ENG-22):
+// `citizen` and `staff` below are two signed-in people, a citizen at aal1 and a staff member at aal2.
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { matchRule, proxy, SESSION_COOKIE, STAFF_COOKIE } from './bff';
+import { AUTH_COOKIE, fake, stubSupabaseEnv } from '@/test/fake-supabase';
+import { matchRule, proxy } from './bff';
+
+vi.mock('@supabase/ssr', async () => (await import('@/test/fake-supabase')).ssrModule);
 
 const CITIZEN = 'cit_abcdefghijklmnopqrstuvwxyz0123456789';
 const STAFF = 'stf_abcdefghijklmnopqrstuvwxyz0123456789';
@@ -35,8 +39,8 @@ const jsonAnswer = (body: unknown, status = 200) => new Response(JSON.stringify(
 
 function request(path: string, init: { method?: string; body?: unknown; citizen?: string; staff?: string; headers?: Record<string, string> } = {}) {
   const headers: Record<string, string> = { host: 'localhost:3000', ...init.headers };
-  const cookies = [init.citizen ? `${SESSION_COOKIE}=${init.citizen}` : null, init.staff ? `${STAFF_COOKIE}=${init.staff}` : null].filter(Boolean);
-  if (cookies.length) headers.cookie = cookies.join('; ');
+  const session = init.staff ?? init.citizen;
+  if (session) headers.cookie = `${AUTH_COOKIE}=${session}`;
   if (init.body !== undefined) headers['content-type'] = 'application/json';
   return new NextRequest(`http://localhost:3000${path}`, {
     method: init.method ?? 'GET',
@@ -48,7 +52,10 @@ function request(path: string, init: { method?: string; body?: unknown; citizen?
 const segments = (path: string) => path.split('?')[0]!.replace(/^\/api\//, '').split('/');
 
 beforeEach(() => {
-  vi.stubEnv('API_BASE_URL', 'http://api.test');
+  fake.reset();
+  fake.tokens[CITIZEN] = { aal: 'aal1' };
+  fake.tokens[STAFF] = { aal: 'aal2', totpAt: Math.floor(Date.now() / 1000) - 60 };
+  stubSupabaseEnv(vi.stubEnv);
 });
 
 afterEach(() => {
@@ -57,7 +64,7 @@ afterEach(() => {
 });
 
 describe('BFF allowlist: Phase 3 endpoints', () => {
-  it('gives the citizen endpoints the citizen token only (US-13, US-14)', async () => {
+  it('gives the citizen endpoints the session token (US-13, US-14)', async () => {
     for (const [method, path] of [
       ['POST', 'uploads/suggest'],
       ['POST', 'reports/duplicates'],
@@ -67,10 +74,10 @@ describe('BFF allowlist: Phase 3 endpoints', () => {
       expect(matchRule('GET', path), `GET ${path}`).toBeNull();
     }
     mockApi(() => jsonAnswer({ category: 'pothole', confidence: 0.9, preselect: true }));
-    const staffOnly = await proxy(request('/api/uploads/suggest', { method: 'POST', body: { key: 'k' }, staff: STAFF }), ['uploads', 'suggest']);
-    expect(staffOnly.status).toBe(401);
+    const guest = await proxy(request('/api/uploads/suggest', { method: 'POST', body: { key: 'k' } }), ['uploads', 'suggest']);
+    expect(guest.status).toBe(401);
     expect(apiCalls).toHaveLength(0);
-    const ok = await proxy(request('/api/uploads/suggest', { method: 'POST', body: { key: 'originals/a/1.jpg' }, citizen: CITIZEN, staff: STAFF }), ['uploads', 'suggest']);
+    const ok = await proxy(request('/api/uploads/suggest', { method: 'POST', body: { key: 'originals/a/1.jpg' }, citizen: CITIZEN }), ['uploads', 'suggest']);
     expect(await ok.json()).toEqual({ category: 'pothole', confidence: 0.9, preselect: true });
     expect(apiCalls[0]).toMatchObject({ url: 'http://api.test/uploads/suggest', method: 'POST', body: JSON.stringify({ key: 'originals/a/1.jpg' }) });
     expect(apiCalls[0]!.headers.authorization).toBe(`Bearer ${CITIZEN}`);
@@ -84,7 +91,7 @@ describe('BFF allowlist: Phase 3 endpoints', () => {
     expect(apiCalls[0]).toMatchObject({ url: `http://api.test/reports/${ID}/co-report`, body: JSON.stringify(body) });
   });
 
-  it('gives every console endpoint the staff token only', () => {
+  it('marks every console endpoint as a staff route', () => {
     for (const [method, path] of [
       ['GET', `staff/reports/${ID}/duplicates`],
       ['GET', 'staff/hotspots'],
@@ -106,10 +113,10 @@ describe('BFF allowlist: Phase 3 endpoints', () => {
     expect(matchRule('GET', 'staff/reports/x/duplicates')).toBeNull();
   });
 
-  it('answers 401 for a console endpoint with only a citizen session, without calling the API', async () => {
+  it('answers 401 for a console endpoint without a session, without calling the API', async () => {
     mockApi(() => jsonAnswer({}));
     for (const path of ['/api/staff/briefings', '/api/staff/hotspots', '/api/staff/trends', '/api/staff/export/queue.csv']) {
-      expect((await proxy(request(path, { citizen: CITIZEN }), segments(path))).status, path).toBe(401);
+      expect((await proxy(request(path), segments(path))).status, path).toBe(401);
     }
     expect(apiCalls).toHaveLength(0);
   });
@@ -180,14 +187,14 @@ describe('BFF: CSV export passes through unchanged (US-55)', () => {
     expect(response.headers.get('content-disposition')).toBe('attachment; filename="trends.csv"');
   });
 
-  it("relays the API's JSON errors and clears the staff cookie on 401", async () => {
+  it("relays the API's JSON errors and signs out of Supabase on 401 unauthorized", async () => {
     mockApi(() => jsonAnswer({ error: 'unauthorized' }, 401));
     const response = await proxy(request('/api/staff/export/queue.csv', { staff: STAFF, citizen: CITIZEN }), ['staff', 'export', 'queue.csv']);
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'unauthorized' });
     const cookies = response.headers.getSetCookie();
-    expect(cookies.find((c) => c.startsWith(`${STAFF_COOKIE}=`))).toMatch(/Max-Age=0/);
-    expect(cookies.find((c) => c.startsWith(`${SESSION_COOKIE}=`))).toBeUndefined();
+    expect(cookies.find((c) => c.startsWith(`${AUTH_COOKIE}=`))).toMatch(/Max-Age=0/);
+    expect(fake.calls.find((c) => c.method === 'signOut')?.args).toEqual({ scope: 'local' });
   });
 
   it('answers 502 unavailable when the API cannot be reached', async () => {

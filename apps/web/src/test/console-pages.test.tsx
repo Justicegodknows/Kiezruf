@@ -1,4 +1,4 @@
-// Console pages against a mocked BFF: TOTP sign-in, queue filters, and which actions each role is offered.
+// Console pages against a mocked BFF: Supabase sign-in with TOTP, queue filters, and which actions each role is offered.
 // Also the forward-link page and the office note on the citizen report detail.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -31,7 +31,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => nav.pathname,
   useParams: () => ({}),
 }));
-vi.mock('qrcode', () => ({ toDataURL: vi.fn(async (uri: string) => `data:image/png;base64,${btoa(uri).slice(0, 16)}`) }));
 // jsdom has no WebGL: the map fails quietly and the coordinates remain.
 vi.mock('maplibre-gl', () => ({
   Map: class {
@@ -136,19 +135,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('console sign-in with TOTP (ENG-09)', () => {
-  it('enrols an authenticator on the first sign-in: QR code, secret as text, then the first code', async () => {
+describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
+  // What Supabase returns from mfa.enroll, re-encoded by the server as base64 (src/server/auth-handlers.ts).
+  const QR = 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=';
+
+  it('enrols an authenticator on the first sign-in: QR code from Supabase, secret as text, then the first code', async () => {
     nav.search = `next=${encodeURIComponent(`/console/reports/${ID}`)}`;
     window.history.replaceState(null, '', `/console/sign-in?${nav.search}`);
-    const otpauthUri = 'otpauth://totp/Kiezruf:me%40bezirksamt.berlin.de?secret=JBSWY3DPEHPK3PXP&issuer=Kiezruf';
     let signedIn = false;
     const calls = mockFetch(({ method, path }) => {
       if (path === '/api/staff/session') return { body: signedIn ? { signedIn: true, me: me('case_worker', NK) } : { signedIn: false } };
       if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/staff/auth/verify') return { body: { next: 'enroll', otpauthUri, secret: 'JBSWY3DPEHPK3PXP' } };
-      if (method === 'POST' && path === '/api/staff/auth/totp') {
+      if (method === 'POST' && path === '/api/auth/verify') return { body: { signedIn: true, aal: 'aal1' } };
+      if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'enroll', qrCode: QR, secret: 'JBSWY3DPEHPK3PXP' } };
+      if (method === 'POST' && path === '/api/auth/mfa/verify') {
         signedIn = true;
-        return { body: { signedIn: true } };
+        return { body: { signedIn: true, aal: 'aal2' } };
       }
       return undefined;
     });
@@ -160,19 +162,22 @@ describe('console sign-in with TOTP (ENG-09)', () => {
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
 
     expect(await screen.findByRole('heading', { name: de['console.signin.enrollTitle'] })).toHaveFocus();
-    expect(await screen.findByRole('img', { name: de['console.signin.qrAlt'] })).toHaveAttribute('src', expect.stringMatching(/^data:image\/png/));
-    const { toDataURL } = await import('qrcode');
-    expect(toDataURL).toHaveBeenCalledWith(otpauthUri, expect.anything());
-    expect(screen.getByTestId('totp-secret')).toHaveTextContent('JBSW Y3DP EHPK 3PXP');
+    const qr = screen.getByRole('img', { name: de['console.signin.qrAlt'] });
+    expect(qr).toHaveAttribute('src', QR);
+    // The secret is the QR code's text alternative (WCAG 1.1.1).
+    const secret = screen.getByTestId('totp-secret');
+    expect(secret).toHaveTextContent('JBSW Y3DP EHPK 3PXP');
+    expect(document.getElementById(qr.getAttribute('aria-describedby')!)).toContainElement(secret);
 
     fireEvent.change(screen.getByLabelText(de['console.signin.totp']), { target: { value: '65a4321' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.enrollSubmit'] }));
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(`/console/reports/${ID}`));
 
     expect(calls.find((c) => c.path === '/api/auth/code')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', locale: 'de' });
-    expect(calls.find((c) => c.path === '/api/staff/auth/verify')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', code: '123456' });
-    // Only the authenticator code: the challenge stays in the httpOnly cookie.
-    expect(calls.find((c) => c.path === '/api/staff/auth/totp')?.body).toEqual({ totp: '654321' });
+    expect(calls.find((c) => c.path === '/api/auth/verify')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', code: '123456' });
+    // Only the authenticator code: the factor and challenge stay on the server.
+    expect(calls.find((c) => c.path === '/api/auth/mfa/verify')?.body).toEqual({ code: '654321' });
+    expect(calls.map((c) => c.path)).not.toContain('/api/staff/auth/verify');
   });
 
   it('asks for the authenticator code on later sign-ins and shows a wrong code translated', async () => {
@@ -180,8 +185,9 @@ describe('console sign-in with TOTP (ENG-09)', () => {
     mockFetch(({ method, path }) => {
       if (path === '/api/staff/session') return { body: { signedIn: false } };
       if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/staff/auth/verify') return { body: { next: 'totp' } };
-      if (method === 'POST' && path === '/api/staff/auth/totp') return { status: 400, body: { error: 'invalid_totp' } };
+      if (method === 'POST' && path === '/api/auth/verify') return { body: { signedIn: true, aal: 'aal1' } };
+      if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'totp' } };
+      if (method === 'POST' && path === '/api/auth/mfa/verify') return { status: 400, body: { error: 'invalid_totp' } };
       return undefined;
     });
     renderConsole(<SignInPage />, { gated: false });
@@ -191,17 +197,61 @@ describe('console sign-in with TOTP (ENG-09)', () => {
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
     fireEvent.change(await screen.findByLabelText(de['console.signin.totp']), { target: { value: '000000' } });
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText(de['console.signin.totpIntro'])).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.invalid_totp']);
     expect(nav.replace).not.toHaveBeenCalled();
   });
 
-  it('tells a citizen account that it has no console access', async () => {
+  it('shows a wrong or expired email code translated', async () => {
     window.history.replaceState(null, '', '/console/sign-in');
     mockFetch(({ method, path }) => {
       if (path === '/api/staff/session') return { body: { signedIn: false } };
       if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/staff/auth/verify') return { status: 403, body: { error: 'not_staff' } };
+      if (method === 'POST' && path === '/api/auth/verify') return { status: 400, body: { error: 'invalid_code' } };
+      return undefined;
+    });
+    renderConsole(<SignInPage />, { gated: false });
+    fireEvent.change(screen.getByLabelText(de['console.signin.email']), { target: { value: 'me@bezirksamt.berlin.de' } });
+    fireEvent.click(screen.getByRole('button', { name: de['signin.sendCode'] }));
+    fireEvent.change(await screen.findByLabelText(de['signin.code']), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(de['error.invalid_code']);
+  });
+
+  it('goes straight to the TOTP step when the session exists but its TOTP check is missing or too old', async () => {
+    window.history.replaceState(null, '', '/console/sign-in');
+    let signedIn = false;
+    const calls = mockFetch(({ method, path }) => {
+      if (path === '/api/staff/session') return { body: signedIn ? { signedIn: true, me: me('case_worker', NK) } : { signedIn: false, reason: 'mfa_required' } };
+      if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'totp' } };
+      if (method === 'POST' && path === '/api/auth/mfa/verify') {
+        signedIn = true;
+        return { body: { signedIn: true, aal: 'aal2' } };
+      }
+      return undefined;
+    });
+    renderConsole(<SignInPage />, { gated: false });
+    expect(await screen.findByText(de['console.signin.mfaAgain'])).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(de['console.signin.totp']), { target: { value: '654321' } });
+    fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/console'));
+    expect(calls.some((c) => c.path === '/api/auth/code')).toBe(false);
+  });
+
+  it('tells an account without a staff role that it has no console access', async () => {
+    window.history.replaceState(null, '', '/console/sign-in');
+    let aal2 = false;
+    mockFetch(({ method, path }) => {
+      // GET /staff/me answers 403 not_staff once the session is at aal2.
+      if (path === '/api/staff/session') return { body: aal2 ? { signedIn: false, reason: 'not_staff' } : { signedIn: false } };
+      if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
+      if (method === 'POST' && path === '/api/auth/verify') return { body: { signedIn: true, aal: 'aal1' } };
+      if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'totp' } };
+      if (method === 'POST' && path === '/api/auth/mfa/verify') {
+        aal2 = true;
+        return { body: { signedIn: true, aal: 'aal2' } };
+      }
       return undefined;
     });
     renderConsole(<SignInPage />, { gated: false });
@@ -209,7 +259,21 @@ describe('console sign-in with TOTP (ENG-09)', () => {
     fireEvent.click(screen.getByRole('button', { name: de['signin.sendCode'] }));
     fireEvent.change(await screen.findByLabelText(de['signin.code']), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
+    fireEvent.change(await screen.findByLabelText(de['console.signin.totp']), { target: { value: '654321' } });
+    fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.not_staff']);
+    expect(nav.replace).not.toHaveBeenCalled();
+  });
+
+  it('sends a staff member whose TOTP check expired (401 mfa_required) back to sign-in', async () => {
+    window.history.replaceState(null, '', '/console/moderation');
+    mockFetch(({ path }) => {
+      if (path === '/api/staff/session') return { body: { signedIn: true, me: me('case_worker', NK) } };
+      if (path === '/api/staff/moderation') return { status: 401, body: { error: 'mfa_required' } };
+      return undefined;
+    });
+    renderConsole(<ModerationPage />);
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/console/sign-in?next=%2Fconsole%2Fmoderation'));
   });
 
   it('sends a signed-out staff member from a console page to sign-in, coming back afterwards', async () => {

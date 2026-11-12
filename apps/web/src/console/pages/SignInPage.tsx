@@ -1,18 +1,26 @@
 'use client';
 
-// Console sign-in (ENG-09): the email code, then a 6-digit code from an authenticator app. On the first sign-in the
-// API returns an otpauth URI: the page shows it as a QR code and the secret as text for manual entry, then asks for
-// the first code to confirm enrolment. The staff session lives in an httpOnly cookie for 12 hours.
+// Console sign-in (ENG-22): Supabase email code, then Supabase MFA with an authenticator app (TOTP). The first time,
+// the server enrols a TOTP factor and the page shows the QR code Supabase returns, with the secret as text for
+// manual entry (and as the QR code's text alternative), then asks for the first code. Afterwards it is challenge
+// and verify. Only an `aal2` session reaches the console; the TOTP check is good for 12 hours. All Supabase calls
+// run on the server (/api/auth/*), so the session stays in httpOnly cookies.
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ErrorText } from '@/components/ErrorText';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api } from '@/lib/api-client';
 import { safeConsoleNext } from '@/lib/console-paths';
 import { fetchStaffSession, STAFF_SESSION_KEY } from '../StaffProvider';
 
-type Step = { kind: 'email' } | { kind: 'code' } | { kind: 'totp' } | { kind: 'enroll'; otpauthUri: string | null; secret: string | null };
+type Step =
+  | { kind: 'email' }
+  | { kind: 'code' }
+  | { kind: 'totp'; again: boolean }
+  | { kind: 'enroll'; qrCode: string | null; secret: string | null };
+
+type MfaStart = { next: 'totp' } | { next: 'enroll'; qrCode?: string | null; secret?: string | null };
 
 /** "JBSWY3DPEHPK3PXP" → "JBSW Y3DP EHPK 3PXP", easier to type into an authenticator app. */
 export function groupSecret(secret: string): string {
@@ -31,34 +39,61 @@ export function SignInPage() {
   const [totp, setTotp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const ids = { email: useId(), code: useId(), totp: useId(), error: useId(), qr: useId() };
+  const ids = { email: useId(), code: useId(), totp: useId(), error: useId(), secret: useId() };
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  // Already signed in (e.g. after a link from an email, which SameSite=Strict sends without the cookie).
+  function fail(code: unknown) {
+    setBusy(false);
+    setError(String(code));
+  }
+
+  /** The second step: TOTP for an enrolled staff member, enrolment (QR code and secret) the first time. */
+  const startMfa = useCallback(async (again: boolean): Promise<boolean> => {
+    const result = await api<MfaStart>('auth/mfa', { method: 'POST' });
+    setBusy(false);
+    if (!result.ok) {
+      setError(String(result.error));
+      if (result.status === 401) setStep({ kind: 'email' });
+      return false;
+    }
+    setTotp('');
+    if (result.data.next === 'enroll') setStep({ kind: 'enroll', qrCode: result.data.qrCode ?? null, secret: result.data.secret ?? null });
+    else setStep({ kind: 'totp', again });
+    return true;
+  }, []);
+
+  // Already signed in: straight to the console, or to the step that is missing (TOTP older than 12 hours, or
+  // signed in on the citizen pages without it). An account without a staff role sees why it cannot go on.
   useEffect(() => {
     let cancelled = false;
     fetchStaffSession()
       .then((session) => {
-        if (!cancelled && session.signedIn) {
+        if (cancelled) return;
+        if (session.signedIn) {
           queryClient.setQueryData(STAFF_SESSION_KEY, session);
           router.replace(next);
+        } else if (session.reason === 'mfa_required') {
+          void startMfa(true);
+        } else if (session.reason === 'not_staff') {
+          setError('not_staff');
         }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [next, queryClient, router]);
+  }, [next, queryClient, router, startMfa]);
 
-  // Each step moves focus to its heading, so screen-reader users hear what changed (WCAG 2.4.3).
+  // Each step change (also back to the email step after an error) moves focus to the heading, so focus never
+  // drops to the page body and screen-reader users hear what changed (WCAG 2.4.3). Not on the first render.
+  const firstStep = useRef(true);
   useEffect(() => {
-    if (step.kind !== 'email') headingRef.current?.focus();
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    headingRef.current?.focus();
   }, [step.kind]);
-
-  function fail(code: unknown) {
-    setBusy(false);
-    setError(String(code));
-  }
 
   async function sendCode(event: FormEvent) {
     event.preventDefault();
@@ -74,30 +109,28 @@ export function SignInPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await api<{ next: 'totp' | 'enroll'; otpauthUri?: string | null; secret?: string | null }>('staff/auth/verify', {
-      method: 'POST',
-      body: { email: email.trim(), code },
-    });
+    const result = await api('auth/verify', { method: 'POST', body: { email: email.trim(), code } });
     if (!result.ok) return fail(result.error);
-    setBusy(false);
     setCode('');
-    setStep(result.data.next === 'enroll' ? { kind: 'enroll', otpauthUri: result.data.otpauthUri ?? null, secret: result.data.secret ?? null } : { kind: 'totp' });
+    await startMfa(false);
   }
 
   async function confirmTotp(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await api('staff/auth/totp', { method: 'POST', body: { totp } });
+    const result = await api('auth/mfa/verify', { method: 'POST', body: { code: totp } });
     if (!result.ok) {
       setTotp('');
-      if (result.error === 'challenge_expired') {
-        setStep({ kind: 'email' });
-      }
+      if (result.error === 'challenge_expired' || result.status === 401) setStep({ kind: 'email' });
       return fail(result.error);
     }
     const session = await fetchStaffSession().catch(() => undefined);
-    if (session) queryClient.setQueryData(STAFF_SESSION_KEY, session);
+    if (!session?.signedIn) {
+      setStep({ kind: 'email' });
+      return fail(session?.reason === 'not_staff' ? 'not_staff' : 'unavailable');
+    }
+    queryClient.setQueryData(STAFF_SESSION_KEY, session);
     router.replace(next);
   }
 
@@ -191,7 +224,7 @@ export function SignInPage() {
 
       {step.kind === 'totp' ? (
         <form onSubmit={confirmTotp} className="stack">
-          <p role="status">{t('console.signin.totpIntro')}</p>
+          <p role="status">{step.again ? t('console.signin.mfaAgain') : t('console.signin.totpIntro')}</p>
           {totpField}
           <ErrorText id={ids.error} code={error} />
           <button type="submit" className="btn primary" disabled={busy || totp.length !== 6}>
@@ -206,10 +239,23 @@ export function SignInPage() {
       {step.kind === 'enroll' ? (
         <form onSubmit={confirmTotp} className="stack">
           <p role="status">{t('console.signin.enrollIntro')}</p>
-          {step.otpauthUri ? <QrCode uri={step.otpauthUri} labelId={ids.qr} /> : null}
+          {step.qrCode ? (
+            // A data: URL from Supabase (SVG); next/image adds nothing here. The secret below is its text alternative.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={step.qrCode}
+              alt={t('console.signin.qrAlt')}
+              width={240}
+              height={240}
+              className="qr"
+              aria-describedby={step.secret ? ids.secret : undefined}
+            />
+          ) : (
+            <p className="small muted">{t('console.signin.qrFailed')}</p>
+          )}
           {step.secret ? (
-            <div className="stack-sm">
-              <p id={ids.qr}>{t('console.signin.enrollManual')}</p>
+            <div className="stack-sm" id={ids.secret}>
+              <p>{t('console.signin.enrollManual')}</p>
               <p>
                 <code className="secret" data-testid="totp-secret">
                   {groupSecret(step.secret)}
@@ -230,29 +276,4 @@ export function SignInPage() {
       ) : null}
     </div>
   );
-}
-
-function QrCode({ uri, labelId }: { uri: string; labelId: string }) {
-  const { t } = useI18n();
-  const [src, setSrc] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    import('qrcode')
-      .then((QR) => QR.toDataURL(uri, { margin: 2, width: 240, errorCorrectionLevel: 'M' }))
-      .then((url) => {
-        if (!cancelled) setSrc(url);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [uri]);
-  if (failed) return <p className="small muted">{t('console.signin.qrFailed')}</p>;
-  if (!src) return <p role="status">{t('common.loading')}</p>;
-  // A data: URL generated in the browser; next/image adds nothing here.
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={t('console.signin.qrAlt')} width={240} height={240} className="qr" aria-describedby={labelId} />;
 }

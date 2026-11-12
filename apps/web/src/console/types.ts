@@ -36,6 +36,8 @@ export interface StaffMe {
 export interface StaffSession {
   signedIn: boolean;
   me?: StaffMe;
+  /** Why there is no staff session although Supabase has one: the TOTP step is missing, or no staff role. */
+  reason?: 'mfa_required' | 'not_staff';
 }
 
 /** Thresholds as the API sends them (lower case). */

@@ -1,5 +1,5 @@
 // Browser-side calls. They only ever go to this site's own /api routes (the backend-for-frontend), which hold
-// the session cookie and talk to the Kiezruf API. The browser never sees the API token.
+// the Supabase session in httpOnly cookies and talk to Supabase and the Kiezruf API. The browser never sees a token.
 import { codeForStatus, isKnownErrorCode, type ErrorCode } from './errors';
 import type { ReportStatus } from './paths';
 
@@ -113,4 +113,6 @@ export interface SessionInfo {
   signedIn: boolean;
   email?: string;
   locale?: string;
+  /** Supabase assurance level: `aal2` after the TOTP step (staff). */
+  aal?: string;
 }

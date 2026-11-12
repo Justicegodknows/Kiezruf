@@ -1,91 +1,17 @@
 // Server code only: imported by the route handlers in src/app/api. (The `server-only` package is not installed.)
-// Backend-for-frontend (engineering plan, Sessions): the browser talks only to this site's /api routes.
-// They keep the API session token in an httpOnly cookie and add it as `Authorization: Bearer` when they call
-// the Kiezruf API. Nothing here logs request bodies, email addresses or tokens.
+// Backend-for-frontend (engineering plan, Sessions): the browser talks only to this site's /api routes. The
+// Supabase session (ENG-22) lives in httpOnly cookies (src/server/supabase.ts); these routes take its access token
+// and send it as `Authorization: Bearer` when they call the Kiezruf API. Nothing here logs request bodies, email
+// addresses or tokens.
 import { REPORT_ID_PATTERN } from '@kiezruf/shared';
 import { NextResponse, type NextRequest } from 'next/server';
+import { accessToken, signOutHere, supabaseEnv, supabaseForRequest, type RequestSupabase } from './supabase';
 
-export const SESSION_COOKIE = 'kiezruf_session';
-/** The staff session (console). Its own cookie: staff routes never see the citizen token and vice versa. */
-export const STAFF_COOKIE = 'kiezruf_staff_session';
-/** The sign-in challenge between the email code and the TOTP step. Only the staff sign-in routes read it. */
-export const STAFF_CHALLENGE_COOKIE = 'kiezruf_staff_challenge';
-export const STAFF_CHALLENGE_PATH = '/api/staff/auth';
-/** Staff sessions last 12 hours (README, "API (admin console, Phase 2)"); used when the API sends no expiry. */
-export const STAFF_SESSION_HOURS = 12;
-const STAFF_CHALLENGE_SECONDS = 10 * 60;
-const TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,200}$/;
 const MAX_BODY_BYTES = 64 * 1024;
 const API_TIMEOUT_MS = 15_000;
 
 export function apiBaseUrl(): string {
   return (process.env.API_BASE_URL || 'http://localhost:4000').replace(/\/+$/, '');
-}
-
-/** httpOnly, Secure, SameSite=Lax, whole site. Browsers accept Secure cookies on http://localhost too. */
-export function sessionCookieOptions(expires?: Date) {
-  return { httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/', ...(expires ? { expires } : {}) };
-}
-
-export function setSessionCookie(response: NextResponse, token: string, expiresAt: string | undefined) {
-  const expires = expiresAt ? new Date(expiresAt) : undefined;
-  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(expires && !Number.isNaN(expires.getTime()) ? expires : undefined));
-}
-
-export function clearSessionCookie(response: NextResponse) {
-  response.cookies.set(SESSION_COOKIE, '', { ...sessionCookieOptions(new Date(0)), maxAge: 0 });
-}
-
-export function sessionToken(request: NextRequest): string | null {
-  const value = request.cookies.get(SESSION_COOKIE)?.value;
-  return value && TOKEN_PATTERN.test(value) ? value : null;
-}
-
-// --- Staff session (console) -------------------------------------------------------------------------------
-
-/**
- * httpOnly, Secure, SameSite=Strict, whole site (the console pages under /console check it in src/proxy.ts).
- * Strict: a link from another site (an invitation email) opens the console without the session, and the
- * sign-in page then finds the session with a same-site request.
- */
-export function staffCookieOptions(expires: Date) {
-  return { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/', expires };
-}
-
-/** Expires with the token: the API's `expiresAt`, or 12 hours from now when it is missing or unreadable. */
-export function setStaffCookie(response: NextResponse, token: string, expiresAt: string | undefined, now = new Date()) {
-  const fromApi = expiresAt ? new Date(expiresAt) : null;
-  const fallback = new Date(now.getTime() + STAFF_SESSION_HOURS * 3_600_000);
-  const expires = fromApi && !Number.isNaN(fromApi.getTime()) && fromApi > now ? fromApi : fallback;
-  response.cookies.set(STAFF_COOKIE, token, staffCookieOptions(expires));
-}
-
-export function clearStaffCookie(response: NextResponse) {
-  response.cookies.set(STAFF_COOKIE, '', { ...staffCookieOptions(new Date(0)), maxAge: 0 });
-}
-
-export function staffToken(request: NextRequest): string | null {
-  const value = request.cookies.get(STAFF_COOKIE)?.value;
-  return value && TOKEN_PATTERN.test(value) ? value : null;
-}
-
-export function setStaffChallenge(response: NextResponse, challenge: string) {
-  response.cookies.set(STAFF_CHALLENGE_COOKIE, challenge, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'strict',
-    path: STAFF_CHALLENGE_PATH,
-    maxAge: STAFF_CHALLENGE_SECONDS,
-  });
-}
-
-export function clearStaffChallenge(response: NextResponse) {
-  response.cookies.set(STAFF_CHALLENGE_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'strict', path: STAFF_CHALLENGE_PATH, maxAge: 0, expires: new Date(0) });
-}
-
-export function staffChallenge(request: NextRequest): string | null {
-  const value = request.cookies.get(STAFF_CHALLENGE_COOKIE)?.value;
-  return value && /^[A-Za-z0-9_.~+/=-]{8,512}$/.test(value) ? value : null;
 }
 
 export function json(body: unknown, status = 200): NextResponse {
@@ -185,9 +111,9 @@ const UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-
 const LINK_TOKEN = '[A-Za-z0-9_-]{16,200}';
 
 /**
- * Which token a route gets. `public`: none, so browsing stays anonymous even when signed in. `citizen`: the
- * citizen cookie only. `staff`: the staff cookie only, so a citizen session can never reach a staff route and
- * a staff session never acts as a citizen.
+ * Which token a route gets. `public`: none, so browsing stays anonymous even when signed in. `citizen` and
+ * `staff`: the access token of the one Supabase session. The API decides what it allows: staff routes need an
+ * `aal2` token with a fresh TOTP check and answer `401 mfa_required` otherwise.
  */
 export type Auth = 'public' | 'citizen' | 'staff';
 
@@ -228,8 +154,8 @@ const rule = (
 });
 
 /**
- * Every API endpoint the browser may reach through the catch-all proxy. Sign-in (citizen and staff) has its own
- * routes, so `auth/*` and `staff/auth/*` are not here.
+ * Every API endpoint the browser may reach through the catch-all proxy. Sign-in is Supabase Auth through this
+ * site's own /api/auth/* routes, so nothing about it is here.
  */
 export const PROXY_RULES: readonly Rule[] = [
   rule(['GET'], 'public/route', 'public'),
@@ -331,13 +257,22 @@ function forwardQuery(request: NextRequest, keys: ReadonlySet<string>): string {
   return qs ? `?${qs}` : '';
 }
 
-function tokenFor(auth: Auth, request: NextRequest): string | null {
-  if (auth === 'citizen') return sessionToken(request);
-  if (auth === 'staff') return staffToken(request);
-  return null;
+/** The API's error code, when its answer has one. */
+function errorOf(body: unknown): string | null {
+  return body && typeof body === 'object' && typeof (body as { error?: unknown }).error === 'string' ? (body as { error: string }).error : null;
 }
 
-/** The catch-all proxy: allowlisted path, token from the matching cookie, that cookie cleared when the API says 401. */
+/**
+ * What a 401 means for the session. `unauthorized`: the session is gone (expired, revoked, account deleted), so
+ * this browser signs out of Supabase too. `mfa_required` (staff routes): the session is fine but needs the TOTP
+ * step again; the console sends the staff member there, and the session stays.
+ */
+async function afterUnauthorized(supabase: RequestSupabase, body: unknown): Promise<void> {
+  if (errorOf(body) === 'mfa_required') return;
+  await signOutHere(supabase.client);
+}
+
+/** The catch-all proxy: allowlisted path, the session's access token for signed-in routes, sign-out on 401. */
 export async function proxy(request: NextRequest, segments: string[]): Promise<NextResponse> {
   if (isCrossSite(request)) return json({ error: 'forbidden' }, 403);
   if (segments.some((s) => s === '' || s === '.' || s === '..')) return json({ error: 'not_found' }, 404);
@@ -345,16 +280,33 @@ export async function proxy(request: NextRequest, segments: string[]): Promise<N
   const found = matchRule(request.method, path);
   if (!found) return json({ error: 'not_found' }, 404);
 
-  const token = tokenFor(found.auth, request);
-  if (found.auth !== 'public' && !token) return json({ error: 'unauthorized' }, 401);
+  let supabase: RequestSupabase | null = null;
+  let token: string | null = null;
+  if (found.auth !== 'public') {
+    const env = supabaseEnv();
+    if (env) {
+      supabase = supabaseForRequest(request, env);
+      token = await accessToken(supabase.client);
+    }
+    if (!supabase || !token) return supabase ? supabase.apply(json({ error: 'unauthorized' }, 401)) : json({ error: 'unauthorized' }, 401);
+  }
 
   const body = await readJsonBody(request);
   if (!body.ok) return json({ error: body.error }, body.status);
 
   if (found.raw) {
     const response = await passThrough(`${path}${forwardQuery(request, found.query)}`, token, request);
-    if (response.status === 401 && found.auth === 'staff') clearStaffCookie(response);
-    return response;
+    if (response.status === 401 && supabase) {
+      const text = await response.clone().text().catch(() => '');
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = null;
+      }
+      await afterUnauthorized(supabase, parsed);
+    }
+    return supabase ? supabase.apply(response) : response;
   }
 
   const answer = await callApi(`${path}${request.method === 'GET' ? forwardQuery(request, found.query) : ''}`, {
@@ -364,11 +316,9 @@ export async function proxy(request: NextRequest, segments: string[]): Promise<N
     request,
   });
   const response = relay(answer);
-  // The session is gone (expired, signed out elsewhere, account deleted): drop the cookie too.
-  if (answer.status === 401) {
-    if (found.auth === 'citizen') clearSessionCookie(response);
-    if (found.auth === 'staff') clearStaffCookie(response);
-  }
-  if (path === 'me' && request.method === 'DELETE' && answer.status >= 200 && answer.status < 300) clearSessionCookie(response);
-  return response;
+  if (!supabase) return response;
+  if (answer.status === 401) await afterUnauthorized(supabase, answer.body);
+  // The account is gone (US-34): end the session in this browser as well.
+  if (path === 'me' && request.method === 'DELETE' && answer.status >= 200 && answer.status < 300) await signOutHere(supabase.client);
+  return supabase.apply(response);
 }

@@ -1,7 +1,8 @@
 'use client';
 
 // Sign-in sheet (US-01): email, then the 6-digit code from the email. Same account as in the app (US-04).
-import { useId, useState, type FormEvent } from 'react';
+// Supabase Auth (ENG-22) behind this site's /api/auth/* routes: the session lands in httpOnly cookies.
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Dialog } from '@/components/Dialog';
 import { ErrorText } from '@/components/ErrorText';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -28,6 +29,18 @@ function SignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   const emailId = useId();
   const codeId = useId();
   const errorId = useId();
+  const codeRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const firstStep = useRef(true);
+
+  // Moving between the steps puts focus in the new step's field, so it never drops out of the dialog (WCAG 2.4.3).
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    (step === 'code' ? codeRef : emailRef).current?.focus();
+  }, [step]);
 
   async function sendCode(event: FormEvent) {
     event.preventDefault();
@@ -46,7 +59,7 @@ function SignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await api('auth/verify', { method: 'POST', body: { email: email.trim(), code, locale } });
+    const result = await api('auth/verify', { method: 'POST', body: { email: email.trim(), code } });
     if (!result.ok) {
       setBusy(false);
       setError(String(result.error));
@@ -61,6 +74,7 @@ function SignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
         <div className="field">
           <label htmlFor={emailId}>{t('signin.email')}</label>
           <input
+            ref={emailRef}
             id={emailId}
             type="email"
             name="email"
@@ -88,6 +102,7 @@ function SignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
       <div className="field">
         <label htmlFor={codeId}>{t('signin.code')}</label>
         <input
+          ref={codeRef}
           id={codeId}
           name="code"
           inputMode="numeric"

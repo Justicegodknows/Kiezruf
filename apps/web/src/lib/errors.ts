@@ -25,6 +25,8 @@ export const API_ERROR_CODES = [
   'not_staff',
   'invalid_totp',
   'challenge_expired',
+  // Staff routes without a fresh TOTP check (README "Hosting and sign-in (ENG-22)").
+  'mfa_required',
   'read_only',
   'invalid_transition',
   'reason_required',

@@ -369,7 +369,7 @@ describe('citizen web: Me too button (US-18)', () => {
       if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
       if (method === 'POST' && path === '/api/auth/verify') {
         signedIn = true;
-        return { body: { signedIn: true, newAccount: false } };
+        return { body: { signedIn: true, aal: 'aal1' } };
       }
       if (method === 'PUT' && path === '/api/reports/BE-NK-2026-0112/me-too') return { body: { voted: true, meTooCount: 21 } };
       return undefined;
@@ -383,10 +383,15 @@ describe('citizen web: Me too button (US-18)', () => {
     const dialog = await screen.findByRole('dialog', { name: de['signin.title'] });
     fireEvent.change(within(dialog).getByLabelText(de['signin.email']), { target: { value: 'a@example.org' } });
     fireEvent.click(within(dialog).getByRole('button', { name: de['signin.sendCode'] }));
-    fireEvent.change(await within(dialog).findByLabelText(de['signin.code']), { target: { value: '123456' } });
+    const codeField = await within(dialog).findByLabelText(de['signin.code']);
+    // Focus moves into the code step (WCAG 2.4.3).
+    await waitFor(() => expect(codeField).toHaveFocus());
+    fireEvent.change(codeField, { target: { value: '123456' } });
     fireEvent.click(within(dialog).getByRole('button', { name: de['signin.verify'] }));
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith({ voted: true, meTooCount: 21 }));
+    // Supabase verifyOtp runs behind /api/auth/verify; the browser sends only the address and the code.
+    expect(calls.find((c) => c.path === '/api/auth/verify')?.body).toEqual({ email: 'a@example.org', code: '123456' });
     const vote = calls.find((c) => c.method === 'PUT');
     expect(vote?.body).toEqual({ lat: 52.4811, lon: 13.4353, accuracyM: 12 });
     // The code request asks for German mail, the language of the page.
