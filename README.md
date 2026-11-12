@@ -110,6 +110,33 @@ More error codes: `not_staff`, `invalid_totp`, `challenge_expired`, `read_only`,
 
 Citizen payloads gain `publicNote` on report detail (US-28). The first platform admin is created with `pnpm --filter api staff:grant <email> <tenant-path> platform_admin`.
 
+## API (analysis and AI, Phase 3)
+
+The AI provider (vlincta.com, D-13, D-15) is called through an OpenAI-compatible API (`AI_PROVIDER_BASE_URL`, `AI_PROVIDER_API_KEY`, models in `AI_MODEL_*`). Comment and description text is pseudonymised before any AI call. Blur sits behind its own interface until vlincta's blur endpoint is known (`BLUR_DETECTOR`: `full` blurs the whole photo, `none` leaves photos waiting).
+
+Citizen endpoints:
+
+| Endpoint | What |
+| --- | --- |
+| `POST /uploads/suggest` `{ key }` | Category suggestion for an uploaded photo (US-14): `{ category, confidence, preselect }`. `preselect` is true from 0.80. Answers within about 3 s; on a timeout all three are `null`/`false` |
+| `POST /reports` gains `suggestion: { category, confidence }` | The suggestion the citizen saw, logged as feedback when they chose another category (US-14) |
+| `POST /reports/duplicates` `{ lat, lon, category, photoKey? }` | "Already reported?" (US-13): up to 3 public reports within 150 m in the same category group, most similar first: `{ matches: [{ publicId, category, status, distanceM, meTooCount, photo, similarity }] }` |
+| `POST /reports/:publicId/co-report` `{ capture, photoKeys }` | "Add my photo to this report": same on-site rules as posting, within 150 m of the report; the citizen becomes a co-reporter and follows it (US-13). `201 { publicId }` |
+
+Console endpoints:
+
+| Endpoint | What |
+| --- | --- |
+| `GET /staff/reports/:publicId/duplicates` | Merge suggestions (US-17): same tenant, within 150 m, same category group, by photo similarity: `{ matches: [{ publicId, status, level, distanceM, similarity, createdAt }] }` |
+| `GET /staff/hotspots?tenantId` | Clusters within 150 m and the same category group (US-50, US-52): `{ clusters: [{ id, group, lat, lon, count, level, publicIds, recurring, weekdayPattern }], computedAt }`; `level` is the highest inside; `weekdayPattern` is `mon`…`sun` or `null` |
+| `GET /staff/trends?tenantId&weeks=8` | Weekly counts per category with the change against the 4-week average, and median hours to acknowledge and to resolve (US-51): `{ weeks, categories: [{ category, counts, fourWeekAverage, change }], medianHoursToAcknowledge, medianHoursToResolve }` |
+| `GET /staff/briefings?tenantId` | The last 8 weekly briefings (US-53): `{ briefings: [{ id, tenant, weekStart, generatedAt, aiWritten, fallback, items: [{ id, level, kind, headline, text, citations, myRating }] }] }`; `kind` is `Urgent`, `Watch` or `Improving` |
+| `POST /staff/briefings/items/:id/rating` `{ useful, note? }` | "Useful" / "Something is wrong" per item (US-54) |
+| `PUT /staff/me/preferences` `{ briefingEmail }` | Unsubscribe from the Monday email (US-56); `GET /staff/me` returns `preferences` |
+| `GET /staff/export/queue.csv?tenantId&from&to` · `GET /staff/export/trends.csv?tenantId` | CSV for council meetings (US-55) |
+
+Moderation's `held` items gain `reason`: `blur_failed` or `too_large`. The worker processes new photos every minute, recomputes hotspots nightly, writes briefings Monday 06:00 and emails them to tenant admins at 07:00 Europe/Berlin (D-14, D-17).
+
 ## Maps
 
 MapLibre on both clients (ENG-13): `maplibre-gl` on the web, `@maplibre/maplibre-react-native` in the app (needs an Expo dev build, not Expo Go). The style URL comes from `NEXT_PUBLIC_MAP_STYLE_URL` and `EXPO_PUBLIC_MAP_STYLE_URL`; development defaults to the public OpenFreeMap style. The production tile host is open (E-08).
