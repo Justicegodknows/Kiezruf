@@ -3,7 +3,7 @@ import { loadConfig } from './config.js';
 
 const base = {
   DATABASE_URL: 'postgres://x',
-  AUTH_SECRET: 'a'.repeat(32),
+  SUPABASE_URL: 'https://kiezruf-test.supabase.co',
   SMTP_HOST: 'localhost',
   SMTP_PORT: '1025',
   MAIL_FROM: 'Kiezruf <no-reply@example.org>',
@@ -25,7 +25,7 @@ describe('loadConfig', () => {
   });
 
   it('names missing settings without their values', () => {
-    expect(() => loadConfig({ ...base, AUTH_SECRET: 'short' })).toThrow('Invalid or missing configuration: AUTH_SECRET');
+    expect(() => loadConfig({ ...base, SUPABASE_JWT_SECRET: 'short' })).toThrow('Invalid or missing configuration: SUPABASE_JWT_SECRET');
   });
 });
 

@@ -20,7 +20,7 @@ export async function buildApp(deps: AppDeps, opts: FastifyServerOptions = {}) {
 
   // Limits apply per route (see each route's config). In-memory store: fine for one API instance in the pilot.
   if (deps.rateLimits !== false) await app.register(rateLimit, { global: false });
-  registerAuth(app, deps.db);
+  registerAuth(app, deps.db, deps.verifier);
 
   app.get('/health', async () => ({
     ok: true,

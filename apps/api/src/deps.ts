@@ -1,4 +1,5 @@
 import type { AiProvider } from './ai/provider.js';
+import type { SupabaseAdmin, TokenVerifier } from './auth/supabase.js';
 import type { Db } from './db/client.js';
 import type { Mailer } from './mail/mailer.js';
 import type { PhotoStorage } from './storage/photos.js';
@@ -8,8 +9,10 @@ export interface AppDeps {
   db: Db;
   mailer: Mailer;
   storage: PhotoStorage;
-  /** Key for hashing one-time codes (AUTH_SECRET). */
-  authSecret: string;
+  /** Verifies Supabase access tokens (ENG-22). */
+  verifier: TokenVerifier;
+  /** Deletes and bans Supabase users. Optional: without it, only our own account rows change. */
+  supabaseAdmin?: SupabaseAdmin;
   /** Base URL of the public bucket with blurred photos. */
   publicPhotoBaseUrl: string;
   /** Base URL of the web app, for links in invite and forwarding emails. */

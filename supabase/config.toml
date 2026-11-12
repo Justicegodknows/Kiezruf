@@ -1,0 +1,57 @@
+# Local Supabase for development (ENG-22): `supabase start` (Supabase CLI, needs Docker).
+# Hosted projects take the same choices in the dashboard: Auth → email OTP of 6 digits, MFA TOTP on, the email
+# templates below, and the Data API exposing no schema of ours (API settings → exposed schemas).
+project_id = "kiezruf"
+
+[api]
+enabled = true
+port = 54321
+# Our tables are never served through the Data API: every query goes through the Kiezruf API (ENG-08).
+schemas = ["graphql_public"]
+extra_search_path = ["extensions"]
+max_rows = 100
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+# Catches Supabase's own emails (sign-in codes) locally: http://127.0.0.1:54324
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/console"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+# US-01: a 6-digit code, valid 10 minutes.
+otp_length = 6
+otp_expiry = 600
+
+[auth.email.template.magic_link]
+subject = "Ihr Kiezruf-Code / Your Kiezruf code"
+content_path = "./supabase/templates/code.html"
+
+[auth.email.template.confirmation]
+subject = "Ihr Kiezruf-Code / Your Kiezruf code"
+content_path = "./supabase/templates/code.html"
+
+# Staff need a second factor (ENG-17, ENG-22).
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true

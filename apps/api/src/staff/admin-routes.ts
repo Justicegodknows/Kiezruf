@@ -92,8 +92,13 @@ export function staffAdminRoutes(app: FastifyInstance, deps: AppDeps) {
     const params = parseOr400(IdParams, request.params, reply);
     const body = params && parseOr400(BanBody, request.body, reply);
     if (!params || !body) return reply;
-    const result = await staffTx(deps, request, reply, (tx) => tx.execute(sql`SELECT ban_account(${params.id}, ${body.reason})`));
+    const result = await staffTx(deps, request, reply, (tx) =>
+      tx.execute<{ auth_user: string | null }>(sql`SELECT ban_account(${params.id}, ${body.reason}) AS auth_user`),
+    );
     if (!result.ok) return reply;
+    // Our banned_at already refuses every request; banning in Supabase also stops new sign-ins.
+    const authUser = result.value[0]?.auth_user;
+    if (authUser) await deps.supabaseAdmin?.banUser(authUser).catch((error) => request.log.error({ err: error }, 'Supabase ban failed'));
     return reply.code(204).send();
   });
 

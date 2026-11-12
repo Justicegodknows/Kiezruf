@@ -17,7 +17,11 @@ export async function startDatabase(): Promise<{ url: string; stop: () => Promis
 }
 
 /** Creates an empty database `name` on the server at `serverUrl`, migrates it and optionally seeds the tenant tree. */
-export async function createMigratedDatabase(serverUrl: string, name: string, options: { seed?: boolean } = {}): Promise<Db> {
+export async function createMigratedDatabase(
+  serverUrl: string,
+  name: string,
+  options: { seed?: boolean; beforeMigrate?: (url: string) => Promise<void> } = {},
+): Promise<Db> {
   const admin = postgres(serverUrl, { max: 1, onnotice: () => {} });
   try {
     await admin.unsafe(`CREATE DATABASE "${name}"`);
@@ -26,6 +30,7 @@ export async function createMigratedDatabase(serverUrl: string, name: string, op
   }
   const url = new URL(serverUrl);
   url.pathname = `/${name}`;
+  await options.beforeMigrate?.(url.toString());
   await runMigrations(url.toString());
   const db = createDb(url.toString(), { max: 4 });
   if (options.seed) await seedTenants(db);

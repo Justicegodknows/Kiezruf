@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { parseReportId } from '@kiezruf/shared';
 import { sql } from 'drizzle-orm';
-import { stepAt, totpAt } from '../../src/staff/totp.js';
+import { accessToken } from '../../test/support/tokens.js';
 import { signIn, uploadPhotos } from '../../test/support/app.js';
 import { SCENARIO_NOW, type KiezrufWorld } from './world.js';
 
@@ -24,14 +24,8 @@ export async function signInNewStaff(world: KiezrufWorld, path: string, role: st
   await world.db.execute(sql`
     WITH a AS (INSERT INTO account (email) VALUES (${email}) RETURNING id)
     INSERT INTO staff_role (account_id, tenant_id, role) SELECT a.id, t.id, ${role}::staff_role_kind FROM a, tenant t WHERE t.path = ${path}::ltree`);
-  await world.t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-  const verify = await world.t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email, code: world.t.mailer.lastCodeFor(email) } });
-  assert.equal(verify.statusCode, 200, verify.body);
-  const { challenge, secret } = verify.json();
-  // The scenarios' clock is fixed, so the authenticator code is the one for that moment.
-  const totp = await world.t.app.inject({ method: 'POST', url: '/staff/auth/totp', payload: { challenge, totp: totpAt(secret, stepAt(SCENARIO_NOW)) } });
-  assert.equal(totp.statusCode, 200, totp.body);
-  return totp.json().token;
+  // A Supabase session after the email code and the authenticator (aal2), as staff get it (ENG-22).
+  return accessToken({ email, mfa: true });
 }
 
 export async function citizenToken(world: KiezrufWorld): Promise<string> {

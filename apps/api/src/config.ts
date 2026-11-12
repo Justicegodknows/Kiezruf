@@ -5,8 +5,11 @@ import { openAiCompatibleProvider, type AiCallLog, type AiProvider } from './ai/
 const Env = z.object({
   PORT: z.coerce.number().int().default(4000),
   DATABASE_URL: z.string().min(1),
-  // Key for hashing one-time codes. At least 32 characters; generate with `openssl rand -base64 48`.
-  AUTH_SECRET: z.string().min(32),
+  // Supabase project (ENG-22): sign-in and the database. The API verifies access tokens with the project's JWKS
+  // keys, or with SUPABASE_JWT_SECRET for HS256 projects. The service-role key deletes and bans Supabase users.
+  SUPABASE_URL: z.url(),
+  SUPABASE_JWT_SECRET: z.string().min(32).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int(),
   MAIL_FROM: z.string().min(1),

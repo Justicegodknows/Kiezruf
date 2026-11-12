@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../../src/db/client.js';
 import { account, notification, report, reportScore, staffRole, tenant } from '../../src/db/schema.js';
 import { recomputeScores } from '../../src/scoring/recompute.js';
-import { stepAt, totpAt } from '../../src/staff/totp.js';
+import { accessToken, authUserIdFor } from '../support/tokens.js';
 import { buildTestApp, signIn, uploadPhotos, type TestApp } from '../support/app.js';
 import { createMigratedDatabase } from './helpers.js';
 
@@ -15,11 +15,9 @@ const RATHAUS_SPANDAU = { lat: 52.5352, lon: 13.2 };
 
 let db: Db;
 let t: TestApp;
+const bannedUsers: string[] = [];
 let n = 0;
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
-const secrets = new Map<string, string>();
-const nextStep = new Map<string, number>();
-
 async function grant(email: string, path: string, role: 'platform_admin' | 'tenant_admin' | 'case_worker' | 'viewer') {
   const [row] = await db.execute<{ id: string }>(sql`
     INSERT INTO account (email) VALUES (${email}) ON CONFLICT ((lower(email))) DO UPDATE SET email = account.email RETURNING id`);
@@ -28,23 +26,9 @@ async function grant(email: string, path: string, role: 'platform_admin' | 'tena
   return row!.id;
 }
 
-/** The authenticator code for the next unused 30-second step (a code is never accepted twice). */
-function totpFor(email: string): string {
-  const step = Math.max(nextStep.get(email) ?? 0, stepAt(new Date()));
-  nextStep.set(email, step + 1);
-  return totpAt(secrets.get(email)!, step);
-}
-
-/** Signs in through email code + TOTP, enrolling the authenticator on first use. */
+/** A Supabase session after the email code and the authenticator (aal2), as staff get it (ENG-22). */
 async function staffSignIn(email: string): Promise<string> {
-  await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-  const verify = await t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } });
-  if (verify.statusCode !== 200) throw new Error(verify.body);
-  const body = verify.json();
-  if (body.next === 'enroll') secrets.set(email, body.secret);
-  const totp = await t.app.inject({ method: 'POST', url: '/staff/auth/totp', payload: { challenge: body.challenge, totp: totpFor(email) } });
-  if (totp.statusCode !== 200) throw new Error(totp.body);
-  return totp.json().token;
+  return accessToken({ email, mfa: true });
 }
 
 async function postReport(token: string, at = KARL_MARX_STR_100, category = 'pothole', publish = true): Promise<string> {
@@ -73,7 +57,7 @@ let spReport: string;
 
 beforeAll(async () => {
   db = await createMigratedDatabase('staff', { seed: true });
-  t = await buildTestApp(db);
+  t = await buildTestApp(db, { supabaseAdmin: { deleteUser: async () => {}, banUser: async (id) => void bannedUsers.push(id) } });
   citizen = await signIn(t, 'citizen@example.org');
   nkReport = await postReport(citizen);
   spReport = await postReport(citizen, RATHAUS_SPANDAU, 'street_lighting');
@@ -92,65 +76,35 @@ afterAll(async () => {
   await db?.$client.end();
 });
 
-describe('staff sign-in with a TOTP second factor (ENG-09)', () => {
-  it('enrols an authenticator on first sign-in, then asks for its code', async () => {
-    const email = `new-worker-${++n}@neukoelln.example`;
-    await grant(email, 'de.be.bec.nk', 'case_worker');
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const first = (await t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } })).json();
-    expect(first).toEqual({ challenge: expect.any(String), next: 'enroll', otpauthUri: expect.stringMatching(/^otpauth:\/\/totp\/Kiezruf/), secret: expect.stringMatching(/^[A-Z2-7]{32}$/) });
-    secrets.set(email, first.secret);
-
-    const wrong = await t.app.inject({ method: 'POST', url: '/staff/auth/totp', payload: { challenge: first.challenge, totp: '000000' } });
-    expect(wrong.json()).toEqual({ error: 'invalid_totp' });
-    const right = await t.app.inject({ method: 'POST', url: '/staff/auth/totp', payload: { challenge: first.challenge, totp: totpFor(email) } });
-    expect(right.statusCode).toBe(200);
-    const hours = (new Date(right.json().expiresAt).getTime() - Date.now()) / 3_600_000;
-    expect(hours).toBeGreaterThan(11.9);
-    expect(hours).toBeLessThanOrEqual(12);
-
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const second = (await t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } })).json();
-    expect(second).toEqual({ challenge: expect.any(String), next: 'totp' });
-  });
-
-  it('never accepts the same authenticator code twice', async () => {
+describe('staff sign-in with Supabase MFA (ENG-22)', () => {
+  it('needs a TOTP check in this session, at most 12 hours old', async () => {
     const email = 'caseworker@neukoelln.example';
-    const code = totpFor(email);
-    for (const expected of [200, 400]) {
-      await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-      const v = (await t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } })).json();
-      const res = await t.app.inject({ method: 'POST', url: '/staff/auth/totp', payload: { challenge: v.challenge, totp: code } });
-      expect(res.statusCode).toBe(expected);
-    }
+    const withoutMfa = await get(accessToken({ email }), '/staff/me');
+    expect(withoutMfa.statusCode).toBe(401);
+    expect(withoutMfa.json()).toEqual({ error: 'mfa_required' });
+    const stale = await get(accessToken({ email, mfa: true, mfaAgeSeconds: 13 * 3600 }), '/staff/me');
+    expect(stale.json()).toEqual({ error: 'mfa_required' });
+    expect((await get(accessToken({ email, mfa: true }), '/staff/me')).statusCode).toBe(200);
   });
 
-  it('locks a challenge after 5 wrong codes', async () => {
-    const email = 'viewer@berlin.example';
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const v = (await t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } })).json();
-    const errors = [];
-    for (let i = 0; i < 6; i++) {
-      errors.push((await t.app.inject({ method: 'POST', url: '/staff/auth/totp', payload: { challenge: v.challenge, totp: '000000' } })).json().error);
-    }
-    expect(errors).toEqual(['invalid_totp', 'invalid_totp', 'invalid_totp', 'invalid_totp', 'invalid_totp', 'challenge_expired']);
-  });
-
-  it('refuses accounts without a role, and citizen sessions on staff routes', async () => {
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'citizen@example.org' } });
-    const res = await t.app.inject({ method: 'POST', url: '/staff/auth/verify', payload: { email: 'citizen@example.org', code: t.mailer.lastCodeFor('citizen@example.org') } });
+  it('refuses accounts without a role, and citizen tokens on staff routes', async () => {
+    const res = await get(accessToken({ email: 'citizen@example.org', mfa: true }), '/staff/reports');
     expect(res.statusCode).toBe(403);
     expect(res.json()).toEqual({ error: 'not_staff' });
-    expect((await get(citizen, '/staff/reports')).statusCode).toBe(401);
-    expect((await get(nkWorker, '/me')).statusCode).toBe(401);
+    expect((await get(citizen, '/staff/reports')).json()).toEqual({ error: 'mfa_required' });
   });
 
-  it('ends the staff session on logout', async () => {
-    const email = `leaving${++n}@neukoelln.example`;
-    await grant(email, 'de.be.bec.nk', 'viewer');
-    const token = await staffSignIn(email);
-    expect((await send(token, 'POST', '/staff/auth/logout')).statusCode).toBe(204);
-    expect((await get(token, '/staff/me')).statusCode).toBe(401);
+  it('links an invited staff member to their Supabase user on first sign-in', async () => {
+    const email = `invited${++n}@neukoelln.example`;
+    const accountId = await grant(email, 'de.be.bec.nk', 'case_worker');
+    const me = (await get(await staffSignIn(email), '/staff/me')).json();
+    expect(me).toMatchObject({ id: accountId, email });
+    const [row] = await db.select({ authUserId: account.authUserId }).from(account).where(eq(account.id, accountId));
+    expect(row!.authUserId).toBe(authUserIdFor(email));
+  });
+
+  it('lets a staff session use citizen routes too (one Supabase session)', async () => {
+    expect((await get(nkWorker, '/me')).statusCode).toBe(200);
   });
 
   it('lists the caller\'s grants', async () => {
@@ -373,6 +327,8 @@ describe('moderation (US-33)', () => {
     expect((await send(nkWorker, 'POST', `/staff/accounts/${item.accountId}/ban`, { reason: 'spam' })).statusCode).toBe(403);
     expect((await send(spAdmin, 'POST', `/staff/accounts/${item.accountId}/ban`, { reason: 'Repeated insults' })).statusCode).toBe(204);
     expect((await get(author, '/me')).statusCode).toBe(401);
+    // The Supabase sign-in is banned too, so no new session can be started.
+    expect(bannedUsers).toEqual([authUserIdFor(`rude${n}@example.org`)]);
     const [nkWorkerId] = await db.select({ id: account.id }).from(account).where(eq(account.email, 'caseworker@neukoelln.example'));
     expect((await send(spAdmin, 'POST', `/staff/accounts/${nkWorkerId!.id}/ban`, { reason: 'x' })).statusCode).toBe(403);
   });
@@ -429,6 +385,6 @@ describe('tenants and roles (US-40, US-42, US-46)', () => {
     const newToken = await staffSignIn('new@spandau.example');
     expect((await get(newToken, '/staff/reports')).statusCode).toBe(200);
     expect((await send(spAdmin, 'DELETE', `/staff/tenants/${sp!.id}/staff/${invited.json().accountId}`)).statusCode).toBe(204);
-    expect((await get(newToken, '/staff/reports')).statusCode).toBe(401);
+    expect((await get(newToken, '/staff/reports')).statusCode).toBe(403);
   });
 });

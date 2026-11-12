@@ -11,7 +11,7 @@ beforeAll(async () => {
     db: {} as Db,
     mailer: new FakeMailer(),
     storage: new FakePhotoStorage(),
-    authSecret: 'unit-test-secret-at-least-32-characters',
+    verifier: { verify: async () => null },
     publicPhotoBaseUrl: 'https://photos.test',
     webBaseUrl: 'https://kiezruf.test',
   });
@@ -53,10 +53,16 @@ describe('request validation', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('answers 400 with the failing fields for a bad sign-in request', async () => {
-    const res = await app.inject({ method: 'POST', url: '/auth/code', payload: { email: 'not-an-email' } });
+  it('answers 400 with the failing fields for a bad request', async () => {
+    const res = await app.inject({ method: 'GET', url: '/public/route?lat=north&lon=13.4' });
     expect(res.statusCode).toBe(400);
-    expect(res.json()).toEqual({ error: 'invalid_request', fields: ['email'] });
+    expect(res.json()).toEqual({ error: 'invalid_request', fields: ['lat'] });
+  });
+
+  it('no longer offers the old sign-in endpoints (Supabase Auth, ENG-22)', async () => {
+    for (const url of ['/auth/code', '/auth/verify', '/staff/auth/verify', '/staff/auth/totp']) {
+      expect((await app.inject({ method: 'POST', url, payload: {} })).statusCode, url).toBe(404);
+    }
   });
 
   it('answers 400 for a malformed report ID', async () => {

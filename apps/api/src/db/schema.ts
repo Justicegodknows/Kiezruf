@@ -55,7 +55,6 @@ export const reportStatus = pgEnum('report_status', [
 ]);
 export const blurStatus = pgEnum('blur_status', ['pending', 'done', 'failed']);
 export const reactionKind = pgEnum('reaction_kind', ['co_reporter', 'comment', 'me_too', 'danger']);
-export const sessionKind = pgEnum('session_kind', ['citizen', 'staff']);
 // 'held': the language filter stopped it; staff review it in the moderation queue (US-19, US-33).
 export const commentState = pgEnum('comment_state', ['visible', 'held', 'removed']);
 export const pushPlatform = pgEnum('push_platform', ['ios', 'android']);
@@ -112,6 +111,8 @@ export const account = pgTable(
   'account',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    // The Supabase Auth user (ENG-22). Null until the person first signs in (e.g. invited staff).
+    authUserId: uuid('auth_user_id'),
     email: text('email'),
     phone: text('phone'),
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
@@ -125,6 +126,7 @@ export const account = pgTable(
   (t) => [
     uniqueIndex('account_email_key').on(sql`lower(${t.email})`),
     uniqueIndex('account_phone_key').on(t.phone),
+    uniqueIndex('account_auth_user_key').on(t.authUserId),
     check(
       'account_has_contact',
       sql`${t.deletedAt} IS NOT NULL OR ${t.email} IS NOT NULL OR ${t.phone} IS NOT NULL`,
@@ -222,38 +224,6 @@ export const photo = pgTable(
 );
 
 // --- Phase 1: sign-in, posting, votes -------------------------------------------------------------
-
-// One-time sign-in codes (US-01): 6 digits, valid 10 minutes, 5 tries. Only an HMAC of the code is stored.
-export const loginCode = pgTable(
-  'login_code',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    // Normalised: trimmed and lower-case.
-    email: text('email').notNull(),
-    codeHash: text('code_hash').notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    attempts: integer('attempts').notNull().default(0),
-    // Set when the code is used, replaced by a newer code, or locked after too many tries.
-    consumedAt: timestamp('consumed_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index('login_code_email_idx').on(t.email, t.createdAt)],
-);
-
-// Opaque session tokens, stored as SHA-256 hashes (engineering plan, Security: "Sessions").
-export const session = pgTable(
-  'session',
-  {
-    tokenHash: text('token_hash').primaryKey(),
-    accountId: uuid('account_id')
-      .notNull()
-      .references(() => account.id, { onDelete: 'cascade' }),
-    kind: sessionKind('kind').notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index('session_account_idx').on(t.accountId)],
-);
 
 // Report ID sequence per tenant and year (US-41). Advanced only by the next_report_sequence() function.
 export const reportSequence = pgTable(
@@ -511,28 +481,6 @@ export const auditEvent = pgTable(
   },
   (t) => [index('audit_event_report_idx').on(t.reportId, t.createdAt), index('audit_event_tenant_idx').on(t.tenantId, t.createdAt)],
 );
-
-// Staff second factor (ENG-09): a TOTP secret, encrypted with a key derived from AUTH_SECRET.
-export const staffTotp = pgTable('staff_totp', {
-  accountId: uuid('account_id')
-    .primaryKey()
-    .references(() => account.id, { onDelete: 'cascade' }),
-  secretEnc: text('secret_enc').notNull(),
-  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
-  // The last accepted 30-second step: a code is never accepted twice.
-  lastStep: integer('last_step'),
-});
-
-// Between the email code and the authenticator code: valid 10 minutes, 5 tries.
-export const staffChallenge = pgTable('staff_challenge', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  accountId: uuid('account_id')
-    .notNull()
-    .references(() => account.id, { onDelete: 'cascade' }),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  attempts: integer('attempts').notNull().default(0),
-  usedAt: timestamp('used_at', { withTimezone: true }),
-});
 
 // --- Phase 3: analysis and AI ------------------------------------------------------------------------
 

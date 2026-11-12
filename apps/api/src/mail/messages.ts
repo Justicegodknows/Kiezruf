@@ -3,19 +3,6 @@
 export const LOCALES = ['de', 'en'] as const;
 export type Locale = (typeof LOCALES)[number];
 
-export function loginCodeMail(locale: Locale, code: string, validMinutes: number): { subject: string; text: string } {
-  if (locale === 'en') {
-    return {
-      subject: `${code} is your Kiezruf code`,
-      text: `Your Kiezruf sign-in code is ${code}.\n\nIt is valid for ${validMinutes} minutes. If you did not ask for a code, ignore this email.`,
-    };
-  }
-  return {
-    subject: `${code} ist Ihr Kiezruf-Code`,
-    text: `Ihr Anmeldecode für Kiezruf lautet ${code}.\n\nEr gilt ${validMinutes} Minuten. Wenn Sie keinen Code angefordert haben, können Sie diese E-Mail ignorieren.`,
-  };
-}
-
 // --- Notifications (US-20, US-29, US-44) -----------------------------------------------------------
 // Push texts stay generic: Expo's push service runs in the US, so payloads carry no report details beyond
 // the ID in the data field (engineering plan, Push caveat). Email goes through the EU provider and may say more.

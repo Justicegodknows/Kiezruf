@@ -3,7 +3,8 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../../src/db/client.js';
-import { account, comment, notification, pushToken, report, session, staffRole, tenant } from '../../src/db/schema.js';
+import { account, comment, notification, pushToken, report, staffRole, tenant } from '../../src/db/schema.js';
+import { accessToken, authUserIdFor } from '../support/tokens.js';
 import { loadStaffScope, withStaffScope } from '../../src/db/scope.js';
 import { deliverPendingNotifications, MAX_DELIVERY_ATTEMPTS } from '../../src/notifications/deliver.js';
 import { buildTestApp, signIn, uploadPhotos, type TestApp } from '../support/app.js';
@@ -17,13 +18,16 @@ const MARIENPLATZ_MUNICH = { lat: 48.1374, lon: 11.5755 };
 
 let db: Db;
 let t: TestApp;
+const deletedUsers: string[] = [];
 let n = 0;
 const newEmail = () => `engaged${++n}@example.org`;
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
 beforeAll(async () => {
   db = await createMigratedDatabase('engagement', { seed: true });
-  t = await buildTestApp(db);
+  t = await buildTestApp(db, {
+    supabaseAdmin: { deleteUser: async (id) => void deletedUsers.push(id), banUser: async () => {} },
+  });
 });
 afterAll(async () => {
   await t?.app.close();
@@ -339,7 +343,6 @@ describe('account (US-34, US-35)', () => {
     expect((await t.app.inject({ method: 'GET', url: '/me', headers: auth(laptop) })).statusCode).toBe(401);
     const [row] = await db.select({ email: account.email, deletedAt: account.deletedAt }).from(account).where(eq(account.id, id));
     expect(row).toEqual({ email: null, deletedAt: expect.any(Date) });
-    expect(await db.select().from(session).where(eq(session.accountId, id))).toEqual([]);
     expect(await db.select().from(pushToken).where(eq(pushToken.accountId, id))).toEqual([]);
 
     const [kept] = await db.select({ createdBy: report.createdBy }).from(report).where(eq(report.publicId, publicId));
@@ -347,9 +350,11 @@ describe('account (US-34, US-35)', () => {
     const comments = (await t.app.inject({ method: 'GET', url: `/public/reports/${publicId}/comments` })).json().comments;
     expect(comments.map((c: { body: string }) => c.body)).toEqual(['Still broken.']);
 
-    // The same address can sign up again as a new account.
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const again = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } });
-    expect(again.json()).toMatchObject({ newAccount: true });
+    // The Supabase user is deleted too; signing up again gives a new Supabase user and a new account.
+    expect(deletedUsers).toContain(authUserIdFor(email));
+    const again = accessToken({ email, overrides: { sub: '00000000-0000-4000-8000-000000000001' } });
+    const fresh = await t.app.inject({ method: 'GET', url: '/me', headers: auth(again) });
+    expect(fresh.json()).toMatchObject({ newAccount: true, email });
+    expect(fresh.json().id).not.toBe(id);
   });
 });

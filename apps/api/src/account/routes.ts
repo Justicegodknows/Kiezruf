@@ -47,6 +47,13 @@ export function accountRoutes(app: FastifyInstance, deps: AppDeps) {
   // Deletes the account at once (US-34). Every session ends, on every device.
   app.delete('/me', { preHandler: app.requireCitizen }, async (request, reply) => {
     await withCitizenSession(deps.db, accountIdOf(request), (tx) => tx.execute(sql`SELECT delete_my_account()`));
+    // The sign-in and its email address live in Supabase: delete them too. Our account row is anonymised already, so a
+    // failure here is logged and retried by nobody; the token then still verifies but no longer reaches an account.
+    try {
+      await deps.supabaseAdmin?.deleteUser(request.session!.authUserId);
+    } catch (error) {
+      request.log.error({ err: error }, 'Supabase user deletion failed');
+    }
     return reply.code(204).send();
   });
 

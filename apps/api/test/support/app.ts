@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
+import { supabaseVerifier } from '../../src/auth/supabase.js';
 import type { Db } from '../../src/db/client.js';
 import type { AppDeps } from '../../src/deps.js';
 import { FakeMailer, FakePhotoStorage } from './fakes.js';
+import { accessToken, TEST_JWT_SECRET, TEST_SUPABASE_URL } from './tokens.js';
 
-export const TEST_AUTH_SECRET = 'test-secret-that-is-at-least-32-characters-long';
 
 export interface TestApp {
   app: FastifyInstance;
@@ -20,7 +21,7 @@ export async function buildTestApp(db: Db, overrides: Partial<AppDeps> = {}): Pr
     db,
     mailer,
     storage,
-    authSecret: TEST_AUTH_SECRET,
+    verifier: supabaseVerifier({ url: TEST_SUPABASE_URL, jwtSecret: TEST_JWT_SECRET }),
     publicPhotoBaseUrl: 'https://photos.test/public',
     webBaseUrl: 'https://kiezruf.test',
     rateLimits: false,
@@ -31,17 +32,16 @@ export async function buildTestApp(db: Db, overrides: Partial<AppDeps> = {}): Pr
   return { app, mailer, storage, deps };
 }
 
-/** Signs in through the real one-time-code flow and returns the session token. */
+/**
+ * A Supabase access token for `email`, as the clients get after the email code (ENG-22). The account is created on the
+ * first API call. `t` is kept for the old call shape.
+ */
 export async function signIn(t: TestApp, email: string): Promise<string> {
-  const code = await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-  if (code.statusCode !== 202) throw new Error(`POST /auth/code answered ${code.statusCode}: ${code.body}`);
-  const verify = await t.app.inject({
-    method: 'POST',
-    url: '/auth/verify',
-    payload: { email, code: t.mailer.lastCodeFor(email) },
-  });
-  if (verify.statusCode !== 200) throw new Error(`POST /auth/verify answered ${verify.statusCode}: ${verify.body}`);
-  return verify.json().token as string;
+  const token = accessToken({ email });
+  // The first API call creates the account, as it does for real clients.
+  const me = await t.app.inject({ method: 'GET', url: '/me', headers: { authorization: `Bearer ${token}` } });
+  if (me.statusCode !== 200) throw new Error(`GET /me answered ${me.statusCode}: ${me.body}`);
+  return token;
 }
 
 /** Uploads a real photo's bytes to the fake storage and returns its key. */

@@ -4,9 +4,10 @@ import { berlinYear } from '@kiezruf/shared';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../../src/db/client.js';
-import { account, demandSignal, loginCode, photo, reaction, report, session, staffRole, tenant } from '../../src/db/schema.js';
+import { account, demandSignal, photo, reaction, report, staffRole, tenant } from '../../src/db/schema.js';
 import { loadStaffScope, withCitizenSession, withStaffScope } from '../../src/db/scope.js';
 import { buildTestApp, signIn, uploadPhotos, type TestApp } from '../support/app.js';
+import { accessToken, authUserIdFor } from '../support/tokens.js';
 import { createMigratedDatabase } from './helpers.js';
 
 const KARL_MARX_STR_100 = { lat: 52.4795, lon: 13.4365 }; // Neukölln (pilot)
@@ -75,120 +76,41 @@ async function countSignals(tenantName: string | null) {
   return row!.n;
 }
 
-describe('sign-in with an email one-time code (US-01)', () => {
-  it('mails a 6-digit code, in German by default', async () => {
+describe('Supabase sign-in (US-01, US-37, ENG-22)', () => {
+  const me = (token: string) => t.app.inject({ method: 'GET', url: '/me', headers: auth(token) });
+
+  it('creates the account on the first call with a verified email, and reuses it', async () => {
     const email = newEmail();
-    const res = await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    expect(res.statusCode).toBe(202);
-    const mail = t.mailer.sent.at(-1)!;
-    expect(mail.to).toBe(email);
-    expect(mail.subject).toMatch(/^\d{6} ist Ihr Kiezruf-Code$/);
-    expect(mail.text).toContain('10 Minuten');
+    const first = await me(accessToken({ email }));
+    expect(first.json()).toMatchObject({ email, locale: 'de', newAccount: true });
+    const second = await me(accessToken({ email: email.toUpperCase() }));
+    expect(second.json()).toMatchObject({ id: first.json().id, email, newAccount: false });
+    const [row] = await db.select({ verifiedAt: account.verifiedAt, authUserId: account.authUserId }).from(account).where(eq(account.email, email));
+    expect(row).toEqual({ verifiedAt: expect.any(Date), authUserId: authUserIdFor(email) });
   });
 
-  it('mails the code in English when asked', async () => {
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email: newEmail(), locale: 'en' } });
-    expect(t.mailer.sent.at(-1)!.subject).toMatch(/^\d{6} is your Kiezruf code$/);
+  it.each([
+    ['no token', undefined],
+    ['a malformed header', 'Bearer short'],
+    ['an expired token', `Bearer ${accessToken({ email: 'x@example.org', expiresInSeconds: -5 })}`],
+    ['a token from another project', `Bearer ${accessToken({ email: 'x@example.org', secret: 'another-secret-with-at-least-32-characters' })}`],
+    ['a token without an email', `Bearer ${accessToken({ email: 'x@example.org', overrides: { email: '' } })}`],
+  ])('refuses %s', async (_label, header) => {
+    const res = await t.app.inject({ method: 'GET', url: '/me', headers: header ? { authorization: header } : {} });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: 'unauthorized' });
   });
 
-  it('stores only a hash of the code', async () => {
-    const email = newEmail();
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const code = t.mailer.lastCodeFor(email);
-    const [row] = await db.select().from(loginCode).where(eq(loginCode.email, email));
-    expect(row!.codeHash).not.toContain(code);
-    expect(row!.codeHash).toMatch(/^[0-9a-f]{64}$/);
-  });
+  it('refuses a banned account and a deleted one, even with a valid token', async () => {
+    const banned = newEmail();
+    await me(accessToken({ email: banned }));
+    await db.update(account).set({ bannedAt: sql`now()` }).where(eq(account.email, banned));
+    expect((await me(accessToken({ email: banned }))).statusCode).toBe(401);
 
-  it('creates the account on first sign-in and reuses it after that', async () => {
-    const email = newEmail();
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const first = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } });
-    expect(first.json()).toMatchObject({ newAccount: true });
-
-    // Same address in another spelling: same account.
-    const upper = `  ${email.toUpperCase()} `;
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email: upper.trim() } });
-    const second = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email: upper.trim(), code: t.mailer.lastCodeFor(email) } });
-    expect(second.json()).toMatchObject({ newAccount: false });
-
-    const me = await t.app.inject({ method: 'GET', url: '/me', headers: auth(second.json().token) });
-    expect(me.json()).toMatchObject({ email, locale: 'de' });
-    // Every acting account has a confirmed email (US-37).
-    const [row] = await db.select({ verifiedAt: account.verifiedAt }).from(account).where(eq(account.email, email));
-    expect(row!.verifiedAt).toBeInstanceOf(Date);
-  });
-
-  it('rejects a wrong code and locks the code after 5 tries', async () => {
-    const email = newEmail();
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const right = t.mailer.lastCodeFor(email);
-    const wrong = right === '000000' ? '111111' : '000000';
-    const tries = [];
-    for (let i = 0; i < 5; i++) {
-      tries.push((await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: wrong } })).json().error);
-    }
-    expect(tries).toEqual(['invalid_code', 'invalid_code', 'invalid_code', 'invalid_code', 'too_many_attempts']);
-    const after = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: right } });
-    expect(after.json()).toEqual({ error: 'invalid_code' });
-  });
-
-  it('rejects an expired code', async () => {
-    const email = newEmail();
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    await db.update(loginCode).set({ expiresAt: sql`now() - interval '1 second'` }).where(eq(loginCode.email, email));
-    const res = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } });
-    expect(res.json()).toEqual({ error: 'invalid_code' });
-  });
-
-  it('retires the older code when a new one is requested', async () => {
-    const email = newEmail();
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const old = t.mailer.lastCodeFor(email);
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const fresh = t.mailer.lastCodeFor(email);
-    if (old !== fresh) {
-      const res = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: old } });
-      expect(res.json()).toEqual({ error: 'invalid_code' });
-    }
-    const ok = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: fresh } });
-    expect(ok.statusCode).toBe(200);
-  });
-
-  it('sends at most 5 codes per address per hour', async () => {
-    const email = newEmail();
-    const statuses = [];
-    for (let i = 0; i < 6; i++) {
-      statuses.push((await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } })).statusCode);
-    }
-    expect(statuses).toEqual([202, 202, 202, 202, 202, 429]);
-  });
-
-  it('ends the session on logout', async () => {
-    const token = await signIn(t, newEmail());
-    expect((await t.app.inject({ method: 'GET', url: '/me', headers: auth(token) })).statusCode).toBe(200);
-    expect((await t.app.inject({ method: 'POST', url: '/auth/logout', headers: auth(token) })).statusCode).toBe(204);
-    expect((await t.app.inject({ method: 'GET', url: '/me', headers: auth(token) })).statusCode).toBe(401);
-  });
-
-  it('rejects an expired session and a session of a deleted account', async () => {
-    const expired = await signIn(t, newEmail());
-    await db.update(session).set({ expiresAt: sql`now() - interval '1 second'` });
-    expect((await t.app.inject({ method: 'GET', url: '/me', headers: auth(expired) })).statusCode).toBe(401);
-
-    const email = newEmail();
-    const token = await signIn(t, email);
-    await db.update(account).set({ deletedAt: sql`now()`, email: null }).where(eq(account.email, email));
-    expect((await t.app.inject({ method: 'GET', url: '/me', headers: auth(token) })).statusCode).toBe(401);
-  });
-
-  it('gives citizen sessions 30 days', async () => {
-    const email = newEmail();
-    await t.app.inject({ method: 'POST', url: '/auth/code', payload: { email } });
-    const res = await t.app.inject({ method: 'POST', url: '/auth/verify', payload: { email, code: t.mailer.lastCodeFor(email) } });
-    const days = (new Date(res.json().expiresAt).getTime() - Date.now()) / 86_400_000;
-    expect(days).toBeGreaterThan(29.9);
-    expect(days).toBeLessThanOrEqual(30);
+    const deleted = newEmail();
+    const token = accessToken({ email: deleted });
+    expect((await t.app.inject({ method: 'DELETE', url: '/me', headers: auth(token) })).statusCode).toBe(204);
+    expect((await me(token)).statusCode).toBe(401);
   });
 });
 
@@ -477,8 +399,7 @@ describe('row-level security for citizens (ENG-08)', () => {
   it('a citizen cannot read sign-in data or other accounts', async () => {
     const accounts = await withCitizenSession(db, benId, (tx) => tx.select({ id: account.id }).from(account));
     expect(accounts).toEqual([{ id: benId }]);
-    await expectDbError(withCitizenSession(db, benId, (tx) => tx.select().from(loginCode)), /permission denied/);
-    await expectDbError(withCitizenSession(db, benId, (tx) => tx.select().from(session)), /permission denied/);
+    await expectDbError(withCitizenSession(db, benId, (tx) => tx.select().from(staffRole)), /permission denied/);
   });
 
   it('vote rows follow the scope of their report (US-42)', async () => {

@@ -17,17 +17,26 @@ Citizen reporting platform. The plan, user stories and clickable prototypes live
 
 ```sh
 pnpm install          # installs all workspaces from pnpm-lock.yaml
-pnpm db:up            # starts PostgreSQL, MinIO and Mailpit in Docker (builds the database image the first time)
-cp .env.example .env  # the API, migrations and seed read it
-pnpm --filter api db:migrate   # applies the SQL migrations in apps/api/drizzle
+supabase start        # Supabase CLI: local Auth and Postgres (supabase/config.toml), prints the URL and keys
+pnpm db:up            # MinIO (S3 photos) and Mailpit (app emails) in Docker
+cp .env.example .env  # the API, worker, migrations and seed read it; check the Supabase values against `supabase start`
+pnpm --filter api db:migrate   # applies the SQL migrations in apps/api/drizzle to the Supabase database
 pnpm --filter api db:seed      # loads the tenant tree: Berlin and its 12 Bezirke
+pnpm --filter api staff:grant you@example.org de platform_admin   # first console user
 # MinIO: create the buckets photos-private and photos-public once in the console (http://localhost:9001)
 pnpm dev:api          # http://localhost:4000/health
-pnpm dev:web          # http://localhost:3000
-pnpm dev:mobile       # Expo dev server
+pnpm --filter api worker   # photo pipeline, notifications, scores, briefings
+pnpm dev:web          # http://localhost:3000 (copy apps/web/.env.example to apps/web/.env.local first)
+pnpm dev:mobile       # Expo dev server (EXPO_PUBLIC_SUPABASE_* and EXPO_PUBLIC_API_BASE_URL)
 ```
 
-Mailpit UI: http://localhost:8025 · MinIO console: http://localhost:9001
+Sign-in codes arrive in Supabase's local mail catcher (http://127.0.0.1:54324); app emails (notifications, briefings) in Mailpit (http://localhost:8025). MinIO console: http://localhost:9001. The compose file still starts the plain PostgreSQL image (`infra/postgres`) if you want to run the API without Supabase; sign-in then needs a Supabase project anyway.
+
+### Deployment
+
+- **Web (Vercel):** project root `apps/web`, region `fra1` (`apps/web/vercel.json`). Env: `API_BASE_URL` (the API on vlincta.com), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_MAP_STYLE_URL`.
+- **Supabase (EU, Frankfurt):** run the migrations against its database (`DATABASE_URL`, direct or session pooler on 5432), then the seed and `staff:grant`. In the dashboard: email OTP with 6 digits, the template in `supabase/templates/code.html`, MFA TOTP on, and no exposed schema of ours in the Data API.
+- **API and worker (vlincta.com):** `pnpm --filter api build`, then `node dist/server.js` and the worker; env as in `.env.example`, with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `TRUST_PROXY` set to Vercel's egress or the proxy in front of the API.
 
 ## Tests
 
@@ -94,7 +103,7 @@ Sign in with Supabase (see above), then send `Authorization: Bearer <access_toke
 | `POST /go-live-alerts` | "Tell me when it starts here" for the tenant at `{ lat, lon }` (US-44) |
 | `PATCH /me` · `DELETE /me` | Change language `{ locale }` (US-35); delete the account at once, reports stay as "a neighbour" (US-34) |
 
-Error codes the apps translate: `unauthorized`, `invalid_request`, `invalid_code`, `too_many_attempts`, `too_many_codes`, `not_found`, `not_live`, `no_metadata`, `accuracy_too_low`, `capture_too_old`, `capture_in_future`, `description_required`, `pin_too_far`, `photo_missing`, `duplicate_photo`, `not_on_site`, `already_live`, `no_tenant`.
+Error codes the apps translate: `unauthorized`, `invalid_request`, `not_found`, `not_live`, `no_metadata`, `accuracy_too_low`, `capture_too_old`, `capture_in_future`, `description_required`, `pin_too_far`, `photo_missing`, `duplicate_photo`, `not_on_site`, `already_live`, `no_tenant`. The apps map Supabase sign-in errors to `invalid_code`, `too_many_attempts` and `too_many_codes` themselves.
 
 Status changes and go-live are sent by the worker (`pnpm --filter api worker`). Push payloads carry only a generic text and the report ID (engineering plan, Push caveat).
 

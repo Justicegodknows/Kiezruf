@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { createDb } from './db/client.js';
+import { supabaseAdmin, supabaseVerifier } from './auth/supabase.js';
 import { aiFromConfig, loadConfig } from './config.js';
 import { smtpMailer } from './mail/mailer.js';
 import { s3PhotoStorage } from './storage/photos.js';
@@ -19,7 +20,8 @@ const app = await buildApp(
       publicBucket: config.S3_BUCKET_PUBLIC,
     }),
     ai: aiFromConfig(config, (entry) => console.log(JSON.stringify({ ai: entry }))),
-    authSecret: config.AUTH_SECRET,
+    verifier: supabaseVerifier({ url: config.SUPABASE_URL, jwtSecret: config.SUPABASE_JWT_SECRET }),
+    supabaseAdmin: config.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin({ url: config.SUPABASE_URL, serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY }) : undefined,
     publicPhotoBaseUrl: config.PUBLIC_PHOTO_BASE_URL,
     webBaseUrl: config.WEB_BASE_URL.replace(/\/$/, ''),
   },
