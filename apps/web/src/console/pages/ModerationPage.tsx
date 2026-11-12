@@ -78,7 +78,7 @@ export function ModerationPage() {
 
           <section aria-labelledby="mod-held" className="panel">
             <h2 id="mod-held">{tp('console.moderation.heldReports', queue.data.heldReports.length)}</h2>
-            <p className="small muted">{t('console.moderation.heldExplain')}</p>
+            <p className="small muted">{t('console.moderation.heldExplainReasons')}</p>
             {queue.data.heldReports.length === 0 ? <p className="muted">{t('console.moderation.nothing')}</p> : null}
             <ul className="plain-list">
               {queue.data.heldReports.map((r) => (
@@ -89,6 +89,11 @@ export function ModerationPage() {
                   </Link>
                   {r.tenant.name ? <span className="small muted"> · {r.tenant.name}</span> : null}
                   {r.createdAt ? <span className="small muted"> · {formatDateTime(locale, r.createdAt)}</span> : null}
+                  {r.reason ? (
+                    <p className="small">
+                      <span className="tag state-held">{t(`console.moderation.heldReason.${r.reason}`)}</span>
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>

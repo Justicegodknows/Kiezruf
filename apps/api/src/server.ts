@@ -1,6 +1,6 @@
 import { buildApp } from './app.js';
 import { createDb } from './db/client.js';
-import { loadConfig } from './config.js';
+import { aiFromConfig, loadConfig } from './config.js';
 import { smtpMailer } from './mail/mailer.js';
 import { s3PhotoStorage } from './storage/photos.js';
 
@@ -16,7 +16,9 @@ const app = await buildApp(
       accessKeyId: config.S3_ACCESS_KEY,
       secretAccessKey: config.S3_SECRET_KEY,
       bucket: config.S3_BUCKET_PRIVATE,
+      publicBucket: config.S3_BUCKET_PUBLIC,
     }),
+    ai: aiFromConfig(config, (entry) => console.log(JSON.stringify({ ai: entry }))),
     authSecret: config.AUTH_SECRET,
     publicPhotoBaseUrl: config.PUBLIC_PHOTO_BASE_URL,
     webBaseUrl: config.WEB_BASE_URL.replace(/\/$/, ''),

@@ -10,7 +10,16 @@ const PAGES = ['/', '/berlin/neukoelln/be-nk-2026-0112', '/new-report', '/my-rep
 
 // Console (Phase 2): signed in as a fake case worker with mocked /api/staff/* answers (tests/support/console-mocks.ts),
 // so the checks see the filled queue, report detail with actions, moderation and tenants pages.
-const CONSOLE_PAGES = ['/console', `/console/reports/${REPORT_ID}`, '/console/moderation', '/console/tenants'];
+// Phase 3: the weekly briefing is the landing page; the queue moved to /console/queue; hotspots and trends are new.
+const CONSOLE_PAGES = [
+  '/console',
+  '/console/queue',
+  `/console/reports/${REPORT_ID}`,
+  '/console/hotspots',
+  '/console/trends',
+  '/console/moderation',
+  '/console/tenants',
+];
 // Public without login: the console sign-in, and the forward link (live and expired).
 const PUBLIC_PAGES = ['/console/sign-in', `/forwarded/${FORWARD_TOKEN}`, '/forwarded/expired_0123456789abcdef'];
 

@@ -47,6 +47,7 @@ export interface NewReport {
   /** Where the citizen placed the pin, within 50 m of the capture point (US-10). Defaults to the capture point. */
   pin?: Point;
   photoKeys: string[];
+  suggestion?: { category: string; confidence: number | null };
 }
 
 export type PostResult =
@@ -108,6 +109,12 @@ export async function postReport(deps: AppDeps, accountId: string, input: NewRep
       })
       .returning({ id: report.id });
     await tx.insert(photo).values(input.photoKeys.map((originalKey) => ({ reportId: created!.id, originalKey })));
+    // A suggestion the citizen did not take is feedback for the photo AI (US-14).
+    if (input.suggestion && input.suggestion.category !== input.category) {
+      await tx.execute(sql`
+        INSERT INTO category_feedback (report_id, suggested, confidence, chosen)
+        VALUES (${created!.id}, ${input.suggestion.category}, ${input.suggestion.confidence}, ${input.category})`);
+    }
     // Reporters follow their report automatically (US-20).
     await tx.execute(sql`INSERT INTO follow (report_id, account_id) VALUES (${created!.id}, ${accountId})`);
     return { ok: true, publicId, tenant: { name: tenant.name, office: tenant.office } } as const;

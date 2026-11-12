@@ -70,6 +70,49 @@ const tenants = [
   { ...NK, parentId: null, type: 'bezirk', status: 'pilot', office: 'Bezirksamt Neukölln', thresholds: { critical: 60, high: 25, medium: 10 } },
 ];
 
+const briefings = {
+  briefings: [
+    {
+      id: 'b-45',
+      tenant: NK,
+      weekStart: '2026-11-09',
+      generatedAt: '2026-11-09T05:00:00Z',
+      aiWritten: true,
+      fallback: false,
+      items: [
+        {
+          id: 'aaaaaaaa-0000-4000-8000-000000000001',
+          level: 'Critical',
+          kind: 'Urgent',
+          headline: 'Dark pedestrian signal at Karl-Marx-Straße',
+          text: 'Four neighbours and 20 Me too since Monday; cars do not stop.',
+          citations: [REPORT_ID],
+          myRating: null,
+        },
+        { id: 'aaaaaaaa-0000-4000-8000-000000000002', level: 'Low', kind: 'Improving', headline: 'Fewer dumping reports', text: 'Down by a third.', citations: ['BE-NK-2026-0090'], myRating: { useful: true } },
+      ],
+    },
+  ],
+};
+
+const hotspots = {
+  computedAt: new Date().toISOString(),
+  clusters: [
+    { id: 'c1', group: 'traffic', lat: 52.4811, lon: 13.4353, count: 5, level: 'Critical', publicIds: [REPORT_ID, 'BE-NK-2026-0113'], recurring: true, weekdayPattern: 'mon' },
+    { id: 'c2', group: 'community', lat: 52.47, lon: 13.44, count: 2, level: 'Medium', publicIds: ['BE-NK-2026-0101', 'BE-NK-2026-0102'], recurring: false, weekdayPattern: null },
+  ],
+};
+
+const trends = {
+  weeks: ['2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02'],
+  categories: [
+    { category: 'pothole', counts: [1, 2, 1, 4, 4, 4, 4, 6], fourWeekAverage: 4, change: 0.5 },
+    { category: 'illegal_dumping', counts: [3, 3, 3, 4, 4, 4, 4, 3], fourWeekAverage: 4, change: -0.25 },
+  ],
+  medianHoursToAcknowledge: 38.4,
+  medianHoursToResolve: 81.6,
+};
+
 /** Signs in a fake case worker of `tenantName` and serves the console's API calls from fixtures. */
 export async function mockConsole(context: BrowserContext, page: Page, baseURL: string, tenantName = 'Neukölln') {
   await context.addCookies([{ name: STAFF_COOKIE, value: 'e2e_fake_staff_token_0123456789', url: baseURL, httpOnly: true, secure: false, sameSite: 'Strict' }]);
@@ -81,7 +124,20 @@ export async function mockConsole(context: BrowserContext, page: Page, baseURL: 
     if (path === 'staff/reports') return json({ reports: queue });
     if (path === `staff/reports/${REPORT_ID}`) return json(detail);
     if (path === 'staff/tenants') return json({ tenants });
-    if (path === 'staff/moderation') return json({ comments: [], spikes: [{ publicId: REPORT_ID, category: 'traffic_light', tenant: NK, votes: 19, newAccountVotes: 15, editable: true }], heldReports: [] });
+    if (path === 'staff/moderation') {
+      return json({
+        comments: [],
+        spikes: [{ publicId: REPORT_ID, category: 'traffic_light', tenant: NK, votes: 19, newAccountVotes: 15, editable: true }],
+        held: [{ publicId: 'BE-NK-2026-0120', category: 'pothole', tenant: NK, createdAt: new Date().toISOString(), reason: 'blur_failed' }],
+      });
+    }
+    // Phase 3: briefing, hotspots, trends and merge suggestions.
+    if (path === 'staff/briefings') return json(briefings);
+    if (path === 'staff/hotspots') return json(hotspots);
+    if (path === 'staff/trends') return json(trends);
+    if (path === `staff/reports/${REPORT_ID}/duplicates`) {
+      return json({ matches: [{ publicId: 'BE-NK-2026-0118', status: 'open', level: 'Medium', distanceM: 40, similarity: 0.87, createdAt: new Date().toISOString() }] });
+    }
     if (path.endsWith('/contacts')) return json({ contacts: [] });
     if (path.endsWith('/staff')) return json({ staff: [] });
     return json({ error: 'not_found' }, 404);

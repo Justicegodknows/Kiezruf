@@ -1,6 +1,10 @@
 // Console URLs. Shared by src/proxy.ts (server) and the console pages (browser).
 
+/** The weekly briefing (US-53): the first thing staff see. */
 export const CONSOLE_HOME = '/console';
+export const CONSOLE_QUEUE = '/console/queue';
+export const CONSOLE_HOTSPOTS = '/console/hotspots';
+export const CONSOLE_TRENDS = '/console/trends';
 export const CONSOLE_SIGN_IN = '/console/sign-in';
 
 /** Where to go back to after sign-in. Only console paths, so the parameter cannot send anyone off-site. */

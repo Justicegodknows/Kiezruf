@@ -4,7 +4,12 @@ import { Given, Then, When } from '@cucumber/cucumber';
 import { categoryByName } from '@kiezruf/shared';
 import { sql } from 'drizzle-orm';
 import { uploadPhotos } from '../../test/support/app.js';
-import { PENDING, SCENARIO_NOW, type KiezrufWorld } from '../support/world.js';
+import sharp from 'sharp';
+import { MAX_BLUR_ATTEMPTS, processPendingPhotos } from '../../src/photos/process.js';
+import { uploadPhotoBytes } from '../../test/support/app.js';
+import { FACE, PLATE, regionDetail, testPhoto } from '../../test/support/fakes.js';
+import { citizenToken, signInNewStaff } from '../support/helpers.js';
+import { SCENARIO_NOW, type KiezrufWorld } from '../support/world.js';
 
 // --- routing ---
 // Named places in the scenarios.
@@ -101,42 +106,87 @@ Then('posting is {word}', function (this: KiezrufWorld, result: string) {
 });
 
 // --- blur ---
-Given('I posted a report with one photo showing a face and a licence plate', function () {
-  return PENDING;
+async function postWithPhoto(world: KiezrufWorld) {
+  const token = await citizenToken(world);
+  const key = await uploadPhotoBytes(world.t, token, await testPhoto());
+  const res = await world.t.app.inject({
+    method: 'POST',
+    url: '/reports',
+    headers: { authorization: `Bearer ${token}` },
+    payload: { category: 'pothole', capture: { ...PLACES['Karl-Marx-Straße 100']!, accuracyM: 10, capturedAt: SCENARIO_NOW.toISOString() }, photoKeys: [key] },
+  });
+  assert.equal(res.statusCode, 201, res.body);
+  world.reportIds.push(res.json().publicId);
+}
+
+const runPipeline = (world: KiezrufWorld) => processPendingPhotos({ db: world.db, storage: world.t.storage, detector: world.detector, ai: world.ai });
+
+async function publicCopy(world: KiezrufWorld): Promise<Buffer> {
+  const [row] = await world.db.execute<{ public_key: string }>(sql`
+    SELECT p.public_key FROM photo p JOIN report r ON r.id = p.report_id WHERE r.public_id = ${world.reportIds.at(-1)!}`);
+  assert.ok(row?.public_key, 'The photo has no public copy');
+  const copy = world.t.storage.publicObjects.get(row.public_key);
+  assert.ok(copy, 'The public copy was not stored');
+  return copy;
+}
+
+Given('I posted a report with one photo showing a face and a licence plate', async function (this: KiezrufWorld) {
+  this.detector.regions = [FACE, PLATE];
+  await postWithPhoto(this);
 });
 
-Given('the blur service fails {int} times for my photo', function (_times: number) {
-  return PENDING;
+Given('the blur service fails {int} times for my photo', async function (this: KiezrufWorld, times: number) {
+  await postWithPhoto(this);
+  this.detector.failures = times;
 });
 
-When('photo processing completes', function () {
-  return PENDING;
+When('photo processing completes', async function (this: KiezrufWorld) {
+  await runPipeline(this);
 });
 
-When('photo processing gives up', function () {
-  return PENDING;
+When('photo processing gives up', async function (this: KiezrufWorld) {
+  for (let i = 0; i < MAX_BLUR_ATTEMPTS; i++) await runPipeline(this);
 });
 
-Then('the public photo has the face and the plate blurred', function () {
-  return PENDING;
+Then('the public photo has the face and the plate blurred', async function (this: KiezrufWorld) {
+  const copy = await publicCopy(this);
+  // A readable face or plate has fine detail; after blurring the region is nearly flat.
+  for (const region of [FACE, PLATE]) assert.ok((await regionDetail(copy, region)) < 5, 'Detail survived the blur');
 });
 
-Then('the public photo has no EXIF metadata', function () {
-  return PENDING;
+Then('the public photo has no EXIF metadata', async function (this: KiezrufWorld) {
+  assert.equal((await sharp(await publicCopy(this)).metadata()).exif, undefined);
 });
 
-Then('the report is visible on the map', function () {
-  return PENDING;
+Then('the report is visible on the map', async function (this: KiezrufWorld) {
+  const { lat, lon } = PLACES['Karl-Marx-Straße 100']!;
+  const res = await this.t.app.inject({ method: 'GET', url: `/public/reports?lat=${lat}&lon=${lon}&limit=200` });
+  assert.ok(res.json().reports.some((r: { publicId: string }) => r.publicId === this.reportIds.at(-1)));
 });
 
-Then('the report is not visible to citizens', function () {
-  return PENDING;
+Then('the report is not visible to citizens', async function (this: KiezrufWorld) {
+  const res = await this.t.app.inject({ method: 'GET', url: `/public/reports/${this.reportIds.at(-1)}` });
+  assert.equal(res.statusCode, 404);
 });
 
-Then('the report appears in the moderation queue as {string}', function (_reason: string) {
-  return PENDING;
+Then('the report appears in the moderation queue as {string}', async function (this: KiezrufWorld, reason: string) {
+  this.staffToken = await signInNewStaff(this, 'de.be.bec.nk', 'case_worker');
+  const res = await this.t.app.inject({ method: 'GET', url: '/staff/moderation', headers: { authorization: `Bearer ${this.staffToken}` } });
+  const held = res.json().held.find((h: { publicId: string }) => h.publicId === this.reportIds.at(-1));
+  assert.deepEqual(held?.reason, reason.replace(/ /g, '_'));
 });
 
-Then('the original photo URL is not reachable without a staff session', function () {
-  return PENDING;
+Then('the original photo URL is not reachable without a staff session', async function (this: KiezrufWorld) {
+  const id = this.reportIds.at(-1)!;
+  const [row] = await this.db.execute<{ original_key: string; photo_id: string }>(sql`
+    SELECT p.original_key, p.id AS photo_id FROM photo p JOIN report r ON r.id = p.report_id WHERE r.public_id = ${id}`);
+  // Nothing public carries it: no public copy, no citizen payload, and the staff detail needs a staff session.
+  assert.equal(this.t.storage.publicObjects.has(`public/${row!.photo_id}.jpg`), false);
+  const anonymous = await this.t.app.inject({ method: 'GET', url: `/staff/reports/${id}` });
+  assert.equal(anonymous.statusCode, 401);
+  const citizen = await this.t.app.inject({ method: 'GET', url: `/staff/reports/${id}`, headers: { authorization: `Bearer ${await citizenToken(this)}` } });
+  assert.equal(citizen.statusCode, 401);
+  const staff = await this.t.app.inject({ method: 'GET', url: `/staff/reports/${id}`, headers: { authorization: `Bearer ${this.staffToken}` } });
+  assert.match(staff.json().photos[0].originalUrl, /signature=download/);
+  assert.ok(!JSON.stringify((await this.t.app.inject({ method: 'GET', url: `/public/reports/${id}` })).json()).includes(row!.original_key));
 });

@@ -37,6 +37,11 @@ export function canModerate(me: StaffMe | undefined, tenantPath?: string | null)
   return tenantPath ? hasRoleAt(me, tenantPath, REPORT_ROLES) : hasRole(me, REPORT_ROLES);
 }
 
+/** The Monday briefing email goes to tenant admins only (US-56, D-17); everyone else reads it in the console. */
+export function getsBriefingEmail(me: StaffMe | undefined): boolean {
+  return hasRole(me, ['tenant_admin']);
+}
+
 /** Ban an account: tenant admins only (README). */
 export function canBan(me: StaffMe | undefined): boolean {
   return hasRole(me, ['tenant_admin']);

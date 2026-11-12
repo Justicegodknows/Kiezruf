@@ -44,6 +44,13 @@ export async function signIn(t: TestApp, email: string): Promise<string> {
   return verify.json().token as string;
 }
 
+/** Uploads a real photo's bytes to the fake storage and returns its key. */
+export async function uploadPhotoBytes(t: TestApp, token: string, body: Buffer): Promise<string> {
+  const [key] = await uploadPhotos(t, token, 1);
+  t.storage.objects.set(key!, body);
+  return key!;
+}
+
 /** Uploads `count` photos (fake storage) and returns their keys. */
 export async function uploadPhotos(t: TestApp, token: string, count = 1): Promise<string[]> {
   const keys: string[] = [];

@@ -26,6 +26,8 @@ const PostReportRequest = z.object({
   }),
   pin: z.object({ lat: Latitude, lon: Longitude }).optional(),
   photoKeys: z.array(z.string().max(200)).min(1).max(MAX_PHOTOS),
+  // The photo AI's suggestion the citizen saw (US-14), logged as feedback when they chose otherwise.
+  suggestion: z.object({ category: z.string().refine((key) => CATEGORY_KEYS.includes(key)), confidence: z.number().min(0).max(1).nullable() }).optional(),
 });
 
 const VoteRequest = z.object({ lat: Latitude, lon: Longitude, accuracyM: z.number() });

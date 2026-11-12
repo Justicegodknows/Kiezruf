@@ -64,6 +64,20 @@
       "when": 1794435796830,
       "tag": "0008_console_access",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794487428327,
+      "tag": "0009_analysis",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794487428733,
+      "tag": "0010_analysis_access",
+      "breakpoints": true
     }
   ]
 }

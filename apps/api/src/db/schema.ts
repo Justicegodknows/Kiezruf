@@ -206,6 +206,13 @@ export const photo = pgTable(
     blurStatus: blurStatus('blur_status').notNull().default('pending'),
     phash: text('phash'),
     embedding: vector('embedding'),
+    // Photo pipeline (Phase 3): tries so far, why it failed for good, and the AI's category suggestion.
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    failureReason: text('failure_reason'),
+    aiCategory: text('ai_category'),
+    aiConfidence: real('ai_confidence'),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -525,6 +532,100 @@ export const staffChallenge = pgTable('staff_challenge', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   attempts: integer('attempts').notNull().default(0),
   usedAt: timestamp('used_at', { withTimezone: true }),
+});
+
+// --- Phase 3: analysis and AI ------------------------------------------------------------------------
+
+// What the photo AI suggested and what the citizen chose (US-14: "corrections are logged as training feedback").
+export const categoryFeedback = pgTable('category_feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reportId: uuid('report_id')
+    .notNull()
+    .references(() => report.id, { onDelete: 'cascade' }),
+  suggested: text('suggested').notNull(),
+  confidence: real('confidence'),
+  chosen: text('chosen').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// The weekly briefing per tenant and roll-up node (US-53). Items cite report IDs; ratings come from staff (US-54).
+export const briefing = pgTable(
+  'briefing',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    // Monday of the briefing's week, Europe/Berlin.
+    weekStart: text('week_start').notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+    aiWritten: boolean('ai_written').notNull(),
+    fallback: boolean('fallback').notNull(),
+    model: text('model'),
+    promptVersion: text('prompt_version'),
+    // SHA-256 of the input sent to the provider, so a briefing can be traced without storing the input.
+    inputHash: text('input_hash'),
+    droppedItems: integer('dropped_items').notNull().default(0),
+  },
+  (t) => [uniqueIndex('briefing_tenant_week_key').on(t.tenantId, t.weekStart)],
+);
+
+export const briefingItem = pgTable(
+  'briefing_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    briefingId: uuid('briefing_id')
+      .notNull()
+      .references(() => briefing.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    level: text('level').notNull(),
+    kind: text('kind').notNull(),
+    headline: text('headline').notNull(),
+    text: text('text').notNull(),
+    citations: text('citations').array().notNull(),
+  },
+  (t) => [index('briefing_item_briefing_idx').on(t.briefingId, t.position)],
+);
+
+export const briefingRating = pgTable(
+  'briefing_rating',
+  {
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => briefingItem.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    useful: boolean('useful').notNull(),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.itemId, t.accountId] })],
+);
+
+// The Monday email to tenant admins (US-56, D-17): one row per recipient, retried until sent.
+export const briefingDelivery = pgTable(
+  'briefing_delivery',
+  {
+    briefingId: uuid('briefing_id')
+      .notNull()
+      .references(() => briefing.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'cascade' }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+  },
+  (t) => [primaryKey({ columns: [t.briefingId, t.accountId] })],
+);
+
+// Staff choices, e.g. no Monday email (US-56: "Staff can unsubscribe").
+export const staffPreference = pgTable('staff_preference', {
+  accountId: uuid('account_id')
+    .primaryKey()
+    .references(() => account.id, { onDelete: 'cascade' }),
+  briefingEmail: boolean('briefing_email').notNull().default(true),
 });
 
 export type StaffRoleKind = (typeof staffRoleKind.enumValues)[number];

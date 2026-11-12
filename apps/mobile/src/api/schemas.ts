@@ -68,6 +68,35 @@ export const PostedReport = z.object({
 });
 export type PostedReport = z.infer<typeof PostedReport>;
 
+/** POST /uploads/suggest (US-14). On a timeout the API answers all three as null / false. */
+export const CategorySuggestion = z.object({
+  category: z.string().nullish().transform((c) => c ?? null),
+  confidence: num.nullish().transform((c) => c ?? null),
+  preselect: z.boolean().nullish().transform((p) => p === true),
+});
+export type CategorySuggestion = z.infer<typeof CategorySuggestion>;
+
+/** A match's photo: the public (blurred) URL. Accepts a plain URL or { url }. */
+const MatchPhoto = z
+  .union([z.string(), z.object({ url: z.string() })])
+  .nullish()
+  .transform((p) => (p == null ? null : typeof p === 'string' ? p : p.url));
+
+/** POST /reports/duplicates (US-13): public reports only, so no score or level. */
+export const DuplicateMatch = z.object({
+  publicId: z.string(),
+  category: z.string(),
+  status: Status,
+  distanceM: num,
+  meTooCount: num.default(0),
+  photo: MatchPhoto,
+  similarity: num.nullish(),
+});
+export type DuplicateMatch = z.infer<typeof DuplicateMatch>;
+export const DuplicateMatches = z.object({ matches: z.array(DuplicateMatch) });
+
+export const CoReported = z.object({ publicId: z.string() });
+
 export const MyReport = z.object({
   publicId: z.string(),
   category: z.string(),

@@ -1,3 +1,4 @@
+import type { AiProvider } from './ai/provider.js';
 import type { Db } from './db/client.js';
 import type { Mailer } from './mail/mailer.js';
 import type { PhotoStorage } from './storage/photos.js';
@@ -15,6 +16,8 @@ export interface AppDeps {
   webBaseUrl: string;
   /** Current time. Tests and Gherkin scenarios fix it; defaults to the system clock. */
   clock?: () => Date;
+  /** The AI provider, when configured: category suggestions and duplicate similarity (US-13, US-14). */
+  ai?: AiProvider;
   /** Per-IP and per-account request limits. On by default; integration tests turn them off. */
   rateLimits?: boolean;
 }

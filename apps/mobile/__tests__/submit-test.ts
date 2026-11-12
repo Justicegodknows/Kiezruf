@@ -1,6 +1,6 @@
 // Posting: checks before sign-in, the upload sequence and the POST /reports body (US-06, US-08, US-10, US-11).
 import { EMPTY_DRAFT, type Draft } from '../src/report/DraftProvider';
-import { draftProblem, putFile, reportBody, submitDraft } from '../src/report/submit';
+import { draftProblem, putFile, reportBody, submitDraft, uploadPhotos } from '../src/report/submit';
 import { mockApi } from '../src/testing/helpers';
 
 const capturedAt = new Date('2026-11-11T12:00:00Z');
@@ -39,6 +39,30 @@ test('reportBody uses the first photo as capture, trims the description and adds
   const body = reportBody(draft({ pin: { lat: 52.4797, lon: 13.4365 } }), ['k1']);
   expect(body.pin).toEqual({ lat: 52.4797, lon: 13.4365 });
   expect(body).not.toHaveProperty('description');
+});
+
+test('reportBody sends the suggestion that was shown (US-14)', () => {
+  const shown = { photoId: 'p1', category: 'traffic_light', confidence: 0.86 };
+  expect(reportBody(draft({ category: 'pothole', suggestion: shown }), ['k1']).suggestion).toEqual({ category: 'traffic_light', confidence: 0.86 });
+  expect(reportBody(draft(), ['k1'])).not.toHaveProperty('suggestion');
+});
+
+test('uploadPhotos reuses a key the uploader already has', async () => {
+  const progress: unknown[] = [];
+  const known: Record<string, string> = { p1: 'originals/a/early.jpg' };
+  const uploaded: string[] = [];
+  const keys = await uploadPhotos(
+    [photo(1), photo(2)],
+    async (p) => {
+      if (known[p.id]) return known[p.id]!;
+      uploaded.push(p.id);
+      return `originals/a/${p.id}.jpg`;
+    },
+    (p) => progress.push(p),
+  );
+  expect(keys).toEqual(['originals/a/early.jpg', 'originals/a/p2.jpg']);
+  expect(uploaded).toEqual(['p2']);
+  expect(progress).toEqual([{ step: 'upload', n: 1, total: 2 }, { step: 'upload', n: 2, total: 2 }]);
 });
 
 test('submitDraft resizes, uploads each photo, then posts with the keys', async () => {

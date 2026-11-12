@@ -1,7 +1,10 @@
-// One function per API endpoint the citizen app uses (README "API (citizen core)").
+// One function per API endpoint the citizen app uses (README "API (citizen core)", "API (analysis and AI, Phase 3)").
 import { api } from './client';
 import {
+  CategorySuggestion,
+  CoReported,
   Comments,
+  DuplicateMatches,
   FollowedReports,
   Me,
   MeTooResult,
@@ -56,15 +59,35 @@ export const reportDetail = (publicId: string) => api('GET', `/public/reports/${
 export type UploadContentType = 'image/jpeg' | 'image/png' | 'image/heic';
 export const createUpload = (contentType: UploadContentType) => api('POST', '/uploads', { body: { contentType }, schema: UploadTicket });
 
+/** Category suggestion for an uploaded photo (US-14). The API answers within about 3 s. */
+export const suggestCategory = (key: string) => api('POST', '/uploads/suggest', { body: { key }, schema: CategorySuggestion });
+
+export interface CaptureBody {
+  lat: number;
+  lon: number;
+  accuracyM: number | null;
+  capturedAt: string | null;
+}
 export interface PostReportBody {
   category: string;
   description?: string;
   dangerous: boolean;
-  capture: { lat: number; lon: number; accuracyM: number | null; capturedAt: string | null };
+  capture: CaptureBody;
   pin?: Point;
   photoKeys: string[];
+  /** The suggestion the citizen saw (US-14), logged as feedback. */
+  suggestion?: { category: string; confidence: number };
 }
 export const postReport = (body: PostReportBody) => api('POST', '/reports', { body, schema: PostedReport });
+
+// --- "Already reported?" (US-13) ---
+export interface DuplicatesQuery extends Point {
+  category: string;
+  photoKey?: string;
+}
+export const findDuplicates = (query: DuplicatesQuery) => api('POST', '/reports/duplicates', { body: query, schema: DuplicateMatches });
+export const coReport = (publicId: string, body: { capture: CaptureBody; photoKeys: string[] }) =>
+  api('POST', `/reports/${enc(publicId)}/co-report`, { body, schema: CoReported });
 export const myReports = () => api('GET', '/me/reports', { schema: MyReports });
 
 // --- engagement (US-18, US-19, US-20) ---

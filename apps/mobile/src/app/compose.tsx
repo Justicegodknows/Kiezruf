@@ -1,21 +1,21 @@
 // New report / review (US-08, US-09, US-10, US-11, US-41). Category in two groups, "Other" needs a
 // description, "Dangerous right now?" with the 112 / 110 banner, pin adjustable within 50 m, and the receiving
 // office named before posting. Posting opens the sign-in sheet once, then uploads and posts on its own.
-// Not in Phase 1: AI category pre-selection (US-14) and the "Already reported?" screen (US-13).
+// Phase 3: the category is pre-selected from the photo when the AI is confident enough (US-14), and posting
+// passes through "Already reported?" when there are similar reports nearby (US-13); see src/report/usePosting.ts.
 import { CATEGORIES, type CategoryGroup, categoryNeedsDescription, MAX_PHOTOS, MAX_PIN_ADJUST_M } from '@kiezruf/shared';
-import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { ApiError } from '../api/client';
-import { errorMessage } from '../api/errors';
 import { useAuth } from '../auth/AuthProvider';
 import { categoryName } from '../lib/format';
 import { distanceM } from '../lib/geo';
 import { useDraft } from '../report/DraftProvider';
 import { pinAllowed } from '../report/onsite';
-import { draftProblem, type SubmitProgress, submitDraft } from '../report/submit';
+import { draftProblem } from '../report/submit';
+import { useCategorySuggestion } from '../report/useCategorySuggestion';
+import { usePosting } from '../report/usePosting';
 import { Banner, Button, Chip, ErrorText, SectionTitle } from '../ui/components';
 import { PointMarker, ReportMap } from '../ui/ReportMap';
 import { colors, radius, space, TOUCH } from '../ui/theme';
@@ -25,10 +25,9 @@ const GROUPS: CategoryGroup[] = ['traffic', 'community'];
 export default function ComposeScreen() {
   const { t } = useTranslation();
   const { signedIn, requireSignIn } = useAuth();
-  const queryClient = useQueryClient();
-  const { draft, anchor, removePhoto, update, reset } = useDraft();
-  const [progress, setProgress] = useState<SubmitProgress | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { draft, anchor, removePhoto, update } = useDraft();
+  const { start, busy, progressText, error, setError } = usePosting();
+  const { suggesting } = useCategorySuggestion(signedIn);
   const [pinError, setPinError] = useState<string | null>(null);
 
   if (!anchor) {
@@ -50,38 +49,17 @@ export default function ComposeScreen() {
     update({ pin: to });
   };
 
-  const submit = async () => {
-    setError(null);
-    try {
-      const posted = await submitDraft(draft, setProgress);
-      void queryClient.invalidateQueries({ queryKey: ['me'] });
-      reset();
-      router.replace({
-        pathname: '/posted',
-        params: { publicId: posted.publicId, office: posted.tenant.office || posted.tenant.name },
-      });
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'not_live') {
-        router.replace({ pathname: '/not-live', params: { tenant: String(e.details.tenant ?? ''), lat: String(anchor.lat), lon: String(anchor.lon) } });
-        return;
-      }
-      setError(errorMessage(t, e));
-    } finally {
-      setProgress(null);
-    }
-  };
-
   const onPost = () => {
     const problem = draftProblem(draft);
     if (problem === 'no_category') return setError(t('compose.categoryMissing'));
     if (problem === 'description_required') return setError(t('errors.description_required'));
     if (problem === 'no_photos') return setError(t('compose.noPhotos'));
-    requireSignIn('post', () => void submit());
+    const snapshot = draft;
+    requireSignIn('post', () => void start(snapshot));
   };
 
-  const busy = progress !== null;
-  const progressText =
-    progress?.step === 'upload' ? t('compose.uploading', { n: progress.n, total: progress.total }) : progress ? t('compose.posting') : null;
+  // Shown while the suggested category is still the chosen one; tapping another chip changes it.
+  const suggested = draft.suggestion !== null && draft.category === draft.suggestion.category;
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" testID="compose-screen">
@@ -113,6 +91,16 @@ export default function ComposeScreen() {
       </View>
 
       <SectionTitle>{t('compose.category')}</SectionTitle>
+      {suggested ? (
+        <Banner tone="info" testID="compose-suggested">
+          <Text style={styles.bold}>{`✨ ${t('compose.suggested', { category: categoryName(t, draft.category!) })}`}</Text>
+          <Text style={styles.muted}>{t('compose.suggestedHint')}</Text>
+        </Banner>
+      ) : suggesting ? (
+        <Text style={styles.muted} accessibilityLiveRegion="polite" testID="compose-suggesting">
+          {t('compose.suggesting')}
+        </Text>
+      ) : null}
       {GROUPS.map((group) => (
         <View key={group} style={styles.group} accessibilityRole="radiogroup" accessibilityLabel={t(`groups.${group}`)}>
           <Text style={styles.groupLabel}>{t(`groups.${group}`)}</Text>

@@ -55,6 +55,7 @@ export default function RootLayout() {
               <Stack.Screen name="report/[publicId]" options={{ title: t('detail.title') }} />
               <Stack.Screen name="camera" options={{ headerShown: false, presentation: 'fullScreenModal', title: t('nav.newReport') }} />
               <Stack.Screen name="compose" options={{ title: t('compose.title') }} />
+              <Stack.Screen name="duplicates" options={{ title: t('dup.title') }} />
               <Stack.Screen name="not-live" options={{ title: t('notLive.title') }} />
               <Stack.Screen name="posted" options={{ headerShown: false, gestureEnabled: false, title: t('posted.title') }} />
               <Stack.Screen name="account" options={{ headerShown: false, title: t('account.title') }} />

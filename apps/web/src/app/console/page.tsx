@@ -1,13 +1,14 @@
 import { Suspense } from 'react';
-import { QueuePage } from '@/console/pages/QueuePage';
+import { BriefingPage } from '@/console/pages/BriefingPage';
 import { RequireStaff } from '@/console/StaffProvider';
 
-// Priority queue (US-25). The filters are in the URL, so the page reads search params behind Suspense.
-export default function ConsoleQueuePage() {
+// Weekly AI briefing (US-53, US-54): the console's landing page. The tenant in view is in the URL (`tenantId`),
+// so the page reads search params behind Suspense.
+export default function ConsoleBriefingPage() {
   return (
     <RequireStaff>
       <Suspense>
-        <QueuePage />
+        <BriefingPage />
       </Suspense>
     </RequireStaff>
   );

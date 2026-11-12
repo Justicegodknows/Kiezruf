@@ -8,14 +8,28 @@ import { Suspense, type ReactNode } from 'react';
 import { SkipLink } from '@/components/SkipLink';
 import { LOCALES, type MessageKey } from '@/i18n';
 import { useI18n } from '@/i18n/I18nProvider';
+import { CONSOLE_HOME, CONSOLE_HOTSPOTS, CONSOLE_QUEUE, CONSOLE_TRENDS } from '@/lib/console-paths';
+import { AccountMenu } from './components/AccountMenu';
 import { roleLabel } from './format';
 import { StaffProvider, useStaff } from './StaffProvider';
 
+// The weekly briefing comes first: it is the console's landing page (US-53).
 const LINKS: { href: string; label: MessageKey }[] = [
-  { href: '/console', label: 'console.nav.queue' },
+  { href: CONSOLE_HOME, label: 'console.nav.briefing' },
+  { href: CONSOLE_QUEUE, label: 'console.nav.queue' },
+  { href: CONSOLE_HOTSPOTS, label: 'console.nav.hotspots' },
+  { href: CONSOLE_TRENDS, label: 'console.nav.trends' },
   { href: '/console/moderation', label: 'console.nav.moderation' },
   { href: '/console/tenants', label: 'console.nav.tenants' },
 ];
+
+/** Which nav entry is current: the briefing only at /console itself; report pages belong to the queue. */
+export function isCurrentNav(href: string, pathname: string | null): boolean {
+  if (pathname === null) return false;
+  if (href === CONSOLE_HOME) return pathname === CONSOLE_HOME;
+  if (href === CONSOLE_QUEUE) return pathname.startsWith(CONSOLE_QUEUE) || pathname.startsWith('/console/reports');
+  return pathname.startsWith(href);
+}
 
 export function ConsoleShell({ children }: { children: ReactNode }) {
   return (
@@ -50,6 +64,7 @@ function ConsoleHeader() {
             {me.grants.length ? ` · ${me.grants.map((g) => `${roleLabel(t, g.role)} (${g.tenantName})`).join(', ')}` : ''}
           </span>
         ) : null}
+        {signedIn ? <AccountMenu /> : null}
         <div role="group" aria-label={t('nav.language')} className="lang-switch">
           {LOCALES.map((l) => (
             <button key={l} type="button" lang={l} aria-pressed={locale === l} onClick={() => setLocale(l)} className="btn ghost sm">
@@ -74,8 +89,7 @@ function CurrentConsoleNav() {
 
 function ConsoleNav({ pathname }: { pathname: string | null }) {
   const { t } = useI18n();
-  const current = (href: string) =>
-    pathname !== null && (href === '/console' ? pathname === '/console' || pathname.startsWith('/console/reports') : pathname.startsWith(href));
+  const current = (href: string) => isCurrentNav(href, pathname);
   return (
     <nav aria-label={t('console.nav.label')}>
       <ul className="nav-list">

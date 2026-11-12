@@ -8,7 +8,8 @@ import { setApiToken, setUnauthorizedHandler } from '../api/client';
 import { logout } from '../api/endpoints';
 import { type PushStatus, registerForPush, unregisterPush } from '../push/push';
 
-export type SignInVerb = 'post' | 'comment' | 'vote' | 'follow' | 'continue';
+/** 'add': "Add my photo to this report" on "Already reported?" (US-13). */
+export type SignInVerb = 'post' | 'comment' | 'vote' | 'follow' | 'add' | 'continue';
 
 const TOKEN_KEY = 'kiezruf.session';
 

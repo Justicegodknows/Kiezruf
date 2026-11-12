@@ -13,10 +13,11 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { formatDateTime, formatNumber, type MessageKey } from '@/i18n';
 import { useI18n } from '@/i18n/I18nProvider';
 import { apiOrThrow } from '@/lib/api-client';
-import { consoleReportPath } from '@/lib/console-paths';
+import { CONSOLE_QUEUE, consoleReportPath } from '@/lib/console-paths';
 import { ForwardForm, MergeForm, OverrideForm, SpikeActions, StatusForm } from '../components/ActionForms';
 import { LevelChip } from '../components/LevelChip';
 import { LocationMap } from '../components/LocationMap';
+import { MergeSuggestions } from '../components/MergeSuggestions';
 import { ScoreBreakdown } from '../components/ScoreBreakdown';
 import { StaffComments } from '../components/StaffComments';
 import { formatScore, levelLabel } from '../format';
@@ -42,7 +43,7 @@ export function ReportPage({ publicId }: { publicId: string }) {
     return (
       <div className="console-page">
         <p>
-          <Link href="/console">{t('console.report.back')}</Link>
+          <Link href={CONSOLE_QUEUE}>{t('console.report.back')}</Link>
         </p>
         <h1>{code === 'not_found' ? t('console.report.notFound') : t('console.report.title')}</h1>
         {code === 'not_found' ? <p>{t('console.report.notFoundBody')}</p> : <ErrorText code={code} />}
@@ -62,7 +63,7 @@ export function ReportPage({ publicId }: { publicId: string }) {
   return (
     <article className="console-page report-page" aria-labelledby="report-title">
       <p className="small">
-        <Link href="/console">{t('console.report.back')}</Link>
+        <Link href={CONSOLE_QUEUE}>{t('console.report.back')}</Link>
       </p>
       <div className="report-head">
         <p className="small muted">
@@ -100,6 +101,15 @@ export function ReportPage({ publicId }: { publicId: string }) {
           <History entries={r.history} />
         </div>
         <div className="stack">
+          <MergeSuggestions
+            publicId={r.publicId}
+            editable={editable}
+            merge={async (duplicate) => {
+              const result = await call(`staff/reports/${duplicate}/merge`, { method: 'POST', body: { into: r.publicId } });
+              if (result.ok) await refresh();
+              return result;
+            }}
+          />
           {r.breakdown ? <ScoreBreakdown breakdown={r.breakdown} /> : <p className="muted">{t('console.breakdown.missing')}</p>}
           {r.spike ? (
             <section className="panel" aria-labelledby="spike-title">

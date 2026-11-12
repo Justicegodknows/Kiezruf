@@ -2,10 +2,15 @@
 # The UI follows the device language (German, or English on an English device), so text checks accept both.
 appId: ${APP_ID}
 name: Post a report inside Neukölln
+# Phase 3: a signed-in citizen may see the category pre-selected from the photo (US-14); the flow taps the
+# category anyway, which also covers changing it. After posting, "Already reported?" (US-13) appears only when
+# similar reports are nearby; the flow then answers "No, mine is new".
 tags:
   - wip
   - US-06
   - US-11
+  - US-13
+  - US-14
   - US-41
 ---
 - launchApp:
@@ -39,6 +44,21 @@ tags:
       visible:
         id: "signin-sheet"
     file: subflows/sign-in.yaml
+- extendedWaitUntil:
+    visible:
+      id: "posted-title|dup-screen"
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: "dup-screen"
+    commands:
+      - assertVisible: "(Schon gemeldet\\?|Already reported\\?)"
+      - scrollUntilVisible:
+          element:
+            id: "dup-new"
+      - tapOn:
+          id: "dup-new"
 - assertVisible:
     id: "posted-title"
 - assertVisible:

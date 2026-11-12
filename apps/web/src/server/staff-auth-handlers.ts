@@ -97,13 +97,16 @@ export async function getStaffSession(request: NextRequest) {
     return response;
   }
   if (answer.status !== 200 || !answer.body || typeof answer.body !== 'object') return json({ error: 'unavailable' }, 502);
-  const me = answer.body as { id?: unknown; email?: unknown; grants?: unknown };
+  const me = answer.body as { id?: unknown; email?: unknown; grants?: unknown; preferences?: unknown };
+  // Staff preferences, e.g. the Monday briefing email (US-56). Only known keys pass.
+  const prefs = me.preferences && typeof me.preferences === 'object' ? (me.preferences as { briefingEmail?: unknown }) : null;
   return json({
     signedIn: true,
     me: {
       id: typeof me.id === 'string' ? me.id : '',
       email: typeof me.email === 'string' ? me.email : '',
       grants: Array.isArray(me.grants) ? me.grants : [],
+      ...(prefs && typeof prefs.briefingEmail === 'boolean' ? { preferences: { briefingEmail: prefs.briefingEmail } } : {}),
     },
   });
 }

@@ -32,7 +32,8 @@ import { colors, radius, space, TOUCH } from '../../ui/theme';
 const MAX_COMMENT = 500;
 
 export default function ReportDetailScreen() {
-  const { publicId } = useLocalSearchParams<{ publicId: string }>();
+  // coReported: opened right after "Add my photo to this report" (US-13).
+  const { publicId, coReported } = useLocalSearchParams<{ publicId: string; coReported?: string }>();
   const { t } = useTranslation();
   const { signedIn, requireSignIn } = useAuth();
   const queryClient = useQueryClient();
@@ -147,6 +148,11 @@ export default function ReportDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" testID="detail-screen">
+      {coReported === '1' ? (
+        <Banner tone="success" testID="detail-co-reported">
+          {t('detail.coReported')}
+        </Banner>
+      ) : null}
       {report.photos.length ? (
         <ScrollView horizontal pagingEnabled style={styles.photos}>
           {report.photos.map((p, i) => (

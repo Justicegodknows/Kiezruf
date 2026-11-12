@@ -28,3 +28,18 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, AUTH_SECRET: 'short' })).toThrow('Invalid or missing configuration: AUTH_SECRET');
   });
 });
+
+describe('aiFromConfig', () => {
+  it('has no provider without a base URL, and one with it', async () => {
+    const { aiFromConfig } = await import('./config.js');
+    expect(aiFromConfig(loadConfig(base))).toBeUndefined();
+    const ai = aiFromConfig(loadConfig({ ...base, AI_PROVIDER_BASE_URL: 'https://ai.example/v1', AI_MODEL_CHAT: 'c', AI_MODEL_VISION: 'v', AI_MODEL_EMBEDDING: 'e' }));
+    expect(ai?.models).toEqual({ chat: 'c', vision: 'v', embedding: 'e' });
+  });
+
+  it('keeps photos unpublished unless a blur detector is chosen', () => {
+    expect(loadConfig(base).BLUR_DETECTOR).toBe('none');
+    expect(loadConfig({ ...base, BLUR_DETECTOR: 'full' }).BLUR_DETECTOR).toBe('full');
+    expect(() => loadConfig({ ...base, BLUR_DETECTOR: 'magic' })).toThrow('BLUR_DETECTOR');
+  });
+});

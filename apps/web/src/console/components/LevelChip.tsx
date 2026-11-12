@@ -7,7 +7,9 @@ import { useI18n } from '@/i18n/I18nProvider';
 import { levelLabel } from '../format';
 import type { Override } from '../types';
 
-const SHAPES: Record<Level, string> = { Critical: '▲', High: '◆', Medium: '■', Low: '○' };
+/** The level's shape, shown next to its name and on hotspot markers. */
+export const LEVEL_SHAPES: Record<Level, string> = { Critical: '▲', High: '◆', Medium: '■', Low: '○' };
+const SHAPES = LEVEL_SHAPES;
 
 export function LevelChip({ level, override, showReason = false }: { level: Level; override?: Override | null; showReason?: boolean }) {
   const { t } = useI18n();

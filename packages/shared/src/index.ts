@@ -226,6 +226,11 @@ export const CATEGORIES: readonly Category[] = [
 
 export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
 
+/** The group of a category key, e.g. pothole → traffic. Duplicates and hotspots compare within a group (US-13, US-50). */
+export function categoryGroup(key: string): CategoryGroup | undefined {
+  return CATEGORIES.find((c) => c.key === key)?.group;
+}
+
 export function isSafetyCategory(key: string): boolean {
   return CATEGORIES.some((c) => c.key === key && c.safety);
 }
@@ -240,3 +245,127 @@ export function categoryByName(name: string): Category | undefined {
   const matches = CATEGORIES.filter((c) => c.name.toLowerCase() === name.toLowerCase());
   return matches.length === 1 ? matches[0] : undefined;
 }
+
+// === Pseudonymisation before AI calls (D-13, US-53) =================================================
+//
+// Citizen text (comments, descriptions) loses names, email addresses and phone numbers before it goes to the AI
+// provider. It is a filter, not a guarantee: it errs towards removing, and street and place names must survive.
+
+export const PSEUDONYMS = { name: '[Name]', email: '[E-Mail]', phone: '[Telefon]' } as const;
+
+const EMAIL = /[\p{L}\d._%+-]+@[\p{L}\d-]+(?:\.[\p{L}\d-]+)+/gu;
+// A phone number starts with +, 00 or 0 and has at least 7 digits, with spaces, slashes, dots, dashes or brackets.
+const PHONE = /(?<![\p{L}\d])(?:\+|00|0)[\d\s/().-]{5,}\d(?![\p{L}\d])/gu;
+const DATE = /^\d{1,2}\.\d{1,2}\.\d{2,4}$/;
+// Words after which a person's name follows: "Call me, Anna", "Ich bin Jonas", "Viele Grüße, Leyla".
+const NAME_CUES = [
+  'call me', 'ask for', 'my name is', 'i am', "i'm", 'this is', 'thanks', 'thank you', 'regards', 'cheers', 'hi', 'hello', 'hey', 'dear',
+  'ruf mich an', 'ruft mich an', 'rufen sie mich an', 'fragt nach', 'fragen sie nach', 'ich bin', 'ich heiße', 'mein name ist', 'hier ist',
+  'danke', 'gruß', 'grüße', 'viele grüße', 'liebe grüße', 'lg', 'vg', 'mfg', 'hallo', 'liebe', 'lieber', 'frau', 'herr', 'herrn',
+];
+// Common first names in Berlin (German, Turkish, Arabic, Polish, English). Matched as whole words only.
+const FIRST_NAMES = new Set(
+  (
+    'anna maria sophie sofia marie emma mia hannah hanna lena laura lea leonie julia sarah sara lisa katharina johanna clara klara ' +
+    'charlotte emilia ella luisa louisa amelie nina jana paula frieda greta helene ida mila lina nele ' +
+    'max maximilian alexander paul lukas luca leon felix jonas elias noah ben finn jan tim tom niklas moritz julian david daniel ' +
+    'michael thomas andreas stefan christian peter klaus jürgen wolfgang uwe frank markus martin sebastian tobias philipp florian ' +
+    'mehmet mustafa ahmet ali hasan hüseyin ibrahim emre burak can deniz elif zeynep ayşe ayse fatma emine merve büşra leyla ' +
+    'mohammed mohamed muhammad ahmad ahmed omar youssef yusuf khaled karim amir fatima aisha mariam maryam yasmin layla nour ' +
+    'piotr tomasz anna katarzyna agnieszka małgorzata ' +
+    'john james robert william richard joseph charles thomas mary patricia jennifer linda elizabeth susan jessica emily olivia'
+  ).split(/\s+/),
+);
+const STREET_SUFFIX = /^(straße|strasse|str\.?|platz|weg|allee|damm|ufer|park|brücke|ring|gasse|chaussee|markt|kiez)$/i;
+
+function cueBefore(text: string, index: number): boolean {
+  const before = text.slice(Math.max(0, index - 30), index).toLowerCase().replace(/[\s,:;!.-]+$/u, '');
+  return NAME_CUES.some((cue) => before === cue || before.endsWith(` ${cue}`) || before.endsWith(`\n${cue}`));
+}
+
+/** Replaces names, email addresses and phone numbers in citizen text with placeholders. */
+export function pseudonymise(text: string): string {
+  let out = text.replace(EMAIL, PSEUDONYMS.email);
+  out = out.replace(PHONE, (match) => {
+    const trimmed = match.trim();
+    if (DATE.test(trimmed)) return match;
+    return (trimmed.match(/\d/g) ?? []).length >= 7 ? PSEUDONYMS.phone : match;
+  });
+  // Capitalised words: names after a cue, and common first names anywhere, unless part of a street or compound.
+  return out.replace(/(?<![\p{L}\d-])(\p{Lu}[\p{Ll}]+)(?![\p{L}\d]|-\p{L})/gu, (word, _w, index: number) => {
+    // A street suffix within the next two words: "Paul Lincke Ufer", "Karl Marx Straße".
+    const following = out.slice(index + word.length).split(/\s+/u).filter(Boolean).slice(0, 2);
+    if (following.some((w) => STREET_SUFFIX.test(w.replace(/[,.;:!?]+$/u, '')))) return word;
+    if (FIRST_NAMES.has(word.toLowerCase()) || cueBefore(out, index)) return PSEUDONYMS.name;
+    return word;
+  });
+}
+
+// === Weekly briefing (US-53) =======================================================================
+
+export const MAX_BRIEFING_ITEMS = 5;
+export const BRIEFING_KINDS = ['Urgent', 'Watch', 'Improving'] as const;
+export type BriefingKind = (typeof BRIEFING_KINDS)[number];
+
+export interface BriefingItem {
+  level: Level;
+  kind: BriefingKind;
+  headline: string;
+  text: string;
+  /** Report IDs the item rests on. Every claim cites at least one. */
+  citations: string[];
+}
+
+export interface Briefing {
+  /** Shown on every briefing: AI-written, staff decide (US-53). False only for the no-AI fallback. */
+  aiWritten: boolean;
+  fallback: boolean;
+  items: BriefingItem[];
+}
+
+export type DropReason = 'malformed' | 'no_citations' | 'citation_out_of_scope' | 'over_limit';
+
+/**
+ * Keeps the model's items that are well formed and cite only reports from the briefing's input, which is always inside
+ * the tenant's scope. An item citing anything else is dropped whole. At most 5 items survive.
+ */
+export function validateBriefing(raw: unknown, allowedIds: ReadonlySet<string>): Briefing & { dropped: { index: number; reason: DropReason }[] } {
+  const list = Array.isArray((raw as { items?: unknown })?.items) ? ((raw as { items: unknown[] }).items) : [];
+  const items: BriefingItem[] = [];
+  const dropped: { index: number; reason: DropReason }[] = [];
+  list.forEach((entry, index) => {
+    const e = entry as Partial<Record<keyof BriefingItem, unknown>>;
+    const wellFormed =
+      LEVELS.includes(e.level as Level) && BRIEFING_KINDS.includes(e.kind as BriefingKind) &&
+      typeof e.headline === 'string' && e.headline.trim() !== '' && typeof e.text === 'string' && Array.isArray(e.citations);
+    if (!wellFormed) return dropped.push({ index, reason: 'malformed' });
+    const citations = [...new Set((e.citations as unknown[]).filter((c): c is string => typeof c === 'string'))];
+    if (citations.length === 0) return dropped.push({ index, reason: 'no_citations' });
+    if (citations.some((c) => !allowedIds.has(c))) return dropped.push({ index, reason: 'citation_out_of_scope' });
+    if (items.length >= MAX_BRIEFING_ITEMS) return dropped.push({ index, reason: 'over_limit' });
+    items.push({ level: e.level as Level, kind: e.kind as BriefingKind, headline: (e.headline as string).trim(), text: (e.text as string).trim(), citations });
+  });
+  return { aiWritten: true, fallback: false, items, dropped };
+}
+
+export interface FallbackReport {
+  publicId: string;
+  level: Level;
+  category: string;
+}
+
+/** When no AI item survives: the top reports by score, one item each, not AI-written. */
+export function fallbackBriefing(top: readonly FallbackReport[]): Briefing {
+  return {
+    aiWritten: false,
+    fallback: true,
+    items: top.slice(0, MAX_BRIEFING_ITEMS).map((r) => ({
+      level: r.level,
+      kind: r.level === 'Critical' || r.level === 'High' ? 'Urgent' : 'Watch',
+      headline: r.publicId,
+      text: r.category,
+      citations: [r.publicId],
+    })),
+  };
+}
+

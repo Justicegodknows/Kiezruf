@@ -60,7 +60,8 @@ export function staffAdminRoutes(app: FastifyInstance, deps: AppDeps) {
         WHERE s.spike_state = 'flagged' ORDER BY r.created_at`),
       // Reports whose photos could not be blurred wait here and are never published unblurred (Phase 3 pipeline).
       held: await tx.execute(sql`
-        SELECT r.public_id AS "publicId", t.name AS "tenantName", r.created_at AS "createdAt"
+        SELECT r.public_id AS "publicId", t.name AS "tenantName", r.created_at AS "createdAt",
+               (SELECT p.failure_reason FROM photo p WHERE p.report_id = r.id AND p.failure_reason IS NOT NULL LIMIT 1) AS reason
         FROM report r JOIN tenant t ON t.id = r.tenant_id WHERE r.status = 'in_moderation' ORDER BY r.created_at`),
     }));
     return reply.send(result);

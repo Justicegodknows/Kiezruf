@@ -20,10 +20,17 @@ export interface Grant {
   role: StaffRole;
 }
 
+export interface StaffPreferences {
+  /** The Monday briefing email (US-56). Null when the API sends no preference. */
+  briefingEmail: boolean | null;
+}
+
 export interface StaffMe {
   id: string;
   email: string;
   grants: Grant[];
+  /** From GET /staff/me (Phase 3); normalizeMe always fills it. */
+  preferences?: StaffPreferences;
 }
 
 export interface StaffSession {
@@ -187,11 +194,17 @@ export interface SpikeFlag {
   editable: boolean;
 }
 
+/** Why a report is held before publishing (Phase 3 photo pipeline). */
+export const HELD_REASONS = ['blur_failed', 'too_large'] as const;
+export type HeldReason = (typeof HELD_REASONS)[number];
+
 export interface HeldReport {
   publicId: string;
   category: string | null;
   tenant: TenantRef;
   createdAt: string | null;
+  /** Null when the API sends no reason, or one this console does not know yet. */
+  reason: HeldReason | null;
 }
 
 export interface ModerationQueue {
@@ -288,6 +301,7 @@ export function normalizeMe(value: unknown): StaffMe {
     id: str(raw.id) ?? '',
     email: str(raw.email) ?? '',
     grants: list(raw.grants).map(normalizeGrant).filter((g): g is Grant => g !== null),
+    preferences: { briefingEmail: flag(obj(raw.preferences).briefingEmail) },
   };
 }
 
@@ -493,7 +507,8 @@ export function normalizeModeration(value: unknown): ModerationQueue {
     heldReports: list(raw.held ?? raw.heldReports ?? raw.reports)
       .map((v) => {
         const o = obj(v);
-        return { publicId: str(o.publicId) ?? '', category: str(o.category), tenant: toTenantRef(o), createdAt: str(o.createdAt) };
+        const reason = (HELD_REASONS as readonly unknown[]).includes(o.reason) ? (o.reason as HeldReason) : null;
+        return { publicId: str(o.publicId) ?? '', category: str(o.category), tenant: toTenantRef(o), createdAt: str(o.createdAt), reason };
       })
       .filter((r) => r.publicId),
   };

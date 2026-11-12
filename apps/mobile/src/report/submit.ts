@@ -1,8 +1,10 @@
 // Posting (US-06, US-11, US-41): for each photo, resize it, ask POST /uploads for a presigned URL, PUT the
 // file there with the given headers, then POST /reports with the photo keys and the first photo's capture.
+// Phase 3: the first photo may already be uploaded for the category suggestion (US-14); the draft keeps its key,
+// so posting does not upload it twice. Between uploading and posting sits "Already reported?" (US-13).
 import { categoryNeedsDescription } from '@kiezruf/shared';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import { createUpload, type PostReportBody, postReport } from '../api/endpoints';
+import { type CaptureBody, createUpload, type PostReportBody, postReport } from '../api/endpoints';
 import { AppError } from '../api/errors';
 import type { PostedReport, UploadTicket } from '../api/schemas';
 import { UPLOAD_MAX_EDGE_PX } from '../config';
@@ -18,16 +20,24 @@ export function draftProblem(draft: Draft): DraftProblem | null {
   return null;
 }
 
-export function reportBody(draft: Draft, photoKeys: string[]): PostReportBody {
+/** The first photo's capture, as the API expects it (posting and co-reporting). */
+export function captureBody(draft: Draft): CaptureBody {
   const capture = draft.photos[0]!.capture;
+  return { lat: capture.lat, lon: capture.lon, accuracyM: capture.accuracyM, capturedAt: capture.capturedAt.toISOString() };
+}
+
+export function reportBody(draft: Draft, photoKeys: string[]): PostReportBody {
   const description = draft.description.trim();
+  const suggestion = draft.suggestion;
   return {
     category: draft.category!,
     ...(description ? { description } : {}),
     dangerous: draft.dangerous,
-    capture: { lat: capture.lat, lon: capture.lon, accuracyM: capture.accuracyM, capturedAt: capture.capturedAt.toISOString() },
+    capture: captureBody(draft),
     ...(draft.pin ? { pin: draft.pin } : {}),
     photoKeys,
+    // Sent whenever a suggestion was shown, also when the citizen kept it (US-14).
+    ...(suggestion ? { suggestion: { category: suggestion.category, confidence: suggestion.confidence } } : {}),
   };
 }
 
@@ -53,30 +63,47 @@ export async function putFile(ticket: UploadTicket, fileUri: string): Promise<vo
   }
 }
 
-export interface SubmitDeps {
+export interface UploadDeps {
   resize: (photo: DraftPhoto) => Promise<string>;
   createUpload: typeof createUpload;
   putFile: typeof putFile;
+}
+export interface SubmitDeps extends UploadDeps {
   postReport: typeof postReport;
 }
 
 const defaultDeps: SubmitDeps = { resize: resizeForUpload, createUpload, putFile, postReport };
 
+/** Resizes one photo, uploads it and returns its key. */
+export async function uploadPhoto(photo: DraftPhoto, deps: UploadDeps = defaultDeps): Promise<string> {
+  const uri = await deps.resize(photo);
+  const ticket = await deps.createUpload('image/jpeg');
+  await deps.putFile(ticket, uri);
+  return ticket.key;
+}
+
 export type SubmitProgress = { step: 'upload'; n: number; total: number } | { step: 'post' };
+
+/** Uploads every photo in order, one at a time, reporting progress. `upload` may return a key it already has. */
+export async function uploadPhotos(
+  photos: DraftPhoto[],
+  upload: (photo: DraftPhoto) => Promise<string>,
+  onProgress: (p: SubmitProgress) => void = () => undefined,
+): Promise<string[]> {
+  const keys: string[] = [];
+  for (const [i, photo] of photos.entries()) {
+    onProgress({ step: 'upload', n: i + 1, total: photos.length });
+    keys.push(await upload(photo));
+  }
+  return keys;
+}
 
 export async function submitDraft(
   draft: Draft,
   onProgress: (p: SubmitProgress) => void = () => undefined,
   deps: SubmitDeps = defaultDeps,
 ): Promise<PostedReport> {
-  const keys: string[] = [];
-  for (const [i, photo] of draft.photos.entries()) {
-    onProgress({ step: 'upload', n: i + 1, total: draft.photos.length });
-    const uri = await deps.resize(photo);
-    const ticket = await deps.createUpload('image/jpeg');
-    await deps.putFile(ticket, uri);
-    keys.push(ticket.key);
-  }
+  const keys = await uploadPhotos(draft.photos, (photo) => uploadPhoto(photo, deps), onProgress);
   onProgress({ step: 'post' });
   return deps.postReport(reportBody(draft, keys));
 }

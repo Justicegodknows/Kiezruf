@@ -155,7 +155,12 @@ describe('staff sign-in with a TOTP second factor (ENG-09)', () => {
 
   it('lists the caller\'s grants', async () => {
     const me = (await get(spAdmin, '/staff/me')).json();
-    expect(me).toEqual({ id: expect.any(String), email: 'admin@spandau.example', grants: [{ tenantId: expect.any(String), tenantName: 'Spandau', path: 'de.be.bec.sp', role: 'tenant_admin' }] });
+    expect(me).toEqual({
+      id: expect.any(String),
+      email: 'admin@spandau.example',
+      grants: [{ tenantId: expect.any(String), tenantName: 'Spandau', path: 'de.be.bec.sp', role: 'tenant_admin' }],
+      preferences: { briefingEmail: true },
+    });
   });
 });
 

@@ -7,8 +7,10 @@ import { authRoutes } from './auth/routes.js';
 import type { AppDeps } from './deps.js';
 import { engagementRoutes } from './engagement/routes.js';
 import { publicRoutes } from './public/routes.js';
+import { assistRoutes } from './reports/assist-routes.js';
 import { reportRoutes } from './reports/routes.js';
 import { staffAdminRoutes } from './staff/admin-routes.js';
+import { staffAnalysisRoutes } from './staff/analysis-routes.js';
 import { staffAuthRoutes } from './staff/auth-routes.js';
 import { staffReportRoutes } from './staff/report-routes.js';
 
@@ -29,12 +31,14 @@ export async function buildApp(deps: AppDeps, opts: FastifyServerOptions = {}) {
 
   authRoutes(app, deps);
   reportRoutes(app, deps);
+  assistRoutes(app, deps);
   publicRoutes(app, deps);
   engagementRoutes(app, deps);
   accountRoutes(app, deps);
   staffAuthRoutes(app, deps);
   staffReportRoutes(app, deps);
   staffAdminRoutes(app, deps);
+  staffAnalysisRoutes(app, deps);
 
   return app;
 }

@@ -25,4 +25,8 @@ describe('s3PhotoStorage', () => {
     expect(parsed.searchParams.get('X-Amz-Expires')).toBe('300');
     expect(parsed.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it('refuses to publish without a public bucket', async () => {
+    await expect(storage.putPublic('public/x.jpg', Buffer.from('x'), 'image/jpeg')).rejects.toThrow('No public bucket configured');
+  });
 });

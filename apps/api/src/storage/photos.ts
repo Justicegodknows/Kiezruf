@@ -7,6 +7,12 @@ export interface PhotoStorage {
   exists(key: string): Promise<boolean>;
   /** A short-lived link to an original, for staff only (US-31: originals are never public). */
   presignDownload(key: string): Promise<string>;
+  /** Size of an original in bytes, or null if it does not exist. */
+  sizeOf(key: string): Promise<number | null>;
+  /** The bytes of an original. */
+  read(key: string): Promise<Buffer>;
+  /** Stores a blurred, EXIF-free copy in the public bucket (US-16, US-31). */
+  putPublic(key: string, body: Buffer, contentType: string): Promise<void>;
 }
 
 const UPLOAD_URL_SECONDS = 10 * 60;
@@ -18,6 +24,8 @@ export function s3PhotoStorage(options: {
   accessKeyId: string;
   secretAccessKey: string;
   bucket: string;
+  /** The public bucket for blurred copies. */
+  publicBucket?: string;
 }): PhotoStorage {
   const client = new S3Client({
     endpoint: options.endpoint,
@@ -35,13 +43,24 @@ export function s3PhotoStorage(options: {
       return getSignedUrl(client, new GetObjectCommand({ Bucket: options.bucket, Key: key }), { expiresIn: DOWNLOAD_URL_SECONDS });
     },
     async exists(key) {
+      return (await this.sizeOf(key)) !== null;
+    },
+    async sizeOf(key) {
       try {
-        await client.send(new HeadObjectCommand({ Bucket: options.bucket, Key: key }));
-        return true;
+        const head = await client.send(new HeadObjectCommand({ Bucket: options.bucket, Key: key }));
+        return head.ContentLength ?? 0;
       } catch (error) {
-        if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return false;
+        if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
         throw error;
       }
+    },
+    async read(key) {
+      const object = await client.send(new GetObjectCommand({ Bucket: options.bucket, Key: key }));
+      return Buffer.from(await object.Body!.transformToByteArray());
+    },
+    async putPublic(key, body, contentType) {
+      if (!options.publicBucket) throw new Error('No public bucket configured');
+      await client.send(new PutObjectCommand({ Bucket: options.publicBucket, Key: key, Body: body, ContentType: contentType }));
     },
   };
 }

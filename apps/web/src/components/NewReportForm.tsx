@@ -6,18 +6,24 @@
 // 3. Category (Traffic / Community), description, "Dangerous right now?" (US-08, US-09).
 // 4. Pin within 50 m (US-10).
 // 5. Review names the receiving office, then post; the report ID is shown (US-11, US-41).
+// Phase 3: once signed in, the first photo is uploaded right away and the category suggested from it is pre-selected
+// when the AI is confident (US-14). Before posting, "Already reported?" offers up to 3 matching reports nearby; the
+// citizen adds their photo to one of them or posts their own (US-13). Neither step ever blocks posting.
 import { CATEGORIES, categoryNeedsDescription, MAX_ACCURACY_M, MAX_PHOTO_AGE_HOURS, MAX_PHOTOS } from '@kiezruf/shared';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { formatDistance, formatNumber, type MessageKey } from '@/i18n';
 import { useI18n } from '@/i18n/I18nProvider';
-import { api, type RouteAnswer } from '@/lib/api-client';
+import { api, type ApiResult, type RouteAnswer } from '@/lib/api-client';
 import { saveDraft } from '@/lib/drafts';
 import { readPhotoMeta } from '@/lib/exif';
 import { currentFix, distanceM, LocationError, type Fix, type Point } from '@/lib/geo';
+import { reportPath } from '@/lib/paths';
 import { ACCEPT_ATTRIBUTE, assessPhoto, composeDecision, type ChosenPhoto } from '@/lib/photo-check';
-import { postReport, type Posted } from '@/lib/post-report';
+import { coReport, postReport, uploadPhoto, type Posted, type ShownSuggestion } from '@/lib/post-report';
+import { categoryToPreselect, duplicateSignature, findDuplicates, requestSuggestion, type DuplicateMatch } from '@/lib/report-assist';
+import { AlreadyReported } from './AlreadyReported';
 import { DraftList } from './DraftList';
 import { ErrorText } from './ErrorText';
 import { categoryLabel } from './labels';
@@ -31,9 +37,11 @@ interface Photo extends ChosenPhoto {
   preview: string;
 }
 
+type Outcome = { kind: 'posted'; posted: Posted } | { kind: 'matches'; sig: string; matches: DuplicateMatch[] };
+
 export function NewReportForm() {
   const { t, tp, locale } = useI18n();
-  const { runAuthed } = useAuth();
+  const { runAuthed, signedIn } = useAuth();
   const ids = { description: useId(), descriptionHint: useId(), photos: useId(), photosHint: useId(), dangerous: useId() };
 
   const [fix, setFix] = useState<Fix | null>(null);
@@ -54,11 +62,42 @@ export function NewReportForm() {
   const [draftSaved, setDraftSaved] = useState(0);
   const [draftError, setDraftError] = useState(false);
 
+  // The first photo, uploaded early for the suggestion and the duplicate check (US-13, US-14).
+  const [firstUpload, setFirstUpload] = useState<{ photoId: string; key: string } | null>(null);
+  const firstInFlight = useRef<string | null>(null);
+  /** The suggestion the citizen saw (pre-selected), sent with the report. */
+  const [suggested, setSuggested] = useState<ShownSuggestion | null>(null);
+  const [dupCheck, setDupCheck] = useState<{ sig: string; matches: DuplicateMatch[] } | null>(null);
+  const [joining, setJoining] = useState<string | null>(null);
+  const [joined, setJoined] = useState<{ publicId: string } | null>(null);
+
   const photosRef = useRef(photos);
+  const categoryRef = useRef(category);
   useEffect(() => {
     photosRef.current = photos;
+    categoryRef.current = category;
   });
   useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), []);
+
+  // Signed in with a postable first photo: upload it now and ask for a category suggestion. Failures are silent;
+  // posting uploads the photo again and goes on without a suggestion.
+  const firstPostableId = photos[0]?.verdict.postable ? photos[0].id : null;
+  useEffect(() => {
+    if (!signedIn || !firstPostableId || firstInFlight.current === firstPostableId) return;
+    const photo = photosRef.current.find((p) => p.id === firstPostableId);
+    if (!photo) return;
+    firstInFlight.current = firstPostableId;
+    void (async () => {
+      const uploaded = await uploadPhoto(photo.file);
+      if (!uploaded.ok) return;
+      setFirstUpload({ photoId: photo.id, key: uploaded.data });
+      const suggestion = await requestSuggestion(uploaded.data);
+      const pick = categoryToPreselect(suggestion, categoryRef.current);
+      if (!pick) return;
+      setCategory(pick);
+      setSuggested({ category: pick, confidence: suggestion.confidence });
+    })();
+  }, [signedIn, firstPostableId]);
 
   async function locate() {
     setLocating(true);
@@ -121,19 +160,44 @@ export function NewReportForm() {
   if (decision.kind === 'draft') missing.push('review.photoDraftOnly');
   if (!category) missing.push('review.missingCategory');
   if (needsDescription && !description.trim()) missing.push('review.missingDescription');
+  // The duplicate check runs on the public position (the pin) and the first photo (US-13).
+  const where = pin ?? fix;
+  const firstKey = firstUpload && photos[0]?.id === firstUpload.photoId ? firstUpload.key : null;
+  const currentSig = where && category ? duplicateSignature({ lat: where.lat, lon: where.lon, category, photoKey: firstKey }) : null;
+  const openMatches = dupCheck && dupCheck.sig === currentSig ? dupCheck.matches : null;
+  if (openMatches) missing.push('review.answerDuplicates');
   const canPost = missing.length === 0 && decision.kind === 'post' && fix !== null && live;
   const canSaveDraft = photos.length > 0;
+  const suggestionShown = suggested !== null && suggested.category === category;
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!canPost || decision.kind !== 'post' || !fix) return;
-    setPosting(true);
-    setPostError(null);
-    const moved = pin && distanceM(fix, pin) >= 1 ? pin : null;
-    const result = await runAuthed(() =>
-      postReport({ category, description, dangerous, fix, capturedAt: decision.capturedAt, pin: moved, files: photos.map((p) => p.file) }),
-    );
-    setPosting(false);
+  /** The first photo's key, uploading it now if the early upload has not happened. */
+  async function ensureFirstKey(): Promise<ApiResult<string | null>> {
+    const photo = photos[0];
+    if (!photo) return { ok: true, status: 200, data: null };
+    if (firstUpload?.photoId === photo.id) return { ok: true, status: 200, data: firstUpload.key };
+    const uploaded = await uploadPhoto(photo.file);
+    if (!uploaded.ok) return uploaded;
+    firstInFlight.current = photo.id;
+    setFirstUpload({ photoId: photo.id, key: uploaded.data });
+    return uploaded;
+  }
+
+  function send(key: string | null, capturedAt: Date, at: Fix) {
+    const moved = pin && distanceM(at, pin) >= 1 ? pin : null;
+    return postReport({
+      category,
+      description,
+      dangerous,
+      fix: at,
+      capturedAt,
+      pin: moved,
+      files: photos.map((p) => p.file),
+      uploadedKeys: [key],
+      suggestion: suggested,
+    });
+  }
+
+  function afterPost(result: ApiResult<Posted> | null) {
     if (!result) return;
     if (!result.ok) {
       if (result.error === 'not_live') setRoute({ live: false, tenant: route?.tenant ?? null });
@@ -141,6 +205,83 @@ export function NewReportForm() {
       return;
     }
     setPosted(result.data);
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!canPost || decision.kind !== 'post' || !fix || !where) return;
+    setPosting(true);
+    setPostError(null);
+    const capturedAt = decision.capturedAt;
+    const at = fix;
+    const result = await runAuthed<Outcome>(async () => {
+      const key = await ensureFirstKey();
+      if (!key.ok) return key;
+      // "Already reported?" first; an answer without matches (or an error) goes straight on to posting.
+      const found = await findDuplicates({ lat: where.lat, lon: where.lon, category, photoKey: key.data });
+      if (!found.ok) return found;
+      if (found.data.length > 0) {
+        return { ok: true, status: 200, data: { kind: 'matches', sig: duplicateSignature({ lat: where.lat, lon: where.lon, category, photoKey: key.data }), matches: found.data } };
+      }
+      const posted = await send(key.data, capturedAt, at);
+      return posted.ok ? { ok: true, status: posted.status, data: { kind: 'posted', posted: posted.data } } : posted;
+    });
+    setPosting(false);
+    if (!result) return;
+    if (!result.ok) return afterPost(result);
+    if (result.data.kind === 'matches') {
+      setDupCheck({ sig: result.data.sig, matches: result.data.matches });
+      return;
+    }
+    afterPost({ ok: true, status: result.status, data: result.data.posted });
+  }
+
+  /** "No, mine is new": post without checking again. */
+  async function postAsNew() {
+    if (decision.kind !== 'post' || !fix) return;
+    setPosting(true);
+    setPostError(null);
+    const capturedAt = decision.capturedAt;
+    const result = await runAuthed(() => send(firstKey, capturedAt, fix));
+    setPosting(false);
+    if (result?.ok) setDupCheck(null);
+    afterPost(result);
+  }
+
+  /** "Add my photo to this report": the same capture and photos go to the matched report (US-13). */
+  async function join(match: DuplicateMatch) {
+    if (decision.kind !== 'post' || !fix) return;
+    setJoining(match.publicId);
+    setPostError(null);
+    const capturedAt = decision.capturedAt;
+    const result = await runAuthed(() => coReport(match.publicId, { fix, capturedAt, files: photos.map((p) => p.file), uploadedKeys: [firstKey] }));
+    setJoining(null);
+    if (!result) return;
+    if (!result.ok) {
+      setPostError(String(result.error));
+      return;
+    }
+    setJoined({ publicId: result.data?.publicId || match.publicId });
+  }
+
+  if (joined) {
+    return (
+      <section className="notice success-box" aria-labelledby="joined-title">
+        <h2 id="joined-title" tabIndex={-1} ref={(el) => el?.focus()}>
+          {t('dup.joinedTitle')}
+        </h2>
+        <p>{t('dup.joinedBody')}</p>
+        <p className="report-id">{joined.publicId}</p>
+        <p className="row">
+          <Link href={reportPath({ publicId: joined.publicId })} className="btn primary">
+            {t('dup.showReport')}
+          </Link>
+          <Link href="/my-reports" className="btn">
+            {t('posted.toMyReports')}
+          </Link>
+        </p>
+      </section>
+    );
   }
 
   async function keepAsDraft() {
@@ -268,6 +409,14 @@ export function NewReportForm() {
         {/* 3. Category and description */}
         <fieldset className="step">
           <legend>{t('compose.step.category')}</legend>
+          <div aria-live="polite">
+            {suggestionShown ? (
+              <p className="notice info suggestion-note">
+                <span aria-hidden="true">✦ </span>
+                {t('compose.suggested', { category: categoryLabel(t, suggested.category) })}
+              </p>
+            ) : null}
+          </div>
           {(['traffic', 'community'] as const).map((group) => (
             <fieldset key={group} className="radio-group">
               <legend>{t(`group.${group}` as MessageKey)}</legend>
@@ -319,6 +468,9 @@ export function NewReportForm() {
           <legend>{t('compose.step.pin')}</legend>
           {fix && pin ? <PinAdjuster origin={fix} pin={pin} onChange={setPin} /> : <p className="small muted">{t('compose.pinNeedsLocation')}</p>}
         </fieldset>
+
+        {/* "Already reported?" (US-13), before the review */}
+        {openMatches ? <AlreadyReported matches={openMatches} busy={joining ?? posting} onJoin={(m) => void join(m)} onNew={() => void postAsNew()} /> : null}
 
         {/* 5. Review */}
         <fieldset className="step">

@@ -206,8 +206,6 @@ describe('citizen app screens', () => {
     await waitFor(() => expect(screen.getByTestId('detail-follow')).toHaveTextContent('Du folgst', { exact: false }));
   });
 
-  test.todo('new report: pre-selects the AI category only at 0.80 confidence or more (US-14) — Phase 3');
-
   test('new report: the danger toggle shows the 112 / 110 banner (US-09)', async () => {
     mockApi({});
     await renderApp(<ComposeScreen />, { draft: composeDraft() });

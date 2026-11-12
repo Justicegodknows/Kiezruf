@@ -32,6 +32,11 @@ export const API_ERROR_CODES = [
   'invalid_target',
   'link_expired',
   'forbidden_role',
+  // Analysis and AI (Phase 3). The README names no new codes; these are assumed for co-reporting and export.
+  'too_far',
+  'already_reported',
+  'report_closed',
+  'invalid_range',
 ] as const;
 
 /** Codes the web client produces itself (network, browser location, uploads, the BFF). */

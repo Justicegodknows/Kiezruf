@@ -118,10 +118,10 @@ Citizen endpoints:
 
 | Endpoint | What |
 | --- | --- |
-| `POST /uploads/suggest` `{ key }` | Category suggestion for an uploaded photo (US-14): `{ category, confidence, preselect }`. `preselect` is true from 0.80. Answers within about 3 s; on a timeout all three are `null`/`false` |
+| `POST /uploads/suggest` `{ key }` (signed in, like uploading) | Category suggestion for an uploaded photo (US-14): `{ category, confidence, preselect }`. `preselect` is true from 0.80. Answers within about 3 s; on a timeout all three are `null`/`false` |
 | `POST /reports` gains `suggestion: { category, confidence }` | The suggestion the citizen saw, logged as feedback when they chose another category (US-14) |
-| `POST /reports/duplicates` `{ lat, lon, category, photoKey? }` | "Already reported?" (US-13): up to 3 public reports within 150 m in the same category group, most similar first: `{ matches: [{ publicId, category, status, distanceM, meTooCount, photo, similarity }] }` |
-| `POST /reports/:publicId/co-report` `{ capture, photoKeys }` | "Add my photo to this report": same on-site rules as posting, within 150 m of the report; the citizen becomes a co-reporter and follows it (US-13). `201 { publicId }` |
+| `POST /reports/duplicates` `{ lat, lon, category, photoKey? }` | "Already reported?" (US-13): up to 3 public reports within 150 m in the same category group, most similar first: `{ matches: [{ publicId, category, status, distanceM, meTooCount, photo, similarity }] }`. `photo` is the URL of a blurred photo or `null`; `similarity` is 0–1 or `null` without photo AI |
+| `POST /reports/:publicId/co-report` `{ capture, photoKeys }` | "Add my photo to this report": same on-site rules as posting, within 150 m of the report; the citizen becomes a co-reporter and follows it (US-13). `201 { publicId }`. Errors: the posting gate codes, `photo_missing`, `duplicate_photo`, `not_found`, and `not_on_site` beyond 150 m |
 
 Console endpoints:
 

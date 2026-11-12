@@ -197,6 +197,8 @@ interface Rule {
   auth: Auth;
   /** Query parameters passed on for GET; anything else is dropped. */
   query: ReadonlySet<string>;
+  /** Pass the API's answer through byte for byte (CSV downloads, US-55) instead of reading it as JSON. */
+  raw?: boolean;
 }
 
 /** Query parameters the public endpoints take. */
@@ -204,12 +206,25 @@ const PUBLIC_QUERY = new Set(['lat', 'lon', 'radiusM', 'category', 'status', 'ma
 /** GET /staff/reports (US-25). */
 const QUEUE_QUERY = new Set(['status', 'level', 'category', 'tenantId', 'maxAgeDays', 'sort', 'limit', 'offset']);
 const NO_QUERY = new Set<string>();
+/** Analysis views for one tenant in scope (US-50, US-53): GET /staff/hotspots, /staff/briefings, trends.csv. */
+const TENANT_QUERY = new Set(['tenantId']);
+/** GET /staff/trends (US-51). */
+const TRENDS_QUERY = new Set(['tenantId', 'weeks']);
+/** GET /staff/export/queue.csv (US-55): tenant and date range. */
+const EXPORT_QUERY = new Set(['tenantId', 'from', 'to']);
 
-const rule = (methods: Method[], path: string, auth: Auth, query: ReadonlySet<string> = auth === 'staff' ? NO_QUERY : PUBLIC_QUERY): Rule => ({
+const rule = (
+  methods: Method[],
+  path: string,
+  auth: Auth,
+  query: ReadonlySet<string> = auth === 'staff' ? NO_QUERY : PUBLIC_QUERY,
+  raw = false,
+): Rule => ({
   methods,
   pattern: new RegExp(`^${path}$`),
   auth,
   query,
+  ...(raw ? { raw } : {}),
 });
 
 /**
@@ -224,6 +239,10 @@ export const PROXY_RULES: readonly Rule[] = [
   rule(['GET'], `public/reports/${ID}/comments`, 'public'),
   rule(['POST'], 'uploads', 'citizen'),
   rule(['POST'], 'reports', 'citizen'),
+  // Phase 3 (README "API (analysis and AI, Phase 3)"): category suggestion, "Already reported?", co-reporting.
+  rule(['POST'], 'uploads/suggest', 'citizen'),
+  rule(['POST'], 'reports/duplicates', 'citizen'),
+  rule(['POST'], `reports/${ID}/co-report`, 'citizen'),
   rule(['GET'], 'me/reports', 'citizen'),
   rule(['GET'], 'me/follows', 'citizen'),
   rule(['GET'], `reports/${ID}/me`, 'citizen'),
@@ -253,9 +272,51 @@ export const PROXY_RULES: readonly Rule[] = [
   rule(['DELETE'], `staff/tenants/${UUID}/contacts/${UUID}`, 'staff'),
   rule(['GET', 'POST'], `staff/tenants/${UUID}/staff`, 'staff'),
   rule(['DELETE'], `staff/tenants/${UUID}/staff/${UUID}`, 'staff'),
+  // Analysis and AI (Phase 3): merge suggestions, hotspots, trends, briefings, preferences, CSV export.
+  rule(['GET'], `staff/reports/${ID}/duplicates`, 'staff'),
+  rule(['GET'], 'staff/hotspots', 'staff', TENANT_QUERY),
+  rule(['GET'], 'staff/trends', 'staff', TRENDS_QUERY),
+  rule(['GET'], 'staff/briefings', 'staff', TENANT_QUERY),
+  rule(['POST'], `staff/briefings/items/${UUID}/rating`, 'staff'),
+  rule(['PUT'], 'staff/me/preferences', 'staff'),
+  rule(['GET'], 'staff/export/queue.csv', 'staff', EXPORT_QUERY, true),
+  rule(['GET'], 'staff/export/trends.csv', 'staff', TENANT_QUERY, true),
   // Forward links (US-45): no login, so no token of either kind.
   rule(['GET'], `forwarded/${LINK_TOKEN}`, 'public', NO_QUERY),
 ];
+
+/** Headers of a download that pass through unchanged. */
+const RAW_HEADERS = ['content-type', 'content-disposition', 'content-length'] as const;
+
+/**
+ * Fetches a download (GET only) and hands its body on as it came, with its content type and file name, so a CSV
+ * reaches the browser unchanged (US-55). Errors the API answers with JSON pass through the same way.
+ */
+async function passThrough(path: string, token: string | null, request: NextRequest): Promise<NextResponse> {
+  const headers: Record<string, string> = { accept: 'text/csv, application/json' };
+  if (token) headers.authorization = `Bearer ${token}`;
+  const acceptLanguage = request.headers.get('accept-language');
+  if (acceptLanguage) headers['accept-language'] = acceptLanguage;
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${apiBaseUrl()}/${path}`, {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+  } catch {
+    return json({ error: 'unavailable' }, 502);
+  }
+  if (upstream.status >= 300 && upstream.status < 400) return json({ error: 'unavailable' }, 502);
+  const out = new Headers({ 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+  for (const name of RAW_HEADERS) {
+    const value = upstream.headers.get(name);
+    if (value) out.set(name, value);
+  }
+  return new NextResponse(upstream.body, { status: upstream.status, headers: out });
+}
 
 export function matchRule(method: string, path: string): Rule | null {
   return PROXY_RULES.find((r) => (r.methods as string[]).includes(method) && r.pattern.test(path)) ?? null;
@@ -289,6 +350,12 @@ export async function proxy(request: NextRequest, segments: string[]): Promise<N
 
   const body = await readJsonBody(request);
   if (!body.ok) return json({ error: body.error }, body.status);
+
+  if (found.raw) {
+    const response = await passThrough(`${path}${forwardQuery(request, found.query)}`, token, request);
+    if (response.status === 401 && found.auth === 'staff') clearStaffCookie(response);
+    return response;
+  }
 
   const answer = await callApi(`${path}${request.method === 'GET' ? forwardQuery(request, found.query) : ''}`, {
     method: request.method,

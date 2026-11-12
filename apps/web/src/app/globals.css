@@ -929,6 +929,214 @@ input[type='number'] {
   border: 1px solid var(--line-soft);
 }
 
+/* --- Analysis and AI (Phase 3) -------------------------------------------------------------------------- */
+.analysis-controls {
+  align-items: flex-end;
+}
+.tenant-picker {
+  max-width: 22rem;
+}
+.inline-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cite {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.notice.ai-note {
+  background: var(--info-soft);
+  border-left: 4px solid var(--focus);
+}
+.notice.fallback-note {
+  background: var(--surface);
+  border-left-color: var(--text);
+}
+.briefing-items {
+  display: grid;
+  gap: 0.75rem;
+}
+.briefing-item h3 {
+  margin: 0;
+}
+.tag.kind {
+  font-weight: 700;
+}
+.tag.kind-urgent {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.tag.kind-improving {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.rating {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 0.6rem;
+}
+.cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  font: 700 0.8rem/1 var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cluster.level-low {
+  border-color: var(--text);
+}
+.hotspot-map {
+  margin: 0;
+}
+.hotspot-canvas {
+  height: 420px;
+}
+.hotspot-map figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+.legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.cluster-cell:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+.hotspot-table th[scope='row'] {
+  font-weight: 400;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.kpi {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+.kpi dt {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.kpi dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+.trend-chart {
+  margin: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+}
+.trend-chart svg {
+  display: block;
+  overflow: visible;
+}
+.trend-chart text {
+  font-size: 10px;
+  fill: var(--muted);
+}
+.trend-chart text.bar-value {
+  font-weight: 700;
+  fill: var(--text);
+}
+.trend-chart .grid {
+  stroke: var(--line-soft);
+  stroke-width: 1;
+}
+.trend-chart .bar {
+  fill: var(--line);
+}
+.trend-chart .bar-latest {
+  fill: var(--accent);
+}
+.change-up {
+  color: var(--danger);
+}
+.change-down {
+  color: var(--accent);
+}
+.trend-table th[scope='row'] {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.export-range .field {
+  min-width: 11rem;
+}
+input[type='date'] {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  min-height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+a.btn {
+  text-decoration: none;
+}
+.account-menu {
+  position: relative;
+}
+.account-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.3rem);
+  z-index: 20;
+  width: min(22rem, 90vw);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+.account-panel[hidden] {
+  display: none;
+}
+.dup-list {
+  display: grid;
+  gap: 0.75rem;
+}
+.dup-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem;
+}
+@media (min-width: 560px) {
+  .dup-card {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+}
+.dup-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.suggestion-note {
+  margin: 0 0 0.5rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;

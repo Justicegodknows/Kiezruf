@@ -1,6 +1,7 @@
 import { After, AfterAll, Before, setDefaultTimeout, setWorldConstructor, World, type IWorldOptions } from '@cucumber/cucumber';
 import type { Db } from '../../src/db/client.js';
 import { buildTestApp, type TestApp } from '../../test/support/app.js';
+import { FakeAiProvider, FakeDetector } from '../../test/support/fakes.js';
 import { createMigratedDatabase, startDatabase } from '../../test/support/database.js';
 
 setDefaultTimeout(30_000);
@@ -48,6 +49,12 @@ export class KiezrufWorld extends World {
   forwardToken?: string;
   mailsBefore = 0;
   spike?: { votes: number; minutes: number; fresh?: number };
+  /** The AI provider and blur detector stand-ins (Phase 3). */
+  ai = new FakeAiProvider();
+  detector = new FakeDetector();
+  briefingId?: string;
+  /** The briefing input the provider received. */
+  sentText?: string;
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -58,7 +65,7 @@ setWorldConstructor(KiezrufWorld);
 
 Before({ timeout: 600_000 }, async function (this: KiezrufWorld) {
   this.db = (await database()).db;
-  this.t = await buildTestApp(this.db, { clock: () => SCENARIO_NOW });
+  this.t = await buildTestApp(this.db, { clock: () => SCENARIO_NOW, ai: this.ai });
 });
 
 After(async function (this: KiezrufWorld) {
