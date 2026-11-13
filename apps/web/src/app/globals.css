@@ -361,6 +361,14 @@ dl, dd { margin: 0; }
 .report-card__chevron { color: var(--line-strong); align-self: center; transition: transform 0.2s var(--ease), color 0.2s var(--ease); }
 .report-card:hover .report-card__chevron { transform: translateX(3px); color: var(--ink-2); }
 
+/* Skeletons (loading states) */
+.skeleton { display: block; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--sunk) 25%, var(--line) 50%, var(--sunk) 75%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+.skeleton--line { height: 14px; }
+.skeleton--title { height: 40px; width: 70%; border-radius: var(--radius); }
+.skeleton--media { aspect-ratio: 16 / 9; border-radius: var(--radius-lg); }
+.skeleton--button { height: 50px; border-radius: 12px; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
 /* ---------- 10. Report detail ---------- */
 .back-link { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px; color: var(--muted); font-weight: 500; text-decoration: none; }
 .back-link:hover { color: var(--ink); }

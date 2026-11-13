@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, Inter, JetBrains_Mono } from 'next/font/google';
 import { notFound } from 'next/navigation';
+import { InlineScript } from '@/components/InlineScript';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { themeScript } from '@/components/ThemeToggle';
 import { hasLocale, locales } from '@/i18n/config';
@@ -34,11 +35,14 @@ export default async function RootLayout({ children, params }: LayoutProps<'/[la
   const dict = await getDictionary(lang);
 
   return (
-    <html lang={lang} className={`${display.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
+    <html
+      lang={lang}
+      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body>
+        <InlineScript html={themeScript} />
         <a href="#main" className="skip-link">
           {dict.common.skipToContent}
         </a>
