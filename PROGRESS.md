@@ -8,7 +8,7 @@
 > How to acknowledge that you read it: run `pnpm progress:read` (humans, or any agent),
 > or, in Claude Code, read this file in full with the Read tool.
 
-**Last updated:** 2026-11-11 · **Phase:** 0, Setup (weeks 1–2) · **Overall:** scaffold only, no features built
+**Last updated:** 2026-11-13 · **Phase:** 0, Setup (weeks 1–2) · **Overall:** scaffold plus web design system and screens on sample data; no backend features built
 
 ## Sources of truth
 
@@ -37,7 +37,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | --- | --- |
 | Monorepo | pnpm workspace with `apps/api`, `apps/web`, `apps/mobile`, `packages/shared`. First commit `7afe4b0`. |
 | `apps/api` | Fastify stub with `GET /health` only. Dependencies installed: Drizzle, pg-boss, S3 SDK, sharp, exifr, nodemailer, zod. No schema, no migrations, no routes. |
-| `apps/web` | Fresh Next.js template. No Kiezruf screens. |
+| `apps/web` | Design system and first screens, on **sample data** (`src/lib/sample-data.ts`, no API calls yet). Light and dark themes (follows the OS, toggle saved in `localStorage`, no flash). German and English under `/de/…` and `/en/…` (US-35); the proxy picks the saved choice, then `Accept-Language`, then German. Screens: home with map and nearby reports, report detail with Me too and status timeline (citizen view, no score or level, US-24), console with KPIs, trend and category charts, priority queue and score breakdown (US-22, US-23). Fonts: Bricolage Grotesque, Inter, JetBrains Mono. Axe: no serious or critical issues on all pages in both themes. |
 | `apps/mobile` | Fresh Expo template. No Kiezruf screens. |
 | `packages/shared` | `priorityScore` and `priorityLevel` (US-22, US-23), with 38 unit tests. 23 `it.todo` tests list the shared rules still to write (IDs, location gate, spike detection, briefing validation, pseudonymisation, forward links, votes). |
 | `infra` | `docker-compose.yml` with PostGIS, MinIO and Mailpit. |
@@ -80,6 +80,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 | ENG-01 | The ORM is Drizzle (already installed in `apps/api`). This replaces Kysely, which the engineering plan proposed. | 2026-11-11 |
 | ENG-02 | Background jobs use pg-boss, so no Redis is needed. | 2026-11-11 |
 | ENG-03 | Gherkin features live in `apps/*/features` and carry `@wip` until their story is built. CI runs every feature without `@wip` and fails on undefined or pending steps. Removing `@wip` is part of a story's Definition of Done. | 2026-11-11 |
+| ENG-04 | Web i18n uses Next.js locale routing (`app/[lang]`) with typed dictionaries in `apps/web/src/i18n/dictionaries`. German is the source; a missing English key fails `tsc` and `i18n.test.ts`. `next-intl` stays installed but unused. Theme and language toggles keep pages statically prerendered. | 2026-11-13 |
 
 ## Change log
 
@@ -87,6 +88,7 @@ Newest first. Add one line per commit that changes project state.
 
 | Date | Change | By |
 | --- | --- | --- |
+| 2026-11-13 | Branch `design`: web design system, light and dark themes, DE/EN switch, home, report detail and console screens on sample data (see `apps/web` above, ENG-04). New web tests: i18n key parity, level chip, Me too toggle, citizen data never carries score or level. Axe list covers all pages in both themes. | Claude |
 | 2026-11-11 | Added the test suites and the `ci` workflow (see *Tests* above). Split `apps/api` into `app.ts` (buildApp) and `server.ts`. Fixed a gate bug found by the new tests: a new file in a new folder under a symlinked checkout path was not seen as inside the repo, so the edit was not blocked. | Claude |
 | 2026-11-11 | Added `PROGRESS.md` and the GOV-01 progress gate (AGENTS.md, CLAUDE.md, git hooks, Claude Code hooks, CI) | Claude |
 | 2026-11-11 | First commit: monorepo scaffold, API stub, shared score function, infra compose | — |
