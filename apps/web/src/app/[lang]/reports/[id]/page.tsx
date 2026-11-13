@@ -43,9 +43,12 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
           </figure>
 
           <header className="detail__header">
-            <p className="eyebrow">
-              {t.categories[report.category]} · {t.subcategories[report.subcategory]}
-            </p>
+            <nav aria-label={t.report.category} className="breadcrumb">
+              <ol>
+                <li>{t.categories[report.category]}</li>
+                <li aria-current="page">{t.subcategories[report.subcategory]}</li>
+              </ol>
+            </nav>
             <h1 className="title-xl">{title}</h1>
             <div className="detail__badges">
               <StatusBadge status={report.status} label={t.status[report.status]} />
@@ -103,7 +106,8 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
                     </span>
                     <div>
                       <p className="comment__meta">
-                        <strong>{c.author}</strong> · {formatAge(c.ageHours, lang)}
+                        <strong>{c.author}</strong>
+                        <span>{formatAge(c.ageHours, lang)}</span>
                       </p>
                       <p>{c.text[lang]}</p>
                     </div>
@@ -131,7 +135,7 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
                 </dt>
                 <dd>
                   {report.place}
-                  <span className="muted small"> · {fill(t.report.distance, { distance: formatDistance(report.distanceMetres, lang) })}</span>
+                  <span className="facts__sub">{fill(t.report.distance, { distance: formatDistance(report.distanceMetres, lang) })}</span>
                 </dd>
               </div>
               <div>
@@ -147,8 +151,8 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
                   {t.report.involvement}
                 </dt>
                 <dd>
-                  {fill(t.report.coReporters, { count: report.coReporters })} ·{' '}
-                  {fill(t.report.comments, { count: report.comments.length })}
+                  {fill(t.report.coReporters, { count: report.coReporters })}
+                  <span className="facts__sub">{fill(t.report.comments, { count: report.comments.length })}</span>
                 </dd>
               </div>
               <div>
@@ -156,7 +160,7 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
                   <Icon name="inbox" size={16} />
                   {t.report.reference}
                 </dt>
-                <dd className="mono">{report.id}</dd>
+                <dd className="ref">{report.id}</dd>
               </div>
             </dl>
           </div>

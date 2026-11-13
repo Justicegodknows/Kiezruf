@@ -10,8 +10,8 @@ export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 32 32" width="32" height="32">
-        <rect width="32" height="32" rx="9" fill="var(--brand)" />
-        <path d="M16 25s-6.5-5.4-6.5-10.6a6.5 6.5 0 0 1 13 0C22.5 19.6 16 25 16 25z" fill="var(--on-brand)" />
+        <rect width="32" height="32" rx="7" fill="var(--signal)" />
+        <path d="M16 25s-6.5-5.4-6.5-10.6a6.5 6.5 0 0 1 13 0C22.5 19.6 16 25 16 25z" fill="var(--on-signal)" />
         <circle cx="16" cy="14.3" r="2.6" fill="var(--signal)" />
       </svg>
     </span>
@@ -56,7 +56,8 @@ export function SiteFooter({ dict }: { dict: Dictionary }) {
         <div className="site-footer__brand">
           <BrandMark />
           <p>
-            <strong>Kiezruf</strong> · {dict.footer.tagline}
+            <strong>Kiezruf</strong>
+            <span>{dict.footer.tagline}</span>
           </p>
         </div>
         <ul className="site-footer__links">

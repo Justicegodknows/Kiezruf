@@ -78,20 +78,19 @@ export default async function ConsolePage({ params }: PageProps<'/[lang]/console
         </div>
       </header>
 
-      <section aria-label={t.console.kpiLabel} className="kpis">
+      {/* One strip divided by rules, not four separate cards. */}
+      <dl aria-label={t.console.kpiLabel} className="kpis">
         {kpis.map((k) => (
-          <div key={k.label} className="kpi card" data-tone={k.tone}>
-            <div className="kpi__head">
-              <span className="kpi__icon">
-                <Icon name={k.icon} size={18} />
-              </span>
-              <span className="kpi__label">{k.label}</span>
-            </div>
-            <p className="kpi__value">{k.value}</p>
-            {k.delta && <p className="kpi__delta">{k.delta}</p>}
+          <div key={k.label} className="kpi" data-tone={k.tone}>
+            <dt className="kpi__label">
+              <Icon name={k.icon} size={16} />
+              {k.label}
+            </dt>
+            <dd className="kpi__value">{k.value}</dd>
+            {k.delta && <dd className="kpi__delta">{k.delta}</dd>}
           </div>
         ))}
-      </section>
+      </dl>
 
       <div className="console__charts">
         <section className="card card--padded" aria-labelledby="trend-title">

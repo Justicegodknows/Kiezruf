@@ -26,6 +26,8 @@ export interface PublicReport {
   category: Category;
   subcategory: Subcategory;
   place: string;
+  /** Street or square name, shown on the street-sign plate. */
+  street: string;
   distanceMetres: number;
   ageHours: number;
   status: Status;
@@ -58,6 +60,7 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     category: 'traffic',
     subcategory: 'trafficLight',
     place: 'Karl-Marx-Straße, Höhe Rathaus Neukölln',
+    street: 'Karl-Marx-Straße',
     distanceMetres: 80,
     ageHours: 2,
     status: 'acknowledged',
@@ -92,6 +95,7 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     category: 'traffic',
     subcategory: 'pothole',
     place: 'Hermannstraße 140',
+    street: 'Hermannstraße',
     distanceMetres: 350,
     ageHours: 26,
     status: 'open',
@@ -124,6 +128,7 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     category: 'facility',
     subcategory: 'playground',
     place: 'Spielplatz Weserstraße',
+    street: 'Weserstraße',
     distanceMetres: 600,
     ageHours: 50,
     status: 'inProgress',
@@ -146,6 +151,7 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     category: 'traffic',
     subcategory: 'bikeLane',
     place: 'Sonnenallee 62',
+    street: 'Sonnenallee',
     distanceMetres: 900,
     ageHours: 5,
     status: 'open',
@@ -168,6 +174,7 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     category: 'facility',
     subcategory: 'toilet',
     place: 'Hermannplatz',
+    street: 'Hermannplatz',
     distanceMetres: 1200,
     ageHours: 96,
     status: 'open',
@@ -190,6 +197,7 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     category: 'facility',
     subcategory: 'youthCentre',
     place: 'Gropiusstadt, Lipschitzallee',
+    street: 'Lipschitzallee',
     distanceMetres: 4100,
     ageHours: 74,
     status: 'resolved',

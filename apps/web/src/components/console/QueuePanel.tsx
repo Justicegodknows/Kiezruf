@@ -78,7 +78,8 @@ export function QueuePanel({ rows, t }: { rows: QueueRow[]; t: QueueStrings }) {
                   <button type="button" className="row-button" onClick={() => setSelectedId(r.id)}>
                     <span className="row-button__title">{r.title}</span>
                     <span className="row-button__meta">
-                      <span className="mono">{r.id}</span> · {r.subcategoryLabel}
+                      <span className="ref">{r.id}</span>
+                      <span>{r.subcategoryLabel}</span>
                     </span>
                   </button>
                 </th>
@@ -86,7 +87,7 @@ export function QueuePanel({ rows, t }: { rows: QueueRow[]; t: QueueStrings }) {
                 <td>
                   <LevelChip level={r.level} label={r.levelLabel} />
                 </td>
-                <td className="num mono strong">{r.score}</td>
+                <td className="num strong">{r.score}</td>
                 <td className="hide-sm">
                   <StatusBadge status={r.status} label={r.statusLabel} />
                 </td>
@@ -120,7 +121,7 @@ function Breakdown({ row, t }: { row: QueueRow; t: QueueStrings }) {
     <section className="breakdown card" aria-live="polite" aria-labelledby="breakdown-title">
       <header className="breakdown__head">
         <div>
-          <p className="eyebrow">
+          <p className="staff-note">
             <Icon name="lock" size={14} /> {t.staffOnly}
           </p>
           <h3 id="breakdown-title">{t.breakdownTitle}</h3>
@@ -128,7 +129,7 @@ function Breakdown({ row, t }: { row: QueueRow; t: QueueStrings }) {
         <div className="breakdown__report">
           <p className="breakdown__report-title">{row.title}</p>
           <p className="muted small">
-            {t.reference} <span className="mono">{row.id}</span>
+            {t.reference} <span className="ref">{row.id}</span>
           </p>
         </div>
       </header>
@@ -151,7 +152,7 @@ function Breakdown({ row, t }: { row: QueueRow; t: QueueStrings }) {
                   <span className={`dot dot--${part.key}`} aria-hidden="true" />
                   {part.label}
                 </dt>
-                <dd className="mono">{part.value}</dd>
+                <dd className="num">{part.value}</dd>
               </div>
             ))}
           </dl>
@@ -160,13 +161,13 @@ function Breakdown({ row, t }: { row: QueueRow; t: QueueStrings }) {
         {/* The score as a formula: base × decay × danger × safety = score. */}
         <ol className="formula" aria-label={t.breakdownTitle}>
           <li className="formula__term formula__term--base">
-            <span className="formula__value mono">{b.base}</span>
+            <span className="formula__value">{b.base}</span>
             <span className="formula__label">{t.basePoints}</span>
           </li>
           {factors.map((f) => (
             <li key={f.label} className="formula__term">
               <span className="formula__op" aria-hidden="true">×</span>
-              <span className="formula__value mono">{f.value}</span>
+              <span className="formula__value">{f.value}</span>
               <span className="formula__label">
                 {f.label}
                 {f.hint && <span className="formula__hint">{f.hint}</span>}
@@ -175,7 +176,7 @@ function Breakdown({ row, t }: { row: QueueRow; t: QueueStrings }) {
           ))}
           <li className="formula__term formula__term--total">
             <span className="formula__op" aria-hidden="true">=</span>
-            <span className="formula__value mono">{b.score}</span>
+            <span className="formula__value">{b.score}</span>
             <span className="formula__label">
               {t.total}
               <LevelChip level={row.level} label={row.levelLabel} />

@@ -39,15 +39,17 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
     { key: 'fixed', icon: 'check' },
   ];
 
+  // Newest open reports for the street-sign plates in the hero.
+  const plates = listPublicReports()
+    .filter((r) => r.status !== 'resolved')
+    .sort((a, b) => a.ageHours - b.ageHours)
+    .slice(0, 3);
+
   return (
     <>
       <section className="hero">
         <div className="container hero__inner">
           <div className="hero__copy">
-            <p className="eyebrow eyebrow--pill">
-              <Icon name="sparkle" size={14} />
-              {t.home.eyebrow}
-            </p>
             <h1 className="display">{t.home.title}</h1>
             <p className="lead">{t.home.lead}</p>
             <div className="hero__actions">
@@ -55,39 +57,49 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
                 <Icon name="pin" size={20} />
                 {t.home.ctaBrowse}
               </a>
-              <Link href={`/${lang}/console`} className="button button--secondary button--lg">
+              <Link href={`/${lang}/console`} className="button button--quiet button--lg">
                 {t.home.ctaConsole}
-                <Icon name="arrowRight" size={18} />
               </Link>
             </div>
           </div>
-          <dl className="hero__stats" aria-label={t.home.statsLabel}>
-            <div className="stat">
-              <dt>{t.home.statOpen}</dt>
-              <dd>{formatNumber(101, lang)}</dd>
-            </div>
-            <div className="stat">
-              <dt>{t.home.statResolved}</dt>
-              <dd>{formatNumber(214, lang)}</dd>
-            </div>
-            <div className="stat">
-              <dt>{t.home.statResponse}</dt>
-              <dd>{t.home.statResponseValue}</dd>
-            </div>
-          </dl>
+
+          {/* Signature element: what was just reported, as Berlin street-name plates. */}
+          <div className="plates">
+            <h2 className="plates__caption">{t.home.platesLabel}</h2>
+            <ul className="plates__list">
+              {plates.map((r) => (
+                <li key={r.id}>
+                  <Link href={`/${lang}/reports/${r.id}`} className="plate">
+                    <span className="plate__district">{t.home.district}</span>
+                    <span className="plate__street">{r.street}</span>
+                    <span className="plate__issue">
+                      {r.title[lang]}
+                      <span className="plate__age">{formatAge(r.ageHours, lang)}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="plates__figures">
+              {fill(t.home.figures, {
+                open: formatNumber(101, lang),
+                resolved: formatNumber(214, lang),
+                response: t.home.responseValue,
+              })}
+            </p>
+          </div>
         </div>
       </section>
 
       <section className="section" aria-labelledby="steps-title">
         <div className="container">
           <header className="section__intro">
-            <p className="eyebrow">{t.home.stepsEyebrow}</p>
             <h2 id="steps-title" className="section__title">
               {t.home.stepsTitle}
             </h2>
             <p className="lead lead--sm">{t.home.stepsLead}</p>
           </header>
-          {/* Workflow: numbered nodes joined by a connector, horizontal on wide screens, vertical on phones. */}
+          {/* A real sequence, so numbered nodes joined by a connector. */}
           <ol className="workflow">
             {steps.map((step, i) => (
               <li key={step.key} className="workflow__step" data-final={i === steps.length - 1 || undefined}>
@@ -100,7 +112,6 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
                   </span>
                 </div>
                 <div className="workflow__body">
-                  <p className="workflow__label">{fill(t.home.stepLabel, { n: i + 1 })}</p>
                   <h3>{t.home.steps[step.key].title}</h3>
                   <p>{t.home.steps[step.key].body}</p>
                 </div>
@@ -113,7 +124,6 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
       <section className="section section--sunk" id="nearby" aria-labelledby="nearby-title">
         <div className="container">
           <header className="section__intro">
-            <p className="eyebrow">{t.home.nearbyEyebrow}</p>
             <h2 id="nearby-title" className="section__title">
               {t.home.nearbyTitle}
             </h2>

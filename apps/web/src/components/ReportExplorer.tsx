@@ -112,7 +112,7 @@ export function ReportExplorer({ reports, t }: { reports: ReportListItem[]; t: E
           </figcaption>
         </figure>
 
-        <ul className="report-list" aria-label={t.mapLabel}>
+        <ul className="report-list">
           {visible.length === 0 && <li className="empty">{t.emptyFilter}</li>}
           {visible.map((r) => (
             <li key={r.id}>
@@ -128,7 +128,15 @@ export function ReportExplorer({ reports, t }: { reports: ReportListItem[]; t: E
                 </span>
                 <span className="report-card__body">
                   <span className="report-card__meta">
-                    {r.subcategoryLabel} · {r.distance} · {r.age}
+                    <span className="report-card__kind">{r.subcategoryLabel}</span>
+                    <span>
+                      <Icon name="pin" size={14} />
+                      {r.distance}
+                    </span>
+                    <span>
+                      <Icon name="clock" size={14} />
+                      {r.age}
+                    </span>
                   </span>
                   <span className="report-card__title">{r.title}</span>
                   <span className="report-card__place">{r.place}</span>
@@ -150,7 +158,6 @@ export function ReportExplorer({ reports, t }: { reports: ReportListItem[]; t: E
                     </span>
                   </span>
                 </span>
-                <Icon name="chevronRight" size={18} className="report-card__chevron" />
               </Link>
             </li>
           ))}
