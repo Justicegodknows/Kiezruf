@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/coverage
+**/.next
+**/.env
+**/.env.*
+!.env.example
+.git
+.pnpm-store
+.progress
+.vercel
+.claude
+apps/web
+apps/mobile
+infra
+supabase
