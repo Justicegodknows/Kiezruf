@@ -7,9 +7,6 @@ const de = {
   common: {
     skipToContent: 'Zum Inhalt springen',
     brandTagline: 'Bürgermeldungen',
-    pilot: 'Pilot',
-    back: 'Zurück',
-    viewAll: 'Alle ansehen',
   },
   nav: {
     label: 'Hauptnavigation',
@@ -88,7 +85,6 @@ const de = {
     commentsTitle: 'Kommentare',
     noComments: 'Noch keine Kommentare.',
     safetyHint: 'Sicherheitsrelevant',
-    notFound: 'Diese Meldung gibt es nicht.',
     backToList: 'Zurück zu den Meldungen',
     photoAlt: 'Illustration: {title}',
   },
@@ -120,7 +116,6 @@ const de = {
     colScore: 'Wert',
     colStatus: 'Status',
     colAge: 'Alter',
-    selectHint: 'Zeile wählen, um die Bewertung zu sehen',
     breakdownTitle: 'Zusammensetzung des Werts',
     basePoints: 'Basispunkte',
     coReportersTimes: 'Mitmeldende × 5',

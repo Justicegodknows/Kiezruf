@@ -9,9 +9,6 @@ const en: Dictionary = {
   common: {
     skipToContent: 'Skip to content',
     brandTagline: 'Resident reports',
-    pilot: 'Pilot',
-    back: 'Back',
-    viewAll: 'View all',
   },
   nav: {
     label: 'Main navigation',
@@ -90,7 +87,6 @@ const en: Dictionary = {
     commentsTitle: 'Comments',
     noComments: 'No comments yet.',
     safetyHint: 'Safety related',
-    notFound: 'This report does not exist.',
     backToList: 'Back to reports',
     photoAlt: 'Illustration: {title}',
   },
@@ -122,7 +118,6 @@ const en: Dictionary = {
     colScore: 'Score',
     colStatus: 'Status',
     colAge: 'Age',
-    selectHint: 'Select a row to see how it is scored',
     breakdownTitle: 'How the score is built',
     basePoints: 'Base points',
     coReportersTimes: 'Co-reporters × 5',

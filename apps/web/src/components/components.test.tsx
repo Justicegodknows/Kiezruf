@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { listPublicReports, listStaffQueue } from '@/lib/sample-data';
 import { LevelChip, StatusBadge } from './Badges';
 import { MeTooButton } from './MeTooButton';
 
@@ -33,18 +32,4 @@ describe('citizen web: Me too button (US-18)', () => {
   });
 });
 
-describe('sample data boundary (US-24)', () => {
-  it('never gives the citizen view a score, level or danger marks', () => {
-    for (const report of listPublicReports()) {
-      expect(report).not.toHaveProperty('score');
-      expect(report).not.toHaveProperty('level');
-      expect(report).not.toHaveProperty('dangerMarks');
-    }
-  });
-
-  it('scores the staff queue highest first, and the breakdown multiplies out to the score', () => {
-    const queue = listStaffQueue();
-    expect(queue.map((r) => r.score)).toEqual([...queue.map((r) => r.score)].sort((a, b) => b - a));
-    for (const { breakdown: b } of queue) expect(b.base * b.decay * b.danger * b.safety).toBeCloseTo(b.score, 10);
-  });
-});
+// The data boundary (no score or level in the citizen view) is tested in packages/shared/src/demo.test.ts.

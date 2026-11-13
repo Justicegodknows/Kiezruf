@@ -1,4 +1,4 @@
-import type { Subcategory } from '@/lib/sample-data';
+import type { Subcategory } from '@kiezruf/shared';
 
 // Calm, flat placeholder scenes until real (blurred) photos come from the API.
 export function ReportIllustration({ subcategory, label }: { subcategory: Subcategory; label: string }) {

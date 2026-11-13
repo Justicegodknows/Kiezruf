@@ -1,8 +1,7 @@
 'use client';
 
-import type { Level } from '@kiezruf/shared';
+import type { Level, Status } from '@kiezruf/shared';
 import { useState } from 'react';
-import type { Status } from '@/lib/sample-data';
 import { LevelChip, StatusBadge } from '../Badges';
 import { Icon } from '../Icon';
 
@@ -74,8 +73,8 @@ export function QueuePanel({ rows, t }: { rows: QueueRow[]; t: QueueStrings }) {
             {rows.map((r) => (
               <tr key={r.id} aria-selected={r.id === selected?.id} onClick={() => setSelectedId(r.id)}>
                 <th scope="row">
-                  {/* A real button keeps row selection keyboard accessible. */}
-                  <button type="button" className="row-button" onClick={() => setSelectedId(r.id)}>
+                  {/* A real button makes the row keyboard-selectable; its click bubbles to the row handler. */}
+                  <button type="button" className="row-button">
                     <span className="row-button__title">{r.title}</span>
                     <span className="row-button__meta">
                       <span className="ref">{r.id}</span>

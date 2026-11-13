@@ -1,5 +1,4 @@
-import type { Level } from '@kiezruf/shared';
-import type { Status } from '@/lib/sample-data';
+import type { Level, Status } from '@kiezruf/shared';
 import { Icon, type IconName } from './Icon';
 
 const STATUS_ICON: Record<Status, IconName> = {

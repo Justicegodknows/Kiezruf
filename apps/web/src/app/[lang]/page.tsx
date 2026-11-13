@@ -5,7 +5,7 @@ import { ReportExplorer, type ReportListItem } from '@/components/ReportExplorer
 import { hasLocale } from '@/i18n/config';
 import { fill, formatAge, formatDistance, formatNumber } from '@/i18n/format';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { listPublicReports } from '@/lib/sample-data';
+import { listPublicReports } from '@kiezruf/shared';
 
 export default async function HomePage({ params }: PageProps<'/[lang]'>) {
   const { lang } = await params;
@@ -18,7 +18,6 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
     href: `/${lang}/reports/${r.id}`,
     title: r.title[lang],
     category: r.category,
-    categoryLabel: t.categories[r.category],
     subcategoryLabel: t.subcategories[r.subcategory],
     place: r.place,
     distance: formatDistance(r.distanceMetres, lang),

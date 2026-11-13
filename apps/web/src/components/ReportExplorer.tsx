@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import type { Category, Status } from '@/lib/sample-data';
+import type { Category, Status } from '@kiezruf/shared';
 import { StatusBadge } from './Badges';
 import { Icon } from './Icon';
 
@@ -12,7 +12,6 @@ export interface ReportListItem {
   href: string;
   title: string;
   category: Category;
-  categoryLabel: string;
   subcategoryLabel: string;
   place: string;
   distance: string;

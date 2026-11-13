@@ -8,7 +8,7 @@ import { ReportIllustration } from '@/components/ReportIllustration';
 import { hasLocale, locales } from '@/i18n/config';
 import { fill, formatAge, formatDistance } from '@/i18n/format';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { STATUS_ORDER, getPublicReport, reportIds } from '@/lib/sample-data';
+import { STATUS_ORDER, getPublicReport, reportIds } from '@kiezruf/shared';
 
 export function generateStaticParams() {
   return locales.flatMap((lang) => reportIds().map((id) => ({ lang, id })));
@@ -84,7 +84,7 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
                   data-state={i < currentStep ? 'done' : i === currentStep ? 'current' : 'todo'}
                   aria-current={i === currentStep ? 'step' : undefined}
                 >
-                  <span className="timeline__dot">{i < currentStep && <Icon name="check" size={14} />}</span>
+                  <span className="timeline__dot">{i < currentStep && <Icon name="tick" size={14} />}</span>
                   <span className="timeline__label">{t.status[status]}</span>
                 </li>
               ))}

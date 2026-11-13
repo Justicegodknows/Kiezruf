@@ -7,7 +7,7 @@ import { Icon, type IconName } from '@/components/Icon';
 import { hasLocale } from '@/i18n/config';
 import { fill, formatAge, formatNumber } from '@/i18n/format';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { OPEN_BY_SUBCATEGORY, WEEKLY_TREND, listStaffQueue } from '@/lib/sample-data';
+import { OPEN_BY_SUBCATEGORY, WEEKLY_TREND, listStaffQueue } from '@kiezruf/shared';
 
 export async function generateMetadata({ params }: PageProps<'/[lang]/console'>): Promise<Metadata> {
   const { lang } = await params;

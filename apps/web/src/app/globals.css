@@ -196,8 +196,8 @@ dl, dd { margin: 0; }
 .button--primary { background: var(--signal); color: var(--on-signal); border-color: color-mix(in srgb, var(--on-signal) 18%, var(--signal)); }
 .button--primary:hover { background: var(--signal-hover); }
 .button--primary[aria-pressed='true'] { background: var(--signal-soft); color: var(--ink); border-color: var(--signal); }
-.button--quiet, .button--secondary { background: transparent; color: var(--ink); border-color: var(--line-strong); }
-.button--quiet:hover, .button--secondary:hover { border-color: var(--ink); }
+.button--quiet { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.button--quiet:hover { border-color: var(--ink); }
 .button--ghost { background: transparent; color: var(--ink-2); }
 .button--ghost:hover { background: var(--sunk); color: var(--ink); }
 

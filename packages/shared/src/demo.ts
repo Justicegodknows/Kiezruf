@@ -1,14 +1,14 @@
-// Sample data from the Neukölln UI prototype (neukoelln-ui-prototype.html).
-// Used until the API exposes reports. Replace these imports with API queries; keep the shapes.
-import { priorityLevel, priorityScore, type Level } from '@kiezruf/shared';
-import type { Locale } from '@/i18n/config';
+// Demo data from the Neukölln UI prototype (neukoelln-ui-prototype.html), shared by the web app
+// and the mobile app until the API exposes reports. Swap these calls for API queries; keep the shapes.
+import { priorityLevel, scoreBreakdown, type Level, type ScoreBreakdown } from './score';
 
+export type Lang = 'de' | 'en';
 export type Category = 'traffic' | 'facility';
 export type Subcategory = 'trafficLight' | 'pothole' | 'playground' | 'youthCentre' | 'bikeLane' | 'toilet';
 export type Status = 'open' | 'acknowledged' | 'inProgress' | 'resolved';
 export const STATUS_ORDER: Status[] = ['open', 'acknowledged', 'inProgress', 'resolved'];
 
-type Localized = Record<Locale, string>;
+export type Localized = Record<Lang, string>;
 
 export interface Comment {
   author: string;
@@ -232,17 +232,6 @@ export function reportIds(): string[] {
   return REPORTS.map((r) => r.id);
 }
 
-export interface ScoreBreakdown {
-  coReporterPoints: number;
-  commenterPoints: number;
-  meTooPoints: number;
-  base: number;
-  decay: number;
-  danger: number;
-  safety: number;
-  score: number;
-}
-
 export interface StaffReport extends PublicReport, StaffFields {
   score: number;
   level: Level;
@@ -253,26 +242,8 @@ export interface StaffReport extends PublicReport, StaffFields {
 export function listStaffQueue(): StaffReport[] {
   return REPORTS.filter((r) => r.status !== 'resolved')
     .map((r) => {
-      const input = {
-        coReporters: r.coReporters,
-        commenters: r.commenters,
-        meToo: r.meToo,
-        ageHours: r.ageHours,
-        dangerMarks: r.dangerMarks,
-        safetyCategory: r.safetyCategory,
-      };
-      const score = priorityScore(input);
-      const breakdown: ScoreBreakdown = {
-        coReporterPoints: r.coReporters * 5,
-        commenterPoints: r.commenters * 2,
-        meTooPoints: r.meToo,
-        base: r.coReporters * 5 + r.commenters * 2 + r.meToo,
-        decay: Math.pow(0.5, r.ageHours / (24 * 14)),
-        danger: r.dangerMarks >= 3 ? 1.5 : r.dangerMarks >= 1 ? 1.2 : 1,
-        safety: r.safetyCategory ? 1.3 : 1,
-        score,
-      };
-      return { ...r, score, level: priorityLevel(score), breakdown };
+      const breakdown = scoreBreakdown(r);
+      return { ...r, score: breakdown.score, level: priorityLevel(breakdown.score), breakdown };
     })
     .sort((a, b) => b.score - a.score);
 }

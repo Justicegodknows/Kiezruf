@@ -1,0 +1,67 @@
+import type { Strings } from './de';
+
+// English strings. The Strings type makes a missing key a compile error.
+const en: Strings = {
+  brandTagline: 'Resident reports',
+  settings: {
+    language: 'Language',
+    toLight: 'Switch to light theme',
+    toDark: 'Switch to dark theme',
+    de: 'Deutsch',
+    en: 'English',
+  },
+  home: {
+    title: 'Your Kiez.\nYour voice.',
+    lead: 'Broken traffic light, pothole in the bike lane, damaged swing? Report it in a minute. The district office sees what matters to most neighbours and handles that first.',
+    platesLabel: 'Just reported',
+    district: 'Neukölln',
+    figures: '{{open}} open reports in Neukölln. {{resolved}} resolved in the last 30 days, with a first reply after 1.8 days on average.',
+    stepsTitle: 'How it works',
+    stepsLead: 'From photo to repair in four steps, and you can always see where your report stands.',
+    steps: {
+      photo: { title: 'Take a photo', body: 'Faces and number plates are blurred automatically.' },
+      locate: { title: 'Confirm the place', body: 'Your report goes straight to the responsible district office.' },
+      follow: { title: 'Follow it', body: 'You see every status change and every reply from the office.' },
+      fixed: { title: 'Fixed', body: 'The district office repairs it, closes the report and lets you know.' },
+    },
+    nearbyTitle: 'Reports near you',
+    nearbyLead: 'What neighbours in Neukölln are reporting right now, sorted by distance.',
+    filterLabel: 'Filter by category',
+    filterAll: 'All',
+    count: '{{n}} reports',
+    empty: 'No reports in this category.',
+  },
+  categories: { traffic: 'Traffic', facility: 'Community facility' },
+  subcategories: {
+    trafficLight: 'Traffic light',
+    pothole: 'Pothole',
+    playground: 'Playground',
+    youthCentre: 'Youth centre',
+    bikeLane: 'Bike lane',
+    toilet: 'Public toilet',
+  },
+  status: { open: 'Open', acknowledged: 'Acknowledged', inProgress: 'In progress', resolved: 'Resolved' },
+  report: {
+    back: 'Back',
+    meToo: 'Me too',
+    meTooPressed: 'You support this report',
+    affected: '{{n}} neighbours affected',
+    safety: 'Safety related',
+    officeNote: 'Note from the district office',
+    progress: 'Progress',
+    details: 'Details',
+    location: 'Location',
+    distance: '{{distance}} away',
+    reported: 'Reported',
+    involvement: 'Involvement',
+    coReporters: '{{n}} co-reporters',
+    comments: 'Comments',
+    commentCount: '{{n}} comments',
+    noComments: 'No comments yet.',
+    reference: 'Reference',
+    notFound: 'This report does not exist.',
+    photoAlt: 'Illustration: {{title}}',
+  },
+};
+
+export default en;
