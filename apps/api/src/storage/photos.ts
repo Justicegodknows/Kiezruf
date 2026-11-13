@@ -28,6 +28,11 @@ export function s3PhotoStorage(options: {
   bucket: string;
   /** The public bucket for blurred copies. */
   publicBucket?: string;
+  /**
+   * ACL for blurred public copies. 'public-read' where the provider serves objects by their ACL (Scaleway, ENG-25);
+   * unset where the public bucket has a read policy instead (local MinIO).
+   */
+  publicObjectAcl?: 'public-read';
 }): PhotoStorage {
   const client = new S3Client({
     endpoint: options.endpoint,
@@ -65,7 +70,9 @@ export function s3PhotoStorage(options: {
     },
     async putPublic(key, body, contentType) {
       if (!options.publicBucket) throw new Error('No public bucket configured');
-      await client.send(new PutObjectCommand({ Bucket: options.publicBucket, Key: key, Body: body, ContentType: contentType }));
+      await client.send(
+        new PutObjectCommand({ Bucket: options.publicBucket, Key: key, Body: body, ContentType: contentType, ACL: options.publicObjectAcl }),
+      );
     },
   };
 }

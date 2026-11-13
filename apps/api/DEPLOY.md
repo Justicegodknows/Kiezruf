@@ -1,46 +1,78 @@
-# Deploying the API and worker (vlincta.com, Docker)
+# Deploying the API and worker (Scaleway, Docker)
 
-Target: `https://kiezruf-api.vlincta.com` (ENG-22, ENG-25). One image runs the API, the worker and the migrations.
+ENG-25. One image runs the API, the worker, the migrations and the tenant seed. Staging runs as Scaleway Serverless
+Containers in vlincta's `vlincta-staging` namespace (project `7ba21567…`, region `fr-par`). Production is not set up
+yet: the `vlincta-production-api-7ba21567` registry is not reachable with the CLI's key.
+
+## Staging at a glance
+
+| What | Where |
+| --- | --- |
+| Image | `rg.fr-par.scw.cloud/vlincta-staging-api-7ba21567/kiezruf-api:staging-20261113` |
+| API container | `kiezruf-staging-api`, public, port 4000, 0 to 2 instances, 0.5 GB · https://vlinctastagingb191aca9-kiezruf-staging-api.functions.fnc.fr-par.scw.cloud |
+| Worker container | `kiezruf-staging-worker`, private, port 8080 (`WORKER_HEALTH_PORT`), exactly 1 instance, 1 GB |
+| Photos | Object Storage buckets `kiezruf-staging-photos-private` (CORS: PUT from https://kiezruf.vercel.app) and `kiezruf-staging-photos-public` (objects written `public-read`) |
+| Email | Scaleway TEM, `smtp.tem.scaleway.com:587`, login = project ID; needs a verified sender domain (open) |
+
+`apps/api/scripts/scaleway-staging.sh` does the hands-on parts without secrets passing through anyone's chat or the repo:
+
+```bash
+apps/api/scripts/scaleway-staging.sh secrets   # hidden prompts; sets secrets on both containers, which redeploy
+apps/api/scripts/scaleway-staging.sh migrate   # hidden DATABASE_URL prompt; migrations + tenant seed
+apps/api/scripts/scaleway-staging.sh status    # container state and the API's /health
+```
 
 ## Build and push
 
-From the repository root:
+From the repository root (Scaleway runs x86):
 
 ```bash
-docker build -f apps/api/Dockerfile -t kiezruf-api .
+scw registry login
+docker build --platform linux/amd64 -f apps/api/Dockerfile -t rg.fr-par.scw.cloud/vlincta-staging-api-7ba21567/kiezruf-api:<tag> .
+docker push rg.fr-par.scw.cloud/vlincta-staging-api-7ba21567/kiezruf-api:<tag>
 ```
 
-Tag and push it to the registry vlincta.com pulls from. Build for the host's CPU (for example `--platform linux/amd64`).
+Then point both containers at the new tag (`scw container container update <id> image=…`).
 
-## Run
+## Commands in the image
 
-| Process | Command | Notes |
-| --- | --- | --- |
-| Migrations | `node apps/api/dist/db/migrate.js` | One-off, before each rollout. Needs only `DATABASE_URL`. |
-| API | default `CMD` (`node apps/api/dist/server.js`) | Listens on `PORT` (4000). Put HTTPS for `kiezruf-api.vlincta.com` in front of it. Health check: `GET /health`. |
-| Worker | `node apps/api/dist/worker.js` | Exactly one instance; no port. |
+| Process | Command |
+| --- | --- |
+| API | default `CMD` (`node apps/api/dist/server.js`); health `GET /health` |
+| Worker | `node apps/api/dist/worker.js`; with `WORKER_HEALTH_PORT` set it also answers `GET /health` |
+| Migrations | `node apps/api/dist/db/migrate.js` (needs only `DATABASE_URL`), before each rollout |
+| Tenant seed | `node apps/api/dist/db/seed/run.js` (idempotent), after the first migration |
 
 ## Environment variables
 
-Set these in the host's secret store. Never bake them into the image or commit them. The API and worker read the same set.
+The API and worker read the same set. Plain values are set on the staging containers already; secrets are set with
+the script above.
 
-| Variable | Value |
+| Variable | Staging value |
 | --- | --- |
-| `DATABASE_URL` | Hosted Supabase Postgres, session pooler or direct connection on port 5432 (the worker's pg-boss and the migrations want a session connection, so avoid the transaction pooler on port 6543). Secret. |
+| `DATABASE_URL` | Secret. Hosted Supabase Postgres, session pooler or direct connection on port 5432 (the worker's pg-boss and the migrations want a session connection, so avoid the transaction pooler on 6543). |
 | `SUPABASE_URL` | `https://ggjqqfotolfkpxigkydt.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | From the Supabase dashboard. Secret. |
-| `SUPABASE_JWT_SECRET` | Leave unset: the hosted project signs with JWKS keys. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret, from the Supabase dashboard. |
+| `SUPABASE_JWT_SECRET` | Unset: the hosted project signs with JWKS keys. |
 | `WEB_BASE_URL` | `https://kiezruf.vercel.app` |
 | `AI_PROVIDER_BASE_URL` | `https://api.vlincta.com/openai/v1` |
-| `AI_PROVIDER_API_KEY` | vlincta AI key. Secret. |
-| `AI_MODEL_CHAT`, `AI_MODEL_VISION`, `AI_MODEL_EMBEDDING` | Optional; empty lets the provider choose (E-01, E-07). |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET_PRIVATE`, `S3_BUCKET_PUBLIC` | Photo storage. Provider still open (E-03). Keys are secret. |
-| `PUBLIC_PHOTO_BASE_URL` | Public URL of `S3_BUCKET_PUBLIC`. |
-| `SMTP_HOST`, `SMTP_PORT`, `MAIL_FROM` | Outgoing mail for notifications and briefings. |
-| `BLUR_DETECTOR` | `none` until vlincta's blur endpoint exists (E-10); `full` blurs whole photos. |
-| `TRUST_PROXY` | Leave empty. Vercel has no fixed outbound addresses, so the API cannot safely trust its `X-Forwarded-For` (rate limits then key on Vercel's address). |
+| `AI_PROVIDER_API_KEY` | Secret, the vlincta AI key. |
+| `AI_MODEL_CHAT`, `AI_MODEL_VISION`, `AI_MODEL_EMBEDDING` | Unset; the provider chooses (E-01, E-07). |
+| `S3_ENDPOINT`, `S3_REGION` | `https://s3.fr-par.scw.cloud`, `fr-par` |
+| `S3_BUCKET_PRIVATE`, `S3_BUCKET_PUBLIC` | `kiezruf-staging-photos-private`, `kiezruf-staging-photos-public` |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Secret. A Scaleway API key allowed to use Object Storage in the staging project. |
+| `S3_PUBLIC_OBJECT_ACL` | `public-read` |
+| `PUBLIC_PHOTO_BASE_URL` | `https://s3.fr-par.scw.cloud/kiezruf-staging-photos-public` |
+| `SMTP_HOST`, `SMTP_PORT` | `smtp.tem.scaleway.com`, `587` |
+| `SMTP_USER` | The staging project ID, `7ba21567-e3da-40e4-9682-c0ac1f0691c3` |
+| `SMTP_PASSWORD` | Secret. A Scaleway secret key allowed to send with Transactional Email. |
+| `MAIL_FROM` | `Kiezruf <no-reply@vlincta.com>`; the domain must be verified in TEM before mail goes out. |
+| `BLUR_DETECTOR` | `full` (whole photos blurred until vlincta's blur endpoint exists, E-10) |
+| `TRUST_PROXY` | Empty. Vercel has no fixed outbound addresses, so the API cannot safely trust its `X-Forwarded-For`. |
+| `WORKER_HEALTH_PORT` | Worker only: `8080` |
 | `EXPO_ACCESS_TOKEN` | Optional, worker only. |
 
 ## Connect the web app
 
-After `https://kiezruf-api.vlincta.com/health` answers 200, set `API_BASE_URL=https://kiezruf-api.vlincta.com` in the Vercel project (production and preview) and redeploy. The location check on `/new-report` then reaches the API.
+When `status` shows the API's `/health` at HTTP 200, set `API_BASE_URL` to the API URL above in the Vercel project
+(production and preview) and redeploy. The location check on `/new-report` then reaches the API.

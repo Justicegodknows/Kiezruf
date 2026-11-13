@@ -33,6 +33,7 @@ try {
       secretAccessKey: config.S3_SECRET_KEY,
       bucket: config.S3_BUCKET_PRIVATE,
       publicBucket: config.S3_BUCKET_PUBLIC,
+      publicObjectAcl: config.S3_PUBLIC_OBJECT_ACL,
     });
     const result = await seedDemo({ db, storage, ai: aiFromConfig(config), log: console.log });
     if (!result.skipped) {

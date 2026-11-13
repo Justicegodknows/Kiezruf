@@ -4,6 +4,7 @@
 #   API:        docker run kiezruf-api                                   (default; listens on $PORT, 4000)
 #   worker:     docker run kiezruf-api node apps/api/dist/worker.js
 #   migrations: docker run --rm kiezruf-api node apps/api/dist/db/migrate.js
+#   tenants:    docker run --rm kiezruf-api node apps/api/dist/db/seed/run.js   (idempotent; after migrations)
 # Configuration comes from environment variables only (see apps/api/DEPLOY.md); no .env file is baked in.
 # Node 24: @kiezruf/shared ships TypeScript source, which Node runs with built-in type stripping.
 
@@ -28,6 +29,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY packages/shared/src packages/shared/src
 COPY apps/api/drizzle apps/api/drizzle
 COPY --from=build /app/apps/api/dist apps/api/dist
+# tsc copies no data files: the tenant seed reads the Bezirk boundaries next to its compiled module.
+COPY apps/api/src/db/seed/berlin-bezirke.geojson apps/api/dist/db/seed/
 USER node
 EXPOSE 4000
 CMD ["node", "apps/api/dist/server.js"]

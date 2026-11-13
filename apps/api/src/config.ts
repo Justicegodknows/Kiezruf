@@ -13,12 +13,21 @@ const Env = z.object({
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int(),
   MAIL_FROM: z.string().min(1),
+  // SMTP login (Scaleway TEM: the project ID and an API secret key). Empty: no login (Mailpit locally).
+  SMTP_USER: z.string().default(''),
+  SMTP_PASSWORD: z.string().default(''),
   S3_ENDPOINT: z.url(),
   S3_REGION: z.string().default('eu-central-1'),
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
   S3_BUCKET_PRIVATE: z.string().min(1),
   S3_BUCKET_PUBLIC: z.string().min(1).default('photos-public'),
+  // "public-read" where blurred copies are served by object ACL (Scaleway); empty where the bucket has a read
+  // policy (local MinIO).
+  S3_PUBLIC_OBJECT_ACL: z
+    .enum(['', 'public-read'])
+    .default('')
+    .transform((v) => (v === '' ? undefined : v)),
   // Base URL under which blurred public copies are served, e.g. http://localhost:9000/photos-public
   PUBLIC_PHOTO_BASE_URL: z.url(),
   // The web app (citizen pages and console), for links in emails.

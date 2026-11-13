@@ -10,7 +10,7 @@ const config = loadConfig();
 const app = await buildApp(
   {
     db: createDb(config.DATABASE_URL),
-    mailer: smtpMailer({ host: config.SMTP_HOST, port: config.SMTP_PORT, from: config.MAIL_FROM }),
+    mailer: smtpMailer({ host: config.SMTP_HOST, port: config.SMTP_PORT, from: config.MAIL_FROM, user: config.SMTP_USER || undefined, password: config.SMTP_PASSWORD }),
     storage: s3PhotoStorage({
       endpoint: config.S3_ENDPOINT,
       region: config.S3_REGION,
@@ -18,6 +18,7 @@ const app = await buildApp(
       secretAccessKey: config.S3_SECRET_KEY,
       bucket: config.S3_BUCKET_PRIVATE,
       publicBucket: config.S3_BUCKET_PUBLIC,
+      publicObjectAcl: config.S3_PUBLIC_OBJECT_ACL,
     }),
     ai: aiFromConfig(config, (entry) => console.log(JSON.stringify({ ai: entry }))),
     verifier: supabaseVerifier({ url: config.SUPABASE_URL, jwtSecret: config.SUPABASE_JWT_SECRET }),

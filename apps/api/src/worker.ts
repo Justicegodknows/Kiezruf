@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { runBriefings, sendBriefingEmails } from './analysis/briefing.js';
 import { aiFromConfig, loadConfig } from './config.js';
 import { createDb } from './db/client.js';
+import { startHealthServer } from './health-server.js';
 import { smtpMailer } from './mail/mailer.js';
 import { deliverPendingNotifications } from './notifications/deliver.js';
 import { expoPushSender } from './notifications/push.js';
@@ -23,7 +24,7 @@ const expoToken = z.string().optional().parse(process.env.EXPO_ACCESS_TOKEN);
 const log = (entry: Record<string, unknown>) => console.log(JSON.stringify(entry));
 
 const db = createDb(config.DATABASE_URL, { max: 3 });
-const mailer = smtpMailer({ host: config.SMTP_HOST, port: config.SMTP_PORT, from: config.MAIL_FROM });
+const mailer = smtpMailer({ host: config.SMTP_HOST, port: config.SMTP_PORT, from: config.MAIL_FROM, user: config.SMTP_USER || undefined, password: config.SMTP_PASSWORD });
 const webBaseUrl = config.WEB_BASE_URL.replace(/\/$/, '');
 const ai = aiFromConfig(config, (entry) => log({ ai: entry }));
 const storage = s3PhotoStorage({
@@ -33,6 +34,7 @@ const storage = s3PhotoStorage({
   secretAccessKey: config.S3_SECRET_KEY,
   bucket: config.S3_BUCKET_PRIVATE,
   publicBucket: config.S3_BUCKET_PUBLIC,
+  publicObjectAcl: config.S3_PUBLIC_OBJECT_ACL,
 });
 const detector = detectorFromConfig(config.BLUR_DETECTOR);
 const push = expoPushSender({ accessToken: expoToken });
@@ -58,4 +60,8 @@ await every('recompute-all-scores', '0 * * * *', () => recomputeScores(db, { all
 // A worker that was down at 06:00 still writes the briefings once when it comes back.
 await every('write-briefings', '0 6 * * 1', () => runBriefings({ db, ai, log }, new Date()), { ...berlin, missed: 'once' });
 await every('send-briefings', '0,15,30,45 7-11 * * 1', () => sendBriefingEmails({ db, mailer, webBaseUrl }, new Date()), { ...berlin, missed: 'once' });
-log({ worker: 'started', blur: config.BLUR_DETECTOR, ai: Boolean(ai) });
+// Optional health endpoint for container platforms that need a listening port (ENG-25). Unset locally, so the
+// worker does not clash with the API's port.
+const healthPort = z.coerce.number().int().positive().optional().parse(process.env.WORKER_HEALTH_PORT || undefined);
+if (healthPort) await startHealthServer(healthPort);
+log({ worker: 'started', blur: config.BLUR_DETECTOR, ai: Boolean(ai), healthPort: healthPort ?? null });
