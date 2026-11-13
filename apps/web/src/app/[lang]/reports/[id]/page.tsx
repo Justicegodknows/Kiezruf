@@ -4,11 +4,12 @@ import { notFound } from 'next/navigation';
 import { StatusBadge } from '@/components/Badges';
 import { Icon } from '@/components/Icon';
 import { MeTooButton } from '@/components/MeTooButton';
-import { ReportIllustration } from '@/components/ReportIllustration';
+import { SupportChart } from '@/components/charts/SupportChart';
+import { Photo } from '@/components/Photo';
 import { hasLocale, locales } from '@/i18n/config';
 import { fill, formatAge, formatDistance } from '@/i18n/format';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { STATUS_ORDER, getPublicReport, reportIds } from '@kiezruf/shared';
+import { PHOTOS, STATUS_ORDER, getPublicReport, reportIds } from '@kiezruf/shared';
 
 export function generateStaticParams() {
   return locales.flatMap((lang) => reportIds().map((id) => ({ lang, id })));
@@ -38,9 +39,15 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
 
       <div className="detail">
         <article className="detail__main">
-          <figure className="detail__media card">
-            <ReportIllustration subcategory={report.subcategory} label={fill(t.report.photoAlt, { title })} />
-          </figure>
+          <Photo
+            photo={report.photo}
+            alt={fill(t.report.photoAlt, { place: PHOTOS[report.photo].place })}
+            label={t.report.locationView}
+            credit={t.report.photoBy}
+            className="detail__media"
+            sizes="(min-width: 960px) 760px, 100vw"
+            eager
+          />
 
           <header className="detail__header">
             <nav aria-label={t.report.category} className="breadcrumb">
@@ -125,6 +132,13 @@ export default async function ReportPage({ params }: PageProps<'/[lang]/reports/
               label={t.report.meToo}
               pressedLabel={t.report.meTooPressed}
               countTemplate={t.report.meTooCount}
+            />
+            <SupportChart
+              values={report.meTooTimeline}
+              title={t.report.supportTitle}
+              startLabel={t.report.supportStart}
+              endLabel={t.report.supportNow}
+              summary={fill(t.report.supportSummary, { count: report.meToo, age: formatAge(report.ageHours, lang) })}
             />
             <h2 className="title-sm detail__facts-title">{t.report.detailsTitle}</h2>
             <dl className="facts">

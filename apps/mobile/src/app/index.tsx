@@ -1,16 +1,19 @@
-import { listPublicReports, type Category } from '@kiezruf/shared';
+import { OPEN_BY_SUBCATEGORY, PHOTO_KEYS, PHOTOS, WEEKLY_TREND, listPublicReports, type Category } from '@kiezruf/shared';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CategoryBars, TrendChart } from '@/components/Charts';
 import { Chips } from '@/components/Chips';
+import { KiezMap } from '@/components/KiezMap';
+import { Photo } from '@/components/Photo';
 import { Plate } from '@/components/Plate';
 import { ReportCard } from '@/components/ReportCard';
 import { TopBar } from '@/components/TopBar';
 import { Workflow } from '@/components/Workflow';
 import { formatAge, formatNumber } from '@/i18n/format';
 import { useSettings } from '@/theme/settings';
-import { space, type } from '@/theme/tokens';
+import { radius, space, type } from '@/theme/tokens';
 
 type Filter = 'all' | Category;
 
@@ -58,12 +61,39 @@ export default function Home() {
           </Text>
         </View>
 
+        {/* The place behind the product: the district office on Karl-Marx-Straße. */}
+        <View style={styles.band}>
+          <Photo photo="rathaus" alt={t('home.photoAlt')} aspectRatio={4 / 3} credit />
+          <Text style={[type.subheading, { color: c.ink }]}>{t('home.photoCaption')}</Text>
+        </View>
+
         <View style={[styles.section, styles.ruled, { borderColor: c.line }]}>
           <Text style={[type.title, { color: c.ink }]} accessibilityRole="header">
             {t('home.stepsTitle')}
           </Text>
           <Text style={[type.body, styles.intro, { color: c.ink2 }]}>{t('home.stepsLead')}</Text>
           <Workflow />
+        </View>
+
+        <View style={[styles.section, styles.ruled, { borderColor: c.line }]}>
+          <Text style={[type.title, { color: c.ink }]} accessibilityRole="header">
+            {t('home.numbersTitle')}
+          </Text>
+          <Text style={[type.body, styles.intro, { color: c.ink2 }]}>{t('home.numbersLead')}</Text>
+          <View style={[styles.panel, { backgroundColor: c.surface, borderColor: c.line }]}>
+            <Text style={[type.subheading, { color: c.ink }]}>{t('home.trendTitle')}</Text>
+            <Text style={[type.small, styles.panelSub, { color: c.muted }]}>{t('home.trendSub')}</Text>
+            <TrendChart
+              data={WEEKLY_TREND.map((w) => ({ label: t('home.week', { n: w.week }), received: w.received, resolved: w.resolved }))}
+              receivedLabel={t('home.received')}
+              resolvedLabel={t('home.resolved')}
+              summary={`${t('home.trendTitle')}: ${t('home.trendSub')}`}
+            />
+          </View>
+          <View style={[styles.panel, styles.panelGap, { backgroundColor: c.surface, borderColor: c.line }]}>
+            <Text style={[type.subheading, styles.panelSub, { color: c.ink }]}>{t('home.categoryTitle')}</Text>
+            <CategoryBars items={OPEN_BY_SUBCATEGORY.map((o) => ({ label: t(`subcategories.${o.subcategory}`), count: o.count }))} />
+          </View>
         </View>
 
         <View style={[styles.section, styles.ruled, { borderColor: c.line, backgroundColor: c.sunk }]}>
@@ -84,6 +114,9 @@ export default function Home() {
           <Text style={[type.small, styles.count, { color: c.muted }]} accessibilityLiveRegion="polite">
             {t('home.count', { n: visible.length })}
           </Text>
+          <View style={styles.mapWrap}>
+            <KiezMap reports={visible} label={t('home.mapLabel')} />
+          </View>
           <View style={styles.list}>
             {visible.length === 0 ? (
               <Text style={[type.body, { color: c.muted }]}>{t('home.empty')}</Text>
@@ -91,6 +124,18 @@ export default function Home() {
               visible.map((r) => <ReportCard key={r.id} report={r} />)
             )}
           </View>
+        </View>
+        {/* Photo credits, as the photos' free licences require. */}
+        <View style={[styles.section, styles.ruled, { borderColor: c.line }]}>
+          <Text style={[type.heading, { color: c.ink }]} accessibilityRole="header">
+            {t('home.creditsTitle')}
+          </Text>
+          <Text style={[type.small, styles.intro, { color: c.muted }]}>{t('home.creditsLead')}</Text>
+          {PHOTO_KEYS.map((key) => (
+            <Text key={key} style={[type.small, styles.credit, { color: c.ink2 }]}>
+              {PHOTOS[key].place}: {PHOTOS[key].author}, {PHOTOS[key].license}
+            </Text>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -109,4 +154,10 @@ const styles = StyleSheet.create({
   intro: { marginTop: space.md, marginBottom: space.xxl },
   count: { marginTop: space.lg, marginBottom: space.md },
   list: { gap: space.md },
+  band: { paddingHorizontal: space.lg, paddingBottom: space.section, gap: space.md },
+  panel: { padding: space.lg, borderRadius: radius.lg, borderWidth: 1 },
+  panelGap: { marginTop: space.md },
+  panelSub: { marginBottom: space.md },
+  mapWrap: { marginBottom: space.lg },
+  credit: { marginTop: 4 },
 });

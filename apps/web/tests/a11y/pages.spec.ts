@@ -10,6 +10,7 @@ const PAGES = [
   '/en/console',
   '/de/reports/BE-NK-2026-0112',
   '/en/reports/BE-NK-2026-0101',
+  '/de/credits',
 ];
 const THEMES = ['light', 'dark'] as const;
 

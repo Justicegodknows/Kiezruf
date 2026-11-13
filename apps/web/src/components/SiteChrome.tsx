@@ -49,7 +49,7 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
   );
 }
 
-export function SiteFooter({ dict }: { dict: Dictionary }) {
+export function SiteFooter({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   return (
     <footer className="site-footer">
       <div className="container site-footer__inner">
@@ -69,6 +69,9 @@ export function SiteFooter({ dict }: { dict: Dictionary }) {
           </li>
           <li>
             <a href="#">{dict.footer.imprint}</a>
+          </li>
+          <li>
+            <Link href={`/${locale}/credits`}>{dict.footer.credits}</Link>
           </li>
         </ul>
       </div>

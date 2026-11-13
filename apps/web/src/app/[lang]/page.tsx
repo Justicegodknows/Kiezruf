@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { CategoryBars } from '@/components/charts/CategoryBars';
+import { TrendChart } from '@/components/charts/TrendChart';
 import { Icon, type IconName } from '@/components/Icon';
+import { Photo } from '@/components/Photo';
 import { ReportExplorer, type ReportListItem } from '@/components/ReportExplorer';
 import { hasLocale } from '@/i18n/config';
 import { fill, formatAge, formatDistance, formatNumber } from '@/i18n/format';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { listPublicReports } from '@kiezruf/shared';
+import { OPEN_BY_SUBCATEGORY, PHOTOS, WEEKLY_TREND, listPublicReports } from '@kiezruf/shared';
 
 export default async function HomePage({ params }: PageProps<'/[lang]'>) {
   const { lang } = await params;
@@ -27,6 +30,8 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
     meTooLabel: String(r.meToo),
     commentsLabel: String(r.comments.length),
     safety: r.safetyCategory,
+    photo: r.photo,
+    photoAlt: fill(t.report.photoAlt, { place: PHOTOS[r.photo].place }),
     x: r.x,
     y: r.y,
   }));
@@ -90,6 +95,12 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
         </div>
       </section>
 
+      {/* The place behind the product: the district office on Karl-Marx-Straße. */}
+      <div className="container band">
+        <Photo photo="rathaus" alt={t.home.photoAlt} className="band__photo" sizes="(min-width: 1200px) 1136px, 100vw" credit={t.report.photoBy} eager />
+        <p className="band__caption">{t.home.photoCaption}</p>
+      </div>
+
       <section className="section" aria-labelledby="steps-title">
         <div className="container">
           <header className="section__intro">
@@ -117,6 +128,47 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section className="section section--ruled" aria-labelledby="numbers-title">
+        <div className="container">
+          <header className="section__intro">
+            <h2 id="numbers-title" className="section__title">
+              {t.home.numbersTitle}
+            </h2>
+            <p className="lead lead--sm">{t.home.numbersLead}</p>
+          </header>
+          <div className="console__charts">
+            <section className="card card--padded" aria-labelledby="home-trend-title">
+              <h3 id="home-trend-title" className="title-sm">
+                {t.console.trendTitle}
+              </h3>
+              <p className="muted small">{t.console.trendSubtitle}</p>
+              <TrendChart
+                data={WEEKLY_TREND.map((w) => ({
+                  label: fill(t.console.trendWeek, { week: w.week }),
+                  received: w.received,
+                  resolved: w.resolved,
+                }))}
+                receivedLabel={t.console.trendReceived}
+                resolvedLabel={t.console.trendResolved}
+                tableLabel={t.console.tableView}
+                chartLabel={t.console.chartView}
+                caption={`${t.console.trendTitle}: ${t.console.trendSubtitle}`}
+              />
+            </section>
+            <section className="card card--padded" aria-labelledby="home-category-title">
+              <h3 id="home-category-title" className="title-sm">
+                {t.console.categoryTitle}
+              </h3>
+              <p className="muted small">{t.console.categorySubtitle}</p>
+              <CategoryBars
+                label={t.console.categoryTitle}
+                items={OPEN_BY_SUBCATEGORY.map((c) => ({ label: t.subcategories[c.subcategory], count: c.count }))}
+              />
+            </section>
+          </div>
         </div>
       </section>
 

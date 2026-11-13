@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { CategoryBars } from '@/components/console/CategoryBars';
+import { CategoryBars } from '@/components/charts/CategoryBars';
 import { QueuePanel, type QueueRow } from '@/components/console/QueuePanel';
-import { TrendChart } from '@/components/console/TrendChart';
+import { TrendChart } from '@/components/charts/TrendChart';
 import { Icon, type IconName } from '@/components/Icon';
 import { hasLocale } from '@/i18n/config';
 import { fill, formatAge, formatNumber } from '@/i18n/format';

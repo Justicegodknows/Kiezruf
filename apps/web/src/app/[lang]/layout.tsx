@@ -50,7 +50,7 @@ export default async function RootLayout({ children, params }: LayoutProps<'/[la
         <main id="main" tabIndex={-1}>
           {children}
         </main>
-        <SiteFooter dict={dict} />
+        <SiteFooter locale={lang} dict={dict} />
       </body>
     </html>
   );

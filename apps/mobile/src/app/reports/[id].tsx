@@ -1,11 +1,12 @@
-import { getPublicReport, STATUS_ORDER, type IconName } from '@kiezruf/shared';
+import { getPublicReport, PHOTOS, STATUS_ORDER, type IconName } from '@kiezruf/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from '@/components/Icon';
-import { ReportScene } from '@/components/ReportScene';
+import { SupportChart } from '@/components/Charts';
+import { Photo } from '@/components/Photo';
 import { StatusBadge, Tag } from '@/components/StatusBadge';
 import { formatAge, formatDistance } from '@/i18n/format';
 import { useSettings } from '@/theme/settings';
@@ -45,9 +46,7 @@ export default function ReportScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={[styles.media, { borderColor: c.line }]}>
-          <ReportScene subcategory={report.subcategory} colors={c} label={t('report.photoAlt', { title })} />
-        </View>
+        <Photo photo={report.photo} alt={t('report.photoAlt', { place: PHOTOS[report.photo].place })} label={t('report.locationView')} credit />
 
         <View style={styles.block}>
           <Text style={[type.small, { color: c.muted }]}>
@@ -101,6 +100,15 @@ export default function ReportScreen() {
               );
             })}
           </View>
+        </Section>
+
+        <Section title={t('report.supportTitle')}>
+          <SupportChart
+            values={report.meTooTimeline}
+            startLabel={t('report.supportStart')}
+            endLabel={t('report.supportNow')}
+            summary={t('report.supportSummary', { n: report.meToo })}
+          />
         </Section>
 
         <Section title={t('report.details')}>
@@ -192,7 +200,6 @@ const styles = StyleSheet.create({
   nav: { paddingHorizontal: space.lg, paddingVertical: space.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   back: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: touchTarget, alignSelf: 'flex-start' },
   scroll: { padding: space.lg, paddingBottom: space.section, gap: space.xxl },
-  media: { aspectRatio: 16 / 9, borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
   block: { gap: space.md },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   callout: { flexDirection: 'row', gap: space.md, padding: space.lg, borderRadius: radius.md, borderLeftWidth: 3 },

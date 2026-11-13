@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import type { Category, Status } from '@kiezruf/shared';
+import type { Category, PhotoKey, Status } from '@kiezruf/shared';
 import { StatusBadge } from './Badges';
 import { Icon } from './Icon';
+import { KiezMap } from './KiezMap';
+import { Photo } from './Photo';
 
 /** A report already localised on the server, so the client bundle carries no dictionaries. */
 export interface ReportListItem {
@@ -21,6 +23,9 @@ export interface ReportListItem {
   meTooLabel: string;
   commentsLabel: string;
   safety: boolean;
+  photo: PhotoKey;
+  /** Alt text for the location photo. */
+  photoAlt: string;
   x: number;
   y: number;
 }
@@ -70,22 +75,16 @@ export function ReportExplorer({ reports, t }: { reports: ReportListItem[]; t: E
       </div>
 
       <div className="explorer__grid">
-        <figure className="map card" aria-label={t.mapLabel}>
-          <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true" className="map__base">
-            <rect width="400" height="300" fill="var(--map-bg)" />
-            <path d="M280 0h120v90c-40 12-70 2-120-26z" fill="var(--map-park)" />
-            <path d="M20 40c30-8 60-4 80 10v40c-30 6-60 2-80-8z" fill="var(--map-park)" />
-            <path d="M0 250c70-14 130-2 190 26v24H0z" fill="var(--map-water)" />
-            <g stroke="var(--map-road)" strokeLinecap="round" fill="none">
-              <path d="M130 0L170 300" strokeWidth="12" />
-              <path d="M0 120L400 150" strokeWidth="12" />
-              <path d="M260 0L225 300" strokeWidth="8" />
-              <path d="M0 50L400 38" strokeWidth="6" />
-              <path d="M45 300L100 0" strokeWidth="6" />
-              <path d="M330 300L370 0" strokeWidth="6" />
-              <path d="M0 210L400 235" strokeWidth="6" />
-            </g>
-          </svg>
+        <KiezMap
+          label={t.mapLabel}
+          legend={
+            <>
+              <span className="map__legend-dot" data-category="traffic" /> {t.categories.traffic}
+              <span className="map__legend-dot" data-category="facility" /> {t.categories.facility}
+              <span className="visually-hidden">. {t.mapLegend}</span>
+            </>
+          }
+        >
           {visible.map((r) => (
             <Link
               key={r.id}
@@ -104,12 +103,7 @@ export function ReportExplorer({ reports, t }: { reports: ReportListItem[]; t: E
               <span className="visually-hidden">{`${r.title}, ${r.distance}`}</span>
             </Link>
           ))}
-          <figcaption className="map__legend">
-            <span className="map__legend-dot" data-category="traffic" /> {t.categories.traffic}
-            <span className="map__legend-dot" data-category="facility" /> {t.categories.facility}
-            <span className="visually-hidden">. {t.mapLegend}</span>
-          </figcaption>
-        </figure>
+        </KiezMap>
 
         <ul className="report-list">
           {visible.length === 0 && <li className="empty">{t.emptyFilter}</li>}
@@ -122,12 +116,13 @@ export function ReportExplorer({ reports, t }: { reports: ReportListItem[]; t: E
                 onMouseEnter={() => setHovered(r.id)}
                 onMouseLeave={() => setHovered(null)}
               >
-                <span className="report-card__icon" data-category={r.category}>
-                  <Icon name={r.category === 'traffic' ? 'trafficLight' : 'building'} size={20} />
-                </span>
+                <Photo photo={r.photo} alt={r.photoAlt} className="report-card__photo" sizes="(min-width: 900px) 560px, 100vw" />
                 <span className="report-card__body">
                   <span className="report-card__meta">
-                    <span className="report-card__kind">{r.subcategoryLabel}</span>
+                    <span className="report-card__kind" data-category={r.category}>
+                      <Icon name={r.category === 'traffic' ? 'trafficLight' : 'building'} size={16} />
+                      {r.subcategoryLabel}
+                    </span>
                     <span>
                       <Icon name="pin" size={14} />
                       {r.distance}

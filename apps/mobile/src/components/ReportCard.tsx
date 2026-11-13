@@ -1,4 +1,4 @@
-import type { PublicReport } from '@kiezruf/shared';
+import { PHOTOS, type PublicReport } from '@kiezruf/shared';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,6 +6,7 @@ import { formatAge, formatDistance } from '@/i18n/format';
 import { useSettings } from '@/theme/settings';
 import { fonts, radius, space } from '@/theme/tokens';
 import { Icon } from './Icon';
+import { Photo } from './Photo';
 import { StatusBadge, Tag } from './StatusBadge';
 
 /** A nearby report. Citizen view: status, Me too and comments only, never score or level (US-24). */
@@ -20,12 +21,13 @@ export function ReportCard({ report: r }: { report: PublicReport }) {
       accessibilityRole="link"
       style={({ pressed }) => [styles.card, { backgroundColor: c.surface, borderColor: pressed ? c.ink2 : c.line }]}
     >
-      <View style={[styles.icon, { backgroundColor: facility ? c.openSoft : c.brandSoft }]}>
-        <Icon name={facility ? 'building' : 'trafficLight'} size={20} color={facility ? c.open : c.brandInk} />
-      </View>
+      <Photo photo={r.photo} alt={t('report.photoAlt', { place: PHOTOS[r.photo].place })} aspectRatio={16 / 7} rounded={false} />
       <View style={styles.body}>
         <View style={styles.meta}>
-          <Text style={[styles.kind, { color: c.ink2 }]}>{t(`subcategories.${r.subcategory}`)}</Text>
+          <View style={styles.fact}>
+            <Icon name={facility ? 'building' : 'trafficLight'} size={15} color={facility ? c.open : c.brand} />
+            <Text style={[styles.kind, { color: c.ink2 }]}>{t(`subcategories.${r.subcategory}`)}</Text>
+          </View>
           <View style={styles.fact}>
             <Icon name="pin" size={14} color={c.muted} />
             <Text style={[styles.metaText, { color: c.muted }]}>{formatDistance(r.distanceMetres, lang)}</Text>
@@ -55,9 +57,8 @@ export function ReportCard({ report: r }: { report: PublicReport }) {
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', gap: space.lg, padding: space.lg + 2, borderRadius: radius.lg, borderWidth: 1 },
-  icon: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, gap: 3 },
+  card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
+  body: { gap: 3, padding: space.lg + 2 },
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 2 },
   kind: { fontFamily: fonts.semibold, fontSize: 14 },
   fact: { flexDirection: 'row', alignItems: 'center', gap: 4 },

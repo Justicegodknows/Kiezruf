@@ -1,5 +1,6 @@
 // Demo data from the Neukölln UI prototype (neukoelln-ui-prototype.html), shared by the web app
 // and the mobile app until the API exposes reports. Swap these calls for API queries; keep the shapes.
+import type { PhotoKey } from './photos';
 import { priorityLevel, scoreBreakdown, type Level, type ScoreBreakdown } from './score';
 
 export type Lang = 'de' | 'en';
@@ -35,7 +36,11 @@ export interface PublicReport {
   commenters: number;
   meToo: number;
   safetyCategory: boolean;
-  /** Position on the illustrative district map, in percent. */
+  /** Location photo (photos.ts): the street, not the damage. */
+  photo: PhotoKey;
+  /** Cumulative "Me too" votes at eight even steps from posting until now (last value = meToo). */
+  meTooTimeline: number[];
+  /** Pin position on the street diagram (kiez-map.ts), in percent of its width and height. */
   x: number;
   y: number;
   comments: Comment[];
@@ -61,6 +66,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     subcategory: 'trafficLight',
     place: 'Karl-Marx-Straße, Höhe Rathaus Neukölln',
     street: 'Karl-Marx-Straße',
+    photo: 'rathaus',
+    meTooTimeline: [0, 3, 7, 11, 14, 16, 18, 20],
     distanceMetres: 80,
     ageHours: 2,
     status: 'acknowledged',
@@ -69,8 +76,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     meToo: 20,
     dangerMarks: 3,
     safetyCategory: true,
-    x: 38,
-    y: 42,
+    x: 44.3,
+    y: 58.3,
     comments: [
       {
         author: 'Lena K.',
@@ -96,6 +103,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     subcategory: 'pothole',
     place: 'Hermannstraße 140',
     street: 'Hermannstraße',
+    photo: 'hermannstrasse',
+    meTooTimeline: [0, 2, 3, 5, 6, 8, 10, 11],
     distanceMetres: 350,
     ageHours: 26,
     status: 'open',
@@ -104,8 +113,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     meToo: 11,
     dangerMarks: 1,
     safetyCategory: true,
-    x: 62,
-    y: 30,
+    x: 20.3,
+    y: 68.3,
     comments: [
       {
         author: 'Murat Y.',
@@ -129,6 +138,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     subcategory: 'playground',
     place: 'Spielplatz Weserstraße',
     street: 'Weserstraße',
+    photo: 'weserstrasse',
+    meTooTimeline: [0, 0, 1, 1, 1, 1, 2, 2],
     distanceMetres: 600,
     ageHours: 50,
     status: 'inProgress',
@@ -137,8 +148,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     meToo: 2,
     dangerMarks: 0,
     safetyCategory: true,
-    x: 24,
-    y: 68,
+    x: 62.5,
+    y: 23.3,
     comments: [],
   },
   {
@@ -152,6 +163,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     subcategory: 'bikeLane',
     place: 'Sonnenallee 62',
     street: 'Sonnenallee',
+    photo: 'sonnenallee',
+    meTooTimeline: [0, 1, 1, 2, 2, 2, 3, 3],
     distanceMetres: 900,
     ageHours: 5,
     status: 'open',
@@ -160,8 +173,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     meToo: 3,
     dangerMarks: 0,
     safetyCategory: false,
-    x: 70,
-    y: 58,
+    x: 53.8,
+    y: 38.3,
     comments: [],
   },
   {
@@ -175,6 +188,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     subcategory: 'toilet',
     place: 'Hermannplatz',
     street: 'Hermannplatz',
+    photo: 'hermannplatz',
+    meTooTimeline: [0, 1, 2, 2, 3, 4, 5, 6],
     distanceMetres: 1200,
     ageHours: 96,
     status: 'open',
@@ -183,8 +198,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     meToo: 6,
     dangerMarks: 0,
     safetyCategory: false,
-    x: 52,
-    y: 16,
+    x: 23,
+    y: 16.7,
     comments: [],
   },
   {
@@ -198,6 +213,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     subcategory: 'youthCentre',
     place: 'Gropiusstadt, Lipschitzallee',
     street: 'Lipschitzallee',
+    photo: 'lipschitzallee',
+    meTooTimeline: [0, 4, 9, 14, 18, 21, 24, 26],
     distanceMetres: 4100,
     ageHours: 74,
     status: 'resolved',
@@ -206,8 +223,8 @@ const REPORTS: (PublicReport & StaffFields)[] = [
     meToo: 26,
     dangerMarks: 0,
     safetyCategory: false,
-    x: 80,
-    y: 80,
+    x: 93,
+    y: 94.4,
     comments: [],
   },
 ];
