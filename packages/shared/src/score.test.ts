@@ -1,7 +1,7 @@
 // US-22 (priority score) and US-23 (priority levels).
 // Expected values come from the product plan: kiezruf-mvp-prototype.html, "Intelligent analysis" and the sample reports.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_THRESHOLDS, priorityLevel, priorityScore, type ScoreInput } from './index';
+import { DEFAULT_THRESHOLDS, priorityLevel, priorityScore, scoreBreakdown, type ScoreInput } from './index.ts';
 
 const base: ScoreInput = { coReporters: 0, commenters: 0, meToo: 0, ageHours: 0, dangerMarks: 0, safetyCategory: false };
 const score = (over: Partial<ScoreInput>) => priorityScore({ ...base, ...over });
@@ -111,5 +111,20 @@ describe('sample reports from the prototype', () => {
     const door = { coReporters: 1, commenters: 1, ageHours: 72, dangerMarks: 0, safetyCategory: false };
     expect(priorityLevel(priorityScore({ ...door, meToo: 26 }))).toBe('High');
     expect(priorityLevel(priorityScore({ ...door, meToo: 26 - 15 / 2 }))).toBe('Medium');
+  });
+});
+
+describe('scoreBreakdown (US-24 breakdown panel)', () => {
+  it('lists each weighted part and every multiplier', () => {
+    expect(scoreBreakdown({ coReporters: 4, commenters: 5, meToo: 20, ageHours: 0, dangerMarks: 3, safetyCategory: true })).toEqual({
+      coReporterPoints: 20,
+      commenterPoints: 10,
+      meTooPoints: 20,
+      base: 50,
+      decay: 1,
+      danger: 1.5,
+      safety: 1.3,
+      score: 50 * 1.5 * 1.3,
+    });
   });
 });

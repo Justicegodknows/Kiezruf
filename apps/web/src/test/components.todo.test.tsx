@@ -1,5 +1,6 @@
 // Component tests for the citizen web and the municipal console, named after the prototype screens.
-// The app is still the Next.js template, so these are placeholders. Each becomes a real test with its component.
+// Placeholders for components not built yet. Each becomes a real test with its component.
+// Built and tested: level chip, Me too toggle (src/components/components.test.tsx), i18n (src/i18n/i18n.test.ts).
 import { describe, it } from 'vitest';
 
 describe('console: score breakdown panel (US-22, US-24)', () => {
@@ -9,7 +10,6 @@ describe('console: score breakdown panel (US-22, US-24)', () => {
 });
 
 describe('console: level chip (US-23)', () => {
-  it.todo('renders Critical, High, Medium and Low with text, not colour alone (BITV)');
   it.todo('marks a manual override and shows its reason (US-27)');
 });
 
@@ -33,9 +33,4 @@ describe('citizen web: report card (US-15, US-24)', () => {
 
 describe('citizen web: Me too button (US-18)', () => {
   it.todo('opens sign-in for a guest and completes the vote after sign-in (US-01)');
-  it.todo('toggles off on a second tap');
-});
-
-describe('i18n (US-35)', () => {
-  it.todo('every console and citizen string has a German and an English entry');
 });
