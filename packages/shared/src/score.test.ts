@@ -1,7 +1,7 @@
 // US-22 (priority score) and US-23 (priority levels).
 // Expected values come from the product plan: kiezruf-mvp-prototype.html, "Intelligent analysis" and the sample reports.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_THRESHOLDS, priorityLevel, priorityScore, scoreBreakdown, type ScoreInput } from './index';
+import { DEFAULT_THRESHOLDS, priorityLevel, priorityScore, scoreBreakdown, type ScoreInput } from './index.ts';
 
 const base: ScoreInput = { coReporters: 0, commenters: 0, meToo: 0, ageHours: 0, dangerMarks: 0, safetyCategory: false };
 const score = (over: Partial<ScoreInput>) => priorityScore({ ...base, ...over });

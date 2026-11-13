@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getPublicReport, listPublicReports, listStaffQueue, reportIds, STATUS_ORDER } from './demo';
-import { KIEZ_MAP } from './kiez-map';
-import { PHOTOS } from './photos';
-import { priorityScore } from './score';
+import { getPublicReport, listPublicReports, listStaffQueue, reportIds, STATUS_ORDER } from './demo.ts';
+import { KIEZ_MAP } from './kiez-map.ts';
+import { PHOTOS } from './photos.ts';
+import { priorityScore } from './score.ts';
 
 describe('demo data: citizen view (US-24)', () => {
   it('never carries a score, level or danger marks', () => {

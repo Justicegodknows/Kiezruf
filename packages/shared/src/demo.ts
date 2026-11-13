@@ -1,7 +1,7 @@
 // Demo data from the Neukölln UI prototype (neukoelln-ui-prototype.html), shared by the web app
 // and the mobile app until the API exposes reports. Swap these calls for API queries; keep the shapes.
-import type { PhotoKey } from './photos';
-import { priorityLevel, scoreBreakdown, type Level, type ScoreBreakdown } from './score';
+import type { PhotoKey } from './photos.ts';
+import { priorityLevel, scoreBreakdown, type Level, type ScoreBreakdown } from './score.ts';
 
 export type Lang = 'de' | 'en';
 export type Category = 'traffic' | 'facility';

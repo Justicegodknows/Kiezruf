@@ -12,6 +12,15 @@ allowBuilds:
   cpu-features: false
   protobufjs: false
   ssh2: false
+# Security overrides for transitive dependencies whose parents still pin vulnerable ranges.
+# Remove an entry once its parent ships a fixed range. (`pnpm audit --audit-level low` stays clean.)
+overrides:
+  # GHSA-67mh-4wv8-2f99: dev server CORS. drizzle-kit > @esbuild-kit/core-utils pins ~0.18.
+  '@esbuild-kit/core-utils>esbuild': ^0.25.0
+  # GHSA-3g3m-2fjr-6pw4: AbortSignal bypass. testcontainers > archiver-utils (^10), jest (^13).
+  'glob@>=9.0.0 <14.0.2': ^14.0.2
+  # GHSA-g3hv-75wg-m249: ReDoS via globparts. Under the glob versions above and test-exclude.
+  'minimatch@>=7.0.0 <11.0.1': ^11.0.1
 minimumReleaseAgeExclude:
   - '@expo/cli@58.1.20'
   - '@expo/config-plugins@58.0.13'
@@ -42,3 +51,11 @@ minimumReleaseAgeExclude:
   - expo-location@58.0.21
   - expo-notifications@58.1.9
   - expo-secure-store@58.0.3
+# deepmerge has no fixed release for GHSA-gcqx-w48m-w2h4 (prototype poisoning via an own "__proto__"
+# key). patches/deepmerge@4.3.1.patch fixes it in place and scripts/security-patches.test.mjs proves it,
+# but `pnpm audit` matches on version only, so the advisory is listed here. Drop both when upstream ships a fix.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4
+patchedDependencies:
+  deepmerge@4.3.1: patches/deepmerge@4.3.1.patch

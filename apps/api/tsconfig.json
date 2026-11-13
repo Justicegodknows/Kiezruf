@@ -1,1 +1,1 @@
-{ "compilerOptions": { "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true, "skipLibCheck": true, "outDir": "dist", "esModuleInterop": true, "noEmit": true }, "include": ["src", "test", "features"] }
+{ "compilerOptions": { "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true, "skipLibCheck": true, "outDir": "dist", "esModuleInterop": true, "noEmit": true, "rewriteRelativeImportExtensions": true }, "include": ["src", "test", "features"] }
