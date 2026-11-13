@@ -20,6 +20,11 @@ export function LocationMap({ lat, lon, label }: { lat: number; lon: number; lab
         if (cancelled || !container.current) return;
         const m = new Map({ container: container.current, style: MAP_STYLE_URL, center: [lon, lat], zoom: 16, attributionControl: { compact: true }, interactive: true });
         m.keyboard.disable();
+        // The canvas is the only part hidden: it would otherwise be a tab stop with nothing to do. The attribution
+        // control stays reachable (map data credits), so the container itself must not be aria-hidden.
+        const canvas = m.getCanvas();
+        canvas.setAttribute('tabindex', '-1');
+        canvas.setAttribute('aria-hidden', 'true');
         const el = document.createElement('div');
         el.className = 'pin pin-selected';
         el.setAttribute('aria-hidden', 'true');
@@ -42,7 +47,7 @@ export function LocationMap({ lat, lon, label }: { lat: number; lon: number; lab
 
   return (
     <figure className="location-map">
-      <div ref={container} className="pin-map" aria-hidden="true" />
+      <div ref={container} className="pin-map" />
       <figcaption className="small">
         {label}: {t('pin.coords', { lat: lat.toFixed(5), lon: lon.toFixed(5) })}
         {failed ? <span className="muted"> · {t('console.map.failed')}</span> : null}
