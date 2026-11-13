@@ -115,7 +115,7 @@ export async function generateBriefing(deps: BriefingDeps, tenantId: string, now
     const [row] = await tx.execute<{ id: string }>(sql`
       INSERT INTO briefing (tenant_id, week_start, ai_written, fallback, model, prompt_version, input_hash, dropped_items)
       VALUES (${tenantId}, ${weekStart}, ${briefingResult.aiWritten}, ${briefingResult.fallback},
-              ${briefingResult.aiWritten ? deps.ai!.models.chat : null}, ${briefingResult.aiWritten ? PROMPT_VERSION : null},
+              ${briefingResult.aiWritten ? deps.ai!.models.chat || 'provider default' : null}, ${briefingResult.aiWritten ? PROMPT_VERSION : null},
               ${createHash('sha256').update(JSON.stringify(input)).digest('hex')}, ${briefingResult.dropped?.length ?? 0})
       ON CONFLICT (tenant_id, week_start) DO NOTHING
       RETURNING id`);

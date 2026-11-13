@@ -41,6 +41,9 @@ export interface OpenAiCompatibleOptions {
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
+/** An empty model name leaves `model` out of the request, so the provider uses its own default. */
+const withModel = (model: string, body: object) => (model ? { model, ...body } : body);
+
 export function openAiCompatibleProvider(options: OpenAiCompatibleOptions): AiProvider {
   const doFetch = options.fetch ?? fetch;
   const base = options.baseUrl.replace(/\/$/, '');
@@ -57,7 +60,9 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleOptions): AiPr
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) throw new Error(`AI provider answered ${response.status}`);
-      const json = await response.json();
+      const json = (await response.json()) as { model?: unknown };
+      // Without a configured model, log the one the provider reports having used.
+      if (!model && typeof json?.model === 'string') entry.model = json.model;
       entry.ok = true;
       return json;
     } catch (error) {
@@ -70,12 +75,11 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleOptions): AiPr
   }
 
   async function chatJson(kind: 'photo' | 'briefing', model: string, messages: object[], schemaName: string, schema: object, timeoutMs: number) {
-    const answer = (await call(kind, model, '/chat/completions', {
-      model,
+    const answer = (await call(kind, model, '/chat/completions', withModel(model, {
       messages,
       temperature: 0,
       response_format: { type: 'json_schema', json_schema: { name: schemaName, schema, strict: true } },
-    }, timeoutMs)) as { choices?: { message?: { content?: string } }[] };
+    }), timeoutMs)) as { choices?: { message?: { content?: string } }[] };
     const content = answer.choices?.[0]?.message?.content;
     if (typeof content !== 'string') throw new Error('AI provider gave no content');
     return JSON.parse(content) as unknown;
@@ -101,7 +105,7 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleOptions): AiPr
     },
 
     async embed(text, { timeoutMs = 15_000 } = {}) {
-      const answer = (await call('embedding', options.embeddingModel, '/embeddings', { model: options.embeddingModel, input: text }, timeoutMs)) as {
+      const answer = (await call('embedding', options.embeddingModel, '/embeddings', withModel(options.embeddingModel, { input: text }), timeoutMs)) as {
         data?: { embedding?: number[] }[];
       };
       const vector = answer.data?.[0]?.embedding;

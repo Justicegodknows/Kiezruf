@@ -69,4 +69,15 @@ describe('OpenAI-compatible provider', () => {
     await expect(provider(impl, logs).embed('x')).rejects.toThrow('AI provider answered 503');
     expect(logs[0]).toMatchObject({ ok: false, error: 'AI provider answered 503' });
   });
+
+  it('leaves the model out when none is configured and logs the one the provider used', async () => {
+    const logs: AiCallLog[] = [];
+    const { impl, calls } = fakeFetch((body) =>
+      'input' in body ? { model: 'vl-embed', data: [{ embedding: [1] }] } : { model: 'vl-chat', ...chatAnswer({ items: [] }) });
+    const ai = openAiCompatibleProvider({ baseUrl: 'https://ai.example/v1', apiKey: 'key', chatModel: '', visionModel: '', embeddingModel: '', fetch: impl, log: (e) => logs.push(e) });
+    await ai.embed('pothole');
+    await ai.briefing({ week: '2026-11-09' });
+    expect(calls.map((c) => 'model' in c.body)).toEqual([false, false]);
+    expect(logs.map((l) => l.model)).toEqual(['vl-embed', 'vl-chat']);
+  });
 });
