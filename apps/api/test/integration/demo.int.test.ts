@@ -12,7 +12,7 @@ import { createMigratedDatabase } from './helpers.js';
 let db: Db;
 let t: TestApp;
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
-const staff = (role: string) => accessToken({ email: DEMO_STAFF.find((s) => s.role === role)!.email, mfa: true });
+const staff = (role: string) => accessToken({ email: DEMO_STAFF.find((s) => s.role === role)!.email, mfa: true, invited: true });
 const get = (url: string, token?: string) => t.app.inject({ method: 'GET', url, headers: token ? auth(token) : {} });
 
 beforeAll(async () => {

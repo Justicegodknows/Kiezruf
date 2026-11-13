@@ -1,8 +1,8 @@
 // Sign-in routes of the backend-for-frontend (US-01, ENG-22): Supabase Auth, run on this server so the session
 // lands in httpOnly cookies and its tokens never reach page JavaScript.
 //
-//   POST /api/auth/code        { email, locale }  Supabase sends the 6-digit code (signInWithOtp)
-//   POST /api/auth/verify      { email, code }    verifyOtp, type 'email': signed in at aal1
+//   POST /api/auth/sign-up     { email, password, locale }  new citizen account (signUp): signed in at aal1
+//   POST /api/auth/sign-in     { email, password }          signInWithPassword: signed in at aal1
 //   POST /api/auth/mfa                            staff: the TOTP step. Enrols a factor the first time and
 //                                                 answers with its QR code and secret; otherwise just `totp`
 //   POST /api/auth/mfa/verify  { code }           challenge + verify the TOTP code: the session becomes aal2
@@ -16,6 +16,9 @@ import { accessToken, authErrorCode, signOutHere, supabaseEnv, supabaseForReques
 
 const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{2,}$/;
 const CODE_PATTERN = /^\d{6}$/;
+/** Supabase's own limits: at least 10 characters (minimum_password_length in supabase/config.toml), bcrypt reads 72 bytes. */
+export const PASSWORD_MIN = 10;
+export const PASSWORD_MAX = 72;
 const LOCALES = new Set(['de', 'en']);
 
 type Body = Record<string, unknown>;
@@ -51,29 +54,42 @@ function normalEmail(value: unknown): string | null {
   return email.length <= 254 && EMAIL_PATTERN.test(email) ? email : null;
 }
 
-/** Sends the sign-in code. New addresses get an account (citizens sign up this way; invited staff too). */
-export async function postAuthCode(request: NextRequest) {
+function password(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return value.length >= PASSWORD_MIN && Buffer.byteLength(value, 'utf8') <= PASSWORD_MAX ? value : null;
+}
+
+/**
+ * Creates a citizen account with email and password (US-01) and signs it in. Supabase sends no confirmation email
+ * (`enable_confirmations = false`), so the address is not proven; staff accounts are therefore never made here but
+ * by the API when an admin invites someone (ENG-24).
+ */
+export async function postAuthSignUp(request: NextRequest) {
   const prepared = await prepare(request);
   if (!prepared.ok) return prepared.response;
   const { supabase, body } = prepared;
   const email = normalEmail(body.email);
   if (!email) return json({ error: 'invalid_request' }, 400);
+  const secret = password(body.password);
+  if (!secret) return json({ error: 'weak_password' }, 400);
   const locale = typeof body.locale === 'string' && LOCALES.has(body.locale) ? body.locale : 'de';
-  // `data` is stored on a new user only; the email template can pick the language with {{ .Data.locale }}.
-  const { error } = await supabase.client.auth.signInWithOtp({ email, options: { shouldCreateUser: true, data: { locale } } });
+  const { data, error } = await supabase.client.auth.signUp({ email, password: secret, options: { data: { locale } } });
   if (error) return fail(supabase, error);
-  return supabase.apply(json({ sent: true }, 202));
+  // With confirmations off a new user comes back with a session. Without one the project asks for a confirmation
+  // email, which this setup does not use: report it rather than pretend the sign-up worked.
+  if (!data.session) return supabase.apply(json({ error: 'unavailable' }, 502));
+  return supabase.apply(json({ signedIn: true, aal: 'aal1' }, 201));
 }
 
-/** Checks the 6-digit code. The session goes into the cookies; the body says only that it worked. */
-export async function postAuthVerify(request: NextRequest) {
+/** Signs in with email and password. The session goes into the cookies; the body says only that it worked. */
+export async function postAuthSignIn(request: NextRequest) {
   const prepared = await prepare(request);
   if (!prepared.ok) return prepared.response;
   const { supabase, body } = prepared;
   const email = normalEmail(body.email);
-  const code = typeof body.code === 'string' ? body.code.trim() : '';
-  if (!email || !CODE_PATTERN.test(code)) return json({ error: 'invalid_code' }, 400);
-  const { data, error } = await supabase.client.auth.verifyOtp({ email, token: code, type: 'email' });
+  // One answer for every wrong input, so the form does not reveal which addresses have accounts.
+  if (!email || typeof body.password !== 'string' || !body.password) return json({ error: 'invalid_credentials' }, 400);
+  const { data, error } = await supabase.client.auth.signInWithPassword({ email, password: body.password });
   if (error || !data.session) return fail(supabase, error);
   return supabase.apply(json({ signedIn: true, aal: 'aal1' }));
 }

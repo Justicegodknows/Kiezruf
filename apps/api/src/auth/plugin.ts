@@ -45,7 +45,9 @@ export function registerAuth(app: FastifyInstance, db: Db, verifier: TokenVerifi
     }
     const account = await resolveAccount(db, claims);
     if (!account.ok) {
-      await sendError(reply, 401, 'unauthorized');
+      // An address already held by an account this user may not take over (ENG-24): say so, rather than sign out.
+      if (account.reason === 'email_taken') await sendError(reply, 409, 'email_taken');
+      else await sendError(reply, 401, 'unauthorized');
       return null;
     }
     request.session = { accountId: account.accountId, authUserId: claims.sub, token: token!, isNewAccount: account.isNewAccount };

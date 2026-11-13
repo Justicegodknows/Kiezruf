@@ -1,10 +1,10 @@
 // @vitest-environment node
-// Sign-in through Supabase Auth on the server (ENG-22): email code, verify, MFA enrolment and verification,
+// Sign-in through Supabase Auth on the server (ENG-22, ENG-24): email and password, sign-up, MFA enrolment and verification,
 // sign-out, and the session answers for the UI. Supabase is a fake (src/test/fake-supabase.ts).
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_COOKIE, fake, stubSupabaseEnv, SVG } from '@/test/fake-supabase';
-import { getSession, getStaffSession, postAuthCode, postAuthLogout, postAuthVerify, postMfaStart, postMfaVerify, qrDataUrl } from './auth-handlers';
+import { getSession, getStaffSession, postAuthLogout, postAuthSignIn, postAuthSignUp, postMfaStart, postMfaVerify, qrDataUrl } from './auth-handlers';
 import { authCookieOptions, authErrorCode } from './supabase';
 
 vi.mock('@supabase/ssr', async () => (await import('@/test/fake-supabase')).ssrModule);
@@ -58,37 +58,16 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('email code (US-01): signInWithOtp, then verifyOtp', () => {
-  it('asks Supabase to send the code, creating the account for a new address', async () => {
-    const response = await postAuthCode(request('/api/auth/code', { body: { email: '  A@Example.org ', locale: 'en' } }));
-    expect(response.status).toBe(202);
-    expect(await response.json()).toEqual({ sent: true });
-    expect(calledWith('signInWithOtp')).toEqual([{ email: 'a@example.org', options: { shouldCreateUser: true, data: { locale: 'en' } } }]);
-  });
+describe('email and password (US-01, ENG-24): signUp and signInWithPassword', () => {
+  const PASSWORD = 'correct horse battery';
 
-  it('refuses a malformed address without calling Supabase', async () => {
-    const response = await postAuthCode(request('/api/auth/code', { body: { email: 'not-an-address' } }));
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'invalid_request' });
-    expect(fake.calls).toHaveLength(0);
-  });
-
-  it('translates Supabase rate limits into the app codes', async () => {
-    fake.errors.signInWithOtp = { code: 'over_email_send_rate_limit', status: 429 };
-    const tooMany = await postAuthCode(request('/api/auth/code', { body: { email: 'a@example.org' } }));
-    expect(tooMany.status).toBe(429);
-    expect(await tooMany.json()).toEqual({ error: 'too_many_codes' });
-    fake.errors.signInWithOtp = { code: 'over_request_rate_limit', status: 429 };
-    expect(await (await postAuthCode(request('/api/auth/code', { body: { email: 'a@example.org' } }))).json()).toEqual({ error: 'rate_limited' });
-  });
-
-  it('verifies the code with type email; the session goes into an httpOnly cookie, never into the body', async () => {
-    const response = await postAuthVerify(request('/api/auth/verify', { body: { email: 'a@example.org', code: '123456' } }));
-    expect(response.status).toBe(200);
+  it('creates an account with the language and signs it in; the session goes into an httpOnly cookie, never into the body', async () => {
+    const response = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: '  A@Example.org ', password: PASSWORD, locale: 'en' } }));
+    expect(response.status).toBe(201);
     const text = await response.text();
     expect(text).not.toContain('tok_');
     expect(JSON.parse(text)).toEqual({ signedIn: true, aal: 'aal1' });
-    expect(calledWith('verifyOtp')).toEqual([{ email: 'a@example.org', token: '123456', type: 'email' }]);
+    expect(calledWith('signUp')).toEqual([{ email: 'a@example.org', password: PASSWORD, options: { data: { locale: 'en' } } }]);
     const cookie = authCookie(response);
     expect(cookie).toContain(`${AUTH_COOKIE}=tok_aal1_fresh_session_token`);
     expect(cookie).toMatch(/HttpOnly/i);
@@ -98,20 +77,61 @@ describe('email code (US-01): signInWithOtp, then verifyOtp', () => {
     expect(cookie).not.toMatch(/Secure/i);
   });
 
-  it('answers a wrong or expired code with invalid_code and sets no cookie', async () => {
-    const response = await postAuthVerify(request('/api/auth/verify', { body: { email: 'a@example.org', code: '000000' } }));
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'invalid_code' });
+  it('refuses a malformed address or a short password without calling Supabase', async () => {
+    const badEmail = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: 'not-an-address', password: PASSWORD } }));
+    expect(badEmail.status).toBe(400);
+    expect(await badEmail.json()).toEqual({ error: 'invalid_request' });
+    const short = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: 'a@example.org', password: 'short' } }));
+    expect(await short.json()).toEqual({ error: 'weak_password' });
+    const tooLong = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: 'a@example.org', password: 'ä'.repeat(40) } }));
+    expect(await tooLong.json()).toEqual({ error: 'weak_password' });
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it('answers email_taken for an address that already has an account', async () => {
+    const response = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: 'taken@example.org', password: PASSWORD } }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'email_taken' });
     expect(authCookie(response)).toBe('');
-    const malformed = await postAuthVerify(request('/api/auth/verify', { body: { email: 'a@example.org', code: '12ab' } }));
-    expect(await malformed.json()).toEqual({ error: 'invalid_code' });
+  });
+
+  it('reports a project that still wants email confirmation instead of pretending the sign-up worked', async () => {
+    fake.confirmations = true;
+    const response = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: 'a@example.org', password: PASSWORD } }));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'unavailable' });
+    expect(authCookie(response)).toBe('');
+  });
+
+  it('signs in with the right password', async () => {
+    const response = await postAuthSignIn(request('/api/auth/sign-in', { body: { email: 'A@example.org', password: PASSWORD } }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ signedIn: true, aal: 'aal1' });
+    expect(calledWith('signInWithPassword')).toEqual([{ email: 'a@example.org', password: PASSWORD }]);
+    expect(authCookie(response)).toContain(`${AUTH_COOKIE}=tok_aal1_fresh_session_token`);
+  });
+
+  it('gives one answer for a wrong password, a malformed address or a missing password, and sets no cookie', async () => {
+    const wrong = await postAuthSignIn(request('/api/auth/sign-in', { body: { email: 'a@example.org', password: 'wrong password' } }));
+    expect(wrong.status).toBe(400);
+    expect(await wrong.json()).toEqual({ error: 'invalid_credentials' });
+    expect(authCookie(wrong)).toBe('');
+    expect(await (await postAuthSignIn(request('/api/auth/sign-in', { body: { email: 'nope', password: PASSWORD } }))).json()).toEqual({ error: 'invalid_credentials' });
+    expect(await (await postAuthSignIn(request('/api/auth/sign-in', { body: { email: 'a@example.org' } }))).json()).toEqual({ error: 'invalid_credentials' });
+  });
+
+  it('translates Supabase rate limits', async () => {
+    fake.errors.signInWithPassword = { code: 'over_request_rate_limit', status: 429 };
+    const limited = await postAuthSignIn(request('/api/auth/sign-in', { body: { email: 'a@example.org', password: PASSWORD } }));
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: 'rate_limited' });
   });
 
   it('refuses cross-site sign-in requests and answers 503 without Supabase settings', async () => {
-    const crossSite = await postAuthVerify(request('/api/auth/verify', { body: { email: 'a@example.org', code: '123456' }, headers: { origin: 'https://evil.example' } }));
+    const crossSite = await postAuthSignIn(request('/api/auth/sign-in', { body: { email: 'a@example.org', password: PASSWORD }, headers: { origin: 'https://evil.example' } }));
     expect(crossSite.status).toBe(403);
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', '');
-    const unconfigured = await postAuthCode(request('/api/auth/code', { body: { email: 'a@example.org' } }));
+    const unconfigured = await postAuthSignUp(request('/api/auth/sign-up', { body: { email: 'a@example.org', password: PASSWORD } }));
     expect(unconfigured.status).toBe(503);
     expect(await unconfigured.json()).toEqual({ error: 'unavailable' });
     expect(fake.calls).toHaveLength(0);
@@ -230,7 +250,9 @@ describe('Supabase helpers', () => {
   });
 
   it('maps Supabase auth errors to translated app codes', () => {
-    expect(authErrorCode({ code: 'otp_expired', status: 403 })).toEqual({ status: 400, error: 'invalid_code' });
+    expect(authErrorCode({ code: 'invalid_credentials', status: 400 })).toEqual({ status: 400, error: 'invalid_credentials' });
+    expect(authErrorCode({ code: 'user_already_exists', status: 422 })).toEqual({ status: 409, error: 'email_taken' });
+    expect(authErrorCode({ code: 'weak_password', status: 422 })).toEqual({ status: 400, error: 'weak_password' });
     expect(authErrorCode({ code: 'mfa_verification_failed', status: 422 })).toEqual({ status: 400, error: 'invalid_totp' });
     expect(authErrorCode({ code: 'mfa_challenge_expired', status: 422 })).toEqual({ status: 400, error: 'challenge_expired' });
     expect(authErrorCode({ code: 'session_not_found', status: 403 })).toEqual({ status: 401, error: 'unauthorized' });

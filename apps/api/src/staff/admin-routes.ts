@@ -1,5 +1,5 @@
 // Moderation (US-26, US-33), tenants and roles (US-40, US-42, US-46), and the login-free forward link (US-45).
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { validThresholds } from '@kiezruf/shared';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply } from 'fastify';
@@ -8,7 +8,7 @@ import { staffOf } from '../auth/plugin.js';
 import type { AppDeps } from '../deps.js';
 import type { Tx } from '../db/client.js';
 import { staffRoleKind, tenantStatus } from '../db/schema.js';
-import { withCitizenAccess, withStaffScope } from '../db/scope.js';
+import { withAuthAccess, withCitizenAccess, withStaffScope } from '../db/scope.js';
 import { parseOr400, sendError } from '../http.js';
 import { dbErrorCode, STATUS_FOR } from './errors.js';
 
@@ -208,22 +208,52 @@ export function staffAdminRoutes(app: FastifyInstance, deps: AppDeps) {
     return reply.send({ staff });
   });
 
+  // Inviting staff (US-46, ENG-24). Sign-up needs no email proof, so the invited person's Supabase user is created
+  // here, marked `kiezruf_invited`, with a temporary password the inviting admin passes on; only that user can take
+  // over the account (resolveAccount). An address that a self-registered account already holds is refused: nobody
+  // has shown that its owner is the person being invited. Existing staff just get the new role.
   app.post('/staff/tenants/:id/staff', guard, async (request, reply) => {
     const params = parseOr400(IdParams, request.params, reply);
     const body = params && parseOr400(InviteBody, request.body, reply);
     if (!params || !body) return reply;
+    const email = body.email.trim().toLowerCase();
+
+    const [existing] = await withAuthAccess(deps.db, (tx) =>
+      tx.execute<{ linked: boolean; staff: boolean }>(sql`
+        SELECT a.auth_user_id IS NOT NULL AS linked, EXISTS (SELECT 1 FROM staff_role r WHERE r.account_id = a.id) AS staff
+        FROM account a WHERE lower(a.email) = ${email} AND a.deleted_at IS NULL`),
+    );
+    if (existing?.linked && !existing.staff) return sendError(reply, 409, 'email_taken');
+
+    let created: { id: string } | null = null;
+    let temporaryPassword: string | undefined;
+    if (!existing?.linked) {
+      if (!deps.supabaseAdmin) return sendError(reply, 503, 'unavailable');
+      temporaryPassword = randomBytes(12).toString('base64url');
+      created = await deps.supabaseAdmin.createInvitedUser(email, temporaryPassword);
+      // A Supabase user without an account of ours: someone registered the address and never used the API.
+      if (!created) return sendError(reply, 409, 'email_taken');
+    }
+
     const result = await staffTx(deps, request, reply, async (tx) => {
-      const [row] = await tx.execute<{ id: string }>(sql`SELECT invite_staff(${body.email}, ${params.id}, ${body.role}::staff_role_kind) AS id`);
+      const [row] = await tx.execute<{ id: string }>(sql`SELECT invite_staff(${email}, ${params.id}, ${body.role}::staff_role_kind) AS id`);
       const [t] = await tx.execute<{ name: string }>(sql`SELECT name FROM tenant WHERE id = ${params.id}`);
       return { accountId: row!.id, tenant: t!.name };
     });
-    if (!result.ok) return reply;
+    if (!result.ok) {
+      // Not allowed after all (e.g. outside the admin's subtree): the new sign-in must not stay behind.
+      if (created) await deps.supabaseAdmin!.deleteUser(created.id).catch((error) => request.log.error({ err: error }, 'Supabase cleanup failed'));
+      return reply;
+    }
     await deps.mailer.send({
-      to: body.email,
+      to: email,
       subject: `Ihr Zugang zur Kiezruf-Konsole (${result.value.tenant})`,
-      text: `Sie wurden für ${result.value.tenant} zur Kiezruf-Konsole eingeladen.\n\nMelden Sie sich hier mit dieser E-Mail-Adresse an. Beim ersten Mal richten Sie eine Authenticator-App als zweiten Faktor ein:\n${deps.webBaseUrl}/console\n\nYou have been invited to the Kiezruf console for ${result.value.tenant}. Sign in at the link above with this email address.`,
+      text: temporaryPassword
+        ? `Sie wurden für ${result.value.tenant} zur Kiezruf-Konsole eingeladen.\n\nIhr erstes Passwort erhalten Sie von der Person, die Sie eingeladen hat. Melden Sie sich damit hier an; beim ersten Mal richten Sie eine Authenticator-App als zweiten Faktor ein:\n${deps.webBaseUrl}/console\n\nYou have been invited to the Kiezruf console for ${result.value.tenant}. The person who invited you will give you your first password. Sign in at the link above.`
+        : `Sie haben jetzt Zugang zur Kiezruf-Konsole für ${result.value.tenant}:\n${deps.webBaseUrl}/console\n\nYou now have access to the Kiezruf console for ${result.value.tenant}.`,
     });
-    return reply.code(201).send({ accountId: result.value.accountId, role: body.role });
+    // The temporary password is shown to the inviting admin once and never stored by us.
+    return reply.code(201).send({ accountId: result.value.accountId, role: body.role, ...(temporaryPassword ? { temporaryPassword } : {}) });
   });
 
   app.delete('/staff/tenants/:id/staff/:accountId', guard, async (request, reply) => {

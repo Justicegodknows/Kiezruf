@@ -11,7 +11,7 @@ describe('error codes → messages', () => {
     expect(errorMessageKey('location_denied')).toBe('error.location_denied');
     expect(errorMessageKey('something_new')).toBe('error.unknown');
     expect(errorMessageKey(undefined)).toBe('error.unknown');
-    expect(translator('de')(errorMessageKey('too_many_codes'))).toMatch(/Zu viele Codes/);
+    expect(translator('de')(errorMessageKey('invalid_credentials'))).toMatch(/Passwort ist falsch/);
     expect(translator('en')(errorMessageKey('not_live'))).toBe('Kiezruf is not live here yet.');
   });
 

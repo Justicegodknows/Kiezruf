@@ -16,6 +16,9 @@ const RATHAUS_SPANDAU = { lat: 52.5352, lon: 13.2 };
 let db: Db;
 let t: TestApp;
 const bannedUsers: string[] = [];
+const deletedUsers: string[] = [];
+/** Supabase users the API created for invitations, by email, with their temporary password. */
+const supabaseUsers = new Map<string, string>();
 let n = 0;
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 async function grant(email: string, path: string, role: 'platform_admin' | 'tenant_admin' | 'case_worker' | 'viewer') {
@@ -26,9 +29,9 @@ async function grant(email: string, path: string, role: 'platform_admin' | 'tena
   return row!.id;
 }
 
-/** A Supabase session after the email code and the authenticator (aal2), as staff get it (ENG-22). */
+/** A Supabase session after the password and the authenticator (aal2), as invited staff get it (ENG-22, ENG-24). */
 async function staffSignIn(email: string): Promise<string> {
-  return accessToken({ email, mfa: true });
+  return accessToken({ email, mfa: true, invited: true });
 }
 
 async function postReport(token: string, at = KARL_MARX_STR_100, category = 'pothole', publish = true): Promise<string> {
@@ -57,7 +60,18 @@ let spReport: string;
 
 beforeAll(async () => {
   db = await createMigratedDatabase('staff', { seed: true });
-  t = await buildTestApp(db, { supabaseAdmin: { deleteUser: async () => {}, banUser: async (id) => void bannedUsers.push(id) } });
+  t = await buildTestApp(db, {
+    supabaseAdmin: {
+      // Like Supabase: one user per address; the id is the one the test tokens use for that address.
+      createInvitedUser: async (email, password) => {
+        if (supabaseUsers.has(email)) return null;
+        supabaseUsers.set(email, password);
+        return { id: authUserIdFor(email) };
+      },
+      deleteUser: async (id) => void deletedUsers.push(id),
+      banUser: async (id) => void bannedUsers.push(id),
+    },
+  });
   citizen = await signIn(t, 'citizen@example.org');
   nkReport = await postReport(citizen);
   spReport = await postReport(citizen, RATHAUS_SPANDAU, 'street_lighting');
@@ -82,9 +96,9 @@ describe('staff sign-in with Supabase MFA (ENG-22)', () => {
     const withoutMfa = await get(accessToken({ email }), '/staff/me');
     expect(withoutMfa.statusCode).toBe(401);
     expect(withoutMfa.json()).toEqual({ error: 'mfa_required' });
-    const stale = await get(accessToken({ email, mfa: true, mfaAgeSeconds: 13 * 3600 }), '/staff/me');
+    const stale = await get(accessToken({ email, mfa: true, invited: true, mfaAgeSeconds: 13 * 3600 }), '/staff/me');
     expect(stale.json()).toEqual({ error: 'mfa_required' });
-    expect((await get(accessToken({ email, mfa: true }), '/staff/me')).statusCode).toBe(200);
+    expect((await get(accessToken({ email, mfa: true, invited: true }), '/staff/me')).statusCode).toBe(200);
   });
 
   it('refuses accounts without a role, and citizen tokens on staff routes', async () => {
@@ -375,16 +389,51 @@ describe('tenants and roles (US-40, US-42, US-46)', () => {
 
   it('invites staff by email, lists and removes them, and keeps platform_admin for platform admins', async () => {
     const [sp] = await db.select({ id: tenant.id }).from(tenant).where(eq(tenant.path, 'de.be.bec.sp'));
+    // Refused after the Supabase user was made: the user is removed again.
     expect((await send(spAdmin, 'POST', `/staff/tenants/${sp!.id}/staff`, { email: 'new@spandau.example', role: 'platform_admin' })).json()).toEqual({ error: 'forbidden_role' });
-    const invited = await send(spAdmin, 'POST', `/staff/tenants/${sp!.id}/staff`, { email: 'new@spandau.example', role: 'case_worker' });
+    expect(deletedUsers).toEqual([authUserIdFor('new@spandau.example')]);
+    supabaseUsers.delete('new@spandau.example');
+
+    const invited = await send(spAdmin, 'POST', `/staff/tenants/${sp!.id}/staff`, { email: 'New@Spandau.example', role: 'case_worker' });
     expect(invited.statusCode).toBe(201);
+    // The temporary password goes to the inviting admin once, matches the Supabase user, and is not in the email.
+    const temporaryPassword = invited.json().temporaryPassword as string;
+    expect(temporaryPassword).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    expect(supabaseUsers.get('new@spandau.example')).toBe(temporaryPassword);
     expect(t.mailer.sent.at(-1)).toMatchObject({ to: 'new@spandau.example', text: expect.stringContaining('https://kiezruf.test/console') });
+    expect(t.mailer.sent.at(-1)!.text).not.toContain(temporaryPassword);
     const staff = (await get(spAdmin, `/staff/tenants/${sp!.id}/staff`)).json().staff;
     expect(staff.map((s: { email: string }) => s.email).sort()).toEqual(['admin@spandau.example', 'new@spandau.example']);
 
     const newToken = await staffSignIn('new@spandau.example');
     expect((await get(newToken, '/staff/reports')).statusCode).toBe(200);
+    // A second role for someone who is already staff: no new sign-in, no password.
+    const again = await send(spAdmin, 'POST', `/staff/tenants/${sp!.id}/staff`, { email: 'new@spandau.example', role: 'viewer' });
+    expect(again.statusCode).toBe(201);
+    expect(again.json().temporaryPassword).toBeUndefined();
     expect((await send(spAdmin, 'DELETE', `/staff/tenants/${sp!.id}/staff/${invited.json().accountId}`)).statusCode).toBe(204);
     expect((await get(newToken, '/staff/reports')).statusCode).toBe(403);
+  });
+
+  it('refuses to invite an address a self-registered citizen holds (no email proof, ENG-24)', async () => {
+    const [sp] = await db.select({ id: tenant.id }).from(tenant).where(eq(tenant.path, 'de.be.bec.sp'));
+    const email = `squatter${++n}@spandau.example`;
+    expect((await get(accessToken({ email }), '/me')).statusCode).toBe(200);
+    const res = await send(spAdmin, 'POST', `/staff/tenants/${sp!.id}/staff`, { email, role: 'case_worker' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'email_taken' });
+    expect(supabaseUsers.has(email)).toBe(false);
+    expect((await get(accessToken({ email, mfa: true }), '/staff/reports')).json()).toEqual({ error: 'not_staff' });
+  });
+
+  it('does not let a self-registered user take over an invited account with the same address', async () => {
+    const email = `pending${++n}@neukoelln.example`;
+    await grant(email, 'de.be.bec.nk', 'case_worker');
+    // Signed up on their own (no kiezruf_invited mark): no account, no staff role.
+    const res = await get(accessToken({ email, mfa: true }), '/staff/me');
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'email_taken' });
+    const [row] = await db.select({ authUserId: account.authUserId }).from(account).where(eq(account.email, email));
+    expect(row!.authUserId).toBeNull();
   });
 });

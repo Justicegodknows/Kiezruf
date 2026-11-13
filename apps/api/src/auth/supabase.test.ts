@@ -11,6 +11,13 @@ describe('Supabase access tokens (ENG-22)', () => {
     expect(claims).toMatchObject({ sub: authUserIdFor('anna@example.org'), email: 'anna@example.org', aal: 'aal1' });
   });
 
+  it('reads the invited mark only from app_metadata, which users cannot change (ENG-24)', async () => {
+    expect((await verifier.verify(accessToken({ email: 'a@example.org' })))!.invited).toBe(false);
+    expect((await verifier.verify(accessToken({ email: 'a@example.org', invited: true })))!.invited).toBe(true);
+    const viaUserMetadata = accessToken({ email: 'a@example.org', overrides: { user_metadata: { kiezruf_invited: true } } });
+    expect((await verifier.verify(viaUserMetadata))!.invited).toBe(false);
+  });
+
   it.each([
     ['expired', accessToken({ email: 'a@example.org', expiresInSeconds: -1 })],
     ['signed with another secret', accessToken({ email: 'a@example.org', secret: 'x'.repeat(40) })],
@@ -59,6 +66,24 @@ describe('staff MFA freshness', () => {
 });
 
 describe('Supabase admin', () => {
+  it('creates an invited, confirmed user and reports an address that already has one', async () => {
+    const bodies: unknown[] = [];
+    let taken = false;
+    const admin = supabaseAdmin({
+      url: TEST_SUPABASE_URL,
+      serviceRoleKey: 'service-key',
+      fetch: (async (_url: string, init: { body?: string }) => {
+        bodies.push(JSON.parse(init.body!));
+        if (taken) return new Response(JSON.stringify({ code: 422, error_code: 'email_exists', msg: 'exists' }), { status: 422 });
+        return new Response(JSON.stringify({ id: 'u-new' }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    expect(await admin.createInvitedUser('a@example.org', 'temporary-pass')).toEqual({ id: 'u-new' });
+    expect(bodies[0]).toEqual({ email: 'a@example.org', password: 'temporary-pass', email_confirm: true, app_metadata: { kiezruf_invited: true } });
+    taken = true;
+    expect(await admin.createInvitedUser('a@example.org', 'temporary-pass')).toBeNull();
+  });
+
   it('deletes and bans users with the service-role key, ignoring users already gone', async () => {
     const calls: { url: string; method: string; body?: string; key: string }[] = [];
     const admin = supabaseAdmin({

@@ -1,5 +1,5 @@
 // Server code only. The one Supabase Auth session (ENG-22) lives in httpOnly cookies written by @supabase/ssr.
-// Every Supabase call (email code, MFA, sign-out, refresh) runs on this server, in route handlers and in
+// Every Supabase call (password sign-in and sign-up, MFA, sign-out, refresh) runs on this server, in route handlers and in
 // src/proxy.ts, so page JavaScript never sees the access or refresh token. Env is read per request, so the
 // build needs no Supabase credentials.
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
@@ -129,11 +129,13 @@ export function staffMfaFresh(claims: Partial<Pick<JwtPayload, 'aal' | 'amr' | '
 export function authErrorCode(error: { code?: AuthError['code']; status?: number } | null | undefined): { status: number; error: string } {
   const code = error?.code ?? '';
   switch (code) {
-    case 'otp_expired':
-      return { status: 400, error: 'invalid_code' };
-    case 'over_email_send_rate_limit':
-    case 'over_sms_send_rate_limit':
-      return { status: 429, error: 'too_many_codes' };
+    case 'invalid_credentials':
+      return { status: 400, error: 'invalid_credentials' };
+    case 'weak_password':
+      return { status: 400, error: 'weak_password' };
+    case 'user_already_exists':
+    case 'email_exists':
+      return { status: 409, error: 'email_taken' };
     case 'over_request_rate_limit':
       return { status: 429, error: 'rate_limited' };
     case 'mfa_verification_failed':

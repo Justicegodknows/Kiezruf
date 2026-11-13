@@ -44,7 +44,7 @@ describe('console pages need an aal2 session (src/proxy.ts)', () => {
     expect(location(response)!.searchParams.get('next')).toBe(`/console/reports/${ID}?x=1`);
   });
 
-  it('sends a session at aal1 (email code only, e.g. a citizen) to sign-in', async () => {
+  it('sends a session at aal1 (password only, e.g. a citizen) to sign-in', async () => {
     const response = await proxy(request('/console/queue', 'tok_aal1'));
     expect(location(response)!.pathname).toBe('/console/sign-in');
     expect(location(response)!.searchParams.get('next')).toBe('/console/queue');

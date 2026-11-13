@@ -1,5 +1,5 @@
 // Staff accounts for tests: grant a role directly, then hold a Supabase token with a fresh TOTP check (aal2), as staff
-// get after the email code and their authenticator (ENG-22).
+// get after their password and their authenticator (ENG-22). Their Supabase user is an invited one (ENG-24).
 import { sql } from 'drizzle-orm';
 import type { Db } from '../../src/db/client.js';
 import type { TestApp } from './app.js';
@@ -15,5 +15,5 @@ export async function grantRole(db: Db, email: string, path: string, role: 'plat
 }
 
 export async function staffSignIn(_t: TestApp, email: string): Promise<string> {
-  return accessToken({ email, mfa: true });
+  return accessToken({ email, mfa: true, invited: true });
 }

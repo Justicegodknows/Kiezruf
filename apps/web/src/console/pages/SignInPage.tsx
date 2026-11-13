@@ -1,6 +1,6 @@
 'use client';
 
-// Console sign-in (ENG-22): Supabase email code, then Supabase MFA with an authenticator app (TOTP). The first time,
+// Console sign-in (ENG-22, ENG-24): Supabase email and password, then Supabase MFA with an authenticator app (TOTP). The first time,
 // the server enrols a TOTP factor and the page shows the QR code Supabase returns, with the secret as text for
 // manual entry (and as the QR code's text alternative), then asks for the first code. Afterwards it is challenge
 // and verify. Only an `aal2` session reaches the console; the TOTP check is good for 12 hours. All Supabase calls
@@ -16,7 +16,6 @@ import { fetchStaffSession, STAFF_SESSION_KEY } from '../StaffProvider';
 
 type Step =
   | { kind: 'email' }
-  | { kind: 'code' }
   | { kind: 'totp'; again: boolean }
   | { kind: 'enroll'; qrCode: string | null; secret: string | null };
 
@@ -28,18 +27,18 @@ export function groupSecret(secret: string): string {
 }
 
 export function SignInPage() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const queryClient = useQueryClient();
   const next = safeConsoleNext(params.get('next'));
   const [step, setStep] = useState<Step>({ kind: 'email' });
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const ids = { email: useId(), code: useId(), totp: useId(), error: useId(), secret: useId() };
+  const ids = { email: useId(), password: useId(), totp: useId(), error: useId(), secret: useId() };
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   function fail(code: unknown) {
@@ -95,23 +94,13 @@ export function SignInPage() {
     headingRef.current?.focus();
   }, [step.kind]);
 
-  async function sendCode(event: FormEvent) {
+  async function signIn(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await api('auth/code', { method: 'POST', body: { email: email.trim(), locale } });
+    const result = await api('auth/sign-in', { method: 'POST', body: { email: email.trim(), password } });
     if (!result.ok) return fail(result.error);
-    setBusy(false);
-    setStep({ kind: 'code' });
-  }
-
-  async function verify(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    const result = await api('auth/verify', { method: 'POST', body: { email: email.trim(), code } });
-    if (!result.ok) return fail(result.error);
-    setCode('');
+    setPassword('');
     await startMfa(false);
   }
 
@@ -136,7 +125,7 @@ export function SignInPage() {
 
   function restart() {
     setStep({ kind: 'email' });
-    setCode('');
+    setPassword('');
     setTotp('');
     setError(null);
   }
@@ -170,7 +159,7 @@ export function SignInPage() {
       </div>
 
       {step.kind === 'email' ? (
-        <form onSubmit={sendCode} className="stack">
+        <form onSubmit={signIn} className="stack">
           <div className="field">
             <label htmlFor={ids.email}>{t('console.signin.email')}</label>
             <input
@@ -186,38 +175,24 @@ export function SignInPage() {
               aria-invalid={error ? true : undefined}
             />
           </div>
-          <ErrorText id={ids.error} code={error} />
-          <button type="submit" className="btn primary" disabled={busy || !email.trim()}>
-            {busy ? t('common.sending') : t('signin.sendCode')}
-          </button>
-        </form>
-      ) : null}
-
-      {step.kind === 'code' ? (
-        <form onSubmit={verify} className="stack">
-          <p role="status">{t('signin.codeSent', { email: email.trim() })}</p>
           <div className="field">
-            <label htmlFor={ids.code}>{t('signin.code')}</label>
+            <label htmlFor={ids.password}>{t('signin.password')}</label>
             <input
-              id={ids.code}
-              name="code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="\d{6}"
-              maxLength={6}
+              id={ids.password}
+              type="password"
+              name="password"
+              autoComplete="current-password"
               required
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              maxLength={72}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               aria-describedby={error ? ids.error : undefined}
               aria-invalid={error ? true : undefined}
             />
           </div>
           <ErrorText id={ids.error} code={error} />
-          <button type="submit" className="btn primary" disabled={busy || code.length !== 6}>
+          <button type="submit" className="btn primary" disabled={busy || !email.trim() || !password}>
             {busy ? t('common.sending') : t('console.signin.next')}
-          </button>
-          <button type="button" className="btn ghost" onClick={restart}>
-            {t('signin.otherEmail')}
           </button>
         </form>
       ) : null}

@@ -1,6 +1,6 @@
-// Sign-in sheet (US-01, US-37): email + 6-digit code. It opens the first time someone posts, comments,
-// votes or follows; after the code is confirmed, the action they started completes on its own.
-// The code comes from Supabase Auth (ENG-22): signInWithOtp sends it, verifyOtp exchanges it for a session.
+// Sign-in sheet (US-01, US-37, ENG-24): email and password, or a new account. It opens the first time someone posts,
+// comments, votes or follows; once signed in, the action they started completes on its own.
+// Supabase Auth (ENG-22): signInWithPassword, or signUp (no confirmation email, so it signs in at once).
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -12,6 +12,8 @@ import { useAuth } from './AuthProvider';
 import { supabase } from './supabase';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Supabase's minimum_password_length (supabase/config.toml). */
+const PASSWORD_MIN = 10;
 
 export function SignInSheet() {
   const { sheet } = useAuth();
@@ -24,50 +26,41 @@ type SheetReason = NonNullable<ReturnType<typeof useAuth>['sheet']>;
 function SignInForm({ sheet }: { sheet: SheetReason }) {
   const { t } = useTranslation();
   const { closeSheet, completeSignIn } = useAuth();
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [mode, setMode] = useState<SignInStep>('sign-in');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const creating = mode === 'sign-up';
 
-  const failed = (e: unknown, stepName: SignInStep) => {
-    const reason = signInErrorCode(e, stepName);
+  const failed = (e: unknown) => {
+    const reason = signInErrorCode(e, mode);
     setError(reason === 'email_invalid' ? t('signin.emailInvalid') : t(`errors.${reason}`));
   };
 
-  const sendCode = async () => {
+  const submit = async () => {
     const address = email.trim();
     if (!EMAIL.test(address)) return setError(t('signin.emailInvalid'));
+    if (creating && password.length < PASSWORD_MIN) return setError(t('signin.passwordTooShort'));
+    if (!password) return setError(t('errors.invalid_credentials'));
     setBusy(true);
     setError(null);
     try {
-      // data.locale lands in the new user's metadata, so the email template can pick German or English (US-35).
-      const { error: sendError } = await supabase.auth.signInWithOtp({
-        email: address,
-        options: { shouldCreateUser: true, data: { locale: currentLocale() } },
-      });
-      if (sendError) throw sendError;
-      setStep('code');
-    } catch (e) {
-      failed(e, 'send');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const confirm = async () => {
-    if (!/^\d{6}$/.test(code)) return setError(t('signin.codeInvalid'));
-    setBusy(true);
-    setError(null);
-    try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' });
-      if (verifyError) throw verifyError;
-      if (!data.session) throw new Error('no session');
+      // data.locale lands in the new user's metadata, the language of the account's emails (US-35).
+      const { data, error: authError } = creating
+        ? await supabase.auth.signUp({ email: address, password, options: { data: { locale: currentLocale() } } })
+        : await supabase.auth.signInWithPassword({ email: address, password });
+      if (authError) throw authError;
+      // Without a session the project would be waiting for a confirmation email, which Kiezruf does not use (ENG-24).
+      if (!data.session) {
+        setBusy(false);
+        return setError(t('errors.unknown'));
+      }
       setBusy(false);
       await completeSignIn(data.session);
     } catch (e) {
       setBusy(false);
-      failed(e, 'verify');
+      failed(e);
     }
   };
 
@@ -77,7 +70,7 @@ function SignInForm({ sheet }: { sheet: SheetReason }) {
         <View style={styles.sheet} testID="signin-sheet" accessibilityViewIsModal>
           <View style={styles.header}>
             <Text accessibilityRole="header" style={styles.title} testID="signin-title">
-              {step === 'email' ? t(`signin.title.${sheet}`) : t('signin.codeTitle')}
+              {t(`signin.title.${sheet}`)}
             </Text>
             <Pressable
               testID="signin-close"
@@ -90,64 +83,61 @@ function SignInForm({ sheet }: { sheet: SheetReason }) {
             </Pressable>
           </View>
 
-          {step === 'email' ? (
-            <>
-              <Text style={styles.body}>{t('signin.intro')}</Text>
-              <Text style={styles.label} nativeID="signin-email-label">
-                {t('signin.emailLabel')}
-              </Text>
-              <TextInput
-                testID="signin-identifier"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
-                autoCorrect={false}
-                accessibilityLabel={t('signin.emailLabel')}
-                accessibilityLabelledBy="signin-email-label"
-                style={styles.input}
-                onSubmitEditing={sendCode}
-                returnKeyType="send"
-              />
-              <ErrorText message={error} testID="signin-error" />
-              <Button testID="signin-send" variant="primary" label={t('signin.sendCode')} onPress={sendCode} busy={busy} />
-            </>
-          ) : (
-            <>
-              <Text style={styles.body}>{t('signin.codeSent', { email: email.trim() })}</Text>
-              <Text style={styles.label} nativeID="signin-code-label">
-                {t('signin.codeLabel')}
-              </Text>
-              <TextInput
-                testID="signin-code"
-                value={code}
-                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                textContentType="oneTimeCode"
-                maxLength={6}
-                accessibilityLabel={t('signin.codeLabel')}
-                accessibilityLabelledBy="signin-code-label"
-                style={[styles.input, styles.code]}
-                onSubmitEditing={confirm}
-              />
-              <ErrorText message={error} testID="signin-error" />
-              <Button testID="signin-confirm" variant="primary" label={t(`signin.confirm.${sheet}`)} onPress={confirm} busy={busy} />
-              <View style={styles.links}>
-                <Button variant="ghost" label={t('signin.resend')} onPress={sendCode} disabled={busy} />
-                <Button
-                  variant="ghost"
-                  label={t('signin.changeEmail')}
-                  onPress={() => {
-                    setStep('email');
-                    setError(null);
-                  }}
-                />
-              </View>
-            </>
-          )}
+          <Text style={styles.body}>{t('signin.intro')}</Text>
+          <Text style={styles.label} nativeID="signin-email-label">
+            {t('signin.emailLabel')}
+          </Text>
+          <TextInput
+            testID="signin-identifier"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            textContentType={creating ? 'emailAddress' : 'username'}
+            autoCorrect={false}
+            accessibilityLabel={t('signin.emailLabel')}
+            accessibilityLabelledBy="signin-email-label"
+            style={styles.input}
+            returnKeyType="next"
+          />
+          <Text style={styles.label} nativeID="signin-password-label">
+            {creating ? t('signin.newPasswordLabel') : t('signin.passwordLabel')}
+          </Text>
+          <TextInput
+            testID="signin-password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete={creating ? 'new-password' : 'current-password'}
+            textContentType={creating ? 'newPassword' : 'password'}
+            maxLength={72}
+            accessibilityLabel={creating ? t('signin.newPasswordLabel') : t('signin.passwordLabel')}
+            accessibilityLabelledBy="signin-password-label"
+            style={styles.input}
+            onSubmitEditing={submit}
+            returnKeyType="go"
+          />
+          <ErrorText message={error} testID="signin-error" />
+          <Button
+            testID="signin-submit"
+            variant="primary"
+            label={creating ? t('signin.create') : t('signin.submit')}
+            onPress={submit}
+            busy={busy}
+          />
+          <Button
+            testID="signin-switch"
+            variant="ghost"
+            label={creating ? t('signin.toSignIn') : t('signin.toCreate')}
+            onPress={() => {
+              setMode(creating ? 'sign-in' : 'sign-up');
+              setError(null);
+            }}
+            disabled={busy}
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -178,6 +168,4 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: colors.text,
   },
-  code: { letterSpacing: 8, fontSize: 22 },
-  links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 });

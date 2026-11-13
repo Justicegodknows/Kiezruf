@@ -362,14 +362,14 @@ describe('citizen web: report card (US-15, US-24)', () => {
 });
 
 describe('citizen web: Me too button (US-18)', () => {
-  it('opens sign-in for a guest and completes the vote after sign-in (US-01)', async () => {
+  it('opens sign-in for a guest, creates an account and completes the vote (US-01)', async () => {
     let signedIn = false;
     const calls = mockFetch(({ method, path }) => {
       if (path === '/api/session') return { body: signedIn ? { signedIn: true, email: 'a@example.org' } : { signedIn: false } };
-      if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/auth/verify') {
+      if (method === 'POST' && path === '/api/auth/sign-in') return { status: 400, body: { error: 'invalid_credentials' } };
+      if (method === 'POST' && path === '/api/auth/sign-up') {
         signedIn = true;
-        return { body: { signedIn: true, aal: 'aal1' } };
+        return { status: 201, body: { signedIn: true, aal: 'aal1' } };
       }
       if (method === 'PUT' && path === '/api/reports/BE-NK-2026-0112/me-too') return { body: { voted: true, meTooCount: 21 } };
       return undefined;
@@ -381,21 +381,24 @@ describe('citizen web: Me too button (US-18)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Ich auch/ }));
 
     const dialog = await screen.findByRole('dialog', { name: de['signin.title'] });
+    // A wrong password first: the error shows and the dialog stays.
     fireEvent.change(within(dialog).getByLabelText(de['signin.email']), { target: { value: 'a@example.org' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: de['signin.sendCode'] }));
-    const codeField = await within(dialog).findByLabelText(de['signin.code']);
-    // Focus moves into the code step (WCAG 2.4.3).
-    await waitFor(() => expect(codeField).toHaveFocus());
-    fireEvent.change(codeField, { target: { value: '123456' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: de['signin.verify'] }));
+    fireEvent.change(within(dialog).getByLabelText(de['signin.password']), { target: { value: 'not my password' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: de['signin.submit'] }));
+    expect(await within(dialog).findByText(de['error.invalid_credentials'])).toBeInTheDocument();
+
+    // Then a new account. Focus moves back to the email field (WCAG 2.4.3).
+    fireEvent.click(within(dialog).getByRole('button', { name: de['signin.toCreate'] }));
+    await waitFor(() => expect(within(dialog).getByLabelText(de['signin.email'])).toHaveFocus());
+    fireEvent.change(within(dialog).getByLabelText(de['signin.newPassword']), { target: { value: 'correct horse battery' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: de['signin.createSubmit'] }));
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith({ voted: true, meTooCount: 21 }));
-    // Supabase verifyOtp runs behind /api/auth/verify; the browser sends only the address and the code.
-    expect(calls.find((c) => c.path === '/api/auth/verify')?.body).toEqual({ email: 'a@example.org', code: '123456' });
+    // signUp runs behind /api/auth/sign-up, with the page's language for the new account.
+    expect(calls.find((c) => c.path === '/api/auth/sign-up')?.body).toEqual({ email: 'a@example.org', password: 'correct horse battery', locale: 'de' });
+    expect(calls.find((c) => c.path === '/api/auth/sign-in')?.body).toEqual({ email: 'a@example.org', password: 'not my password' });
     const vote = calls.find((c) => c.method === 'PUT');
     expect(vote?.body).toEqual({ lat: 52.4811, lon: 13.4353, accuracyM: 12 });
-    // The code request asks for German mail, the language of the page.
-    expect(calls.find((c) => c.path === '/api/auth/code')?.body).toEqual({ email: 'a@example.org', locale: 'de' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

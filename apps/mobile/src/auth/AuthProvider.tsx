@@ -30,7 +30,7 @@ interface AuthContextValue {
   sheet: SignInVerb | null;
   pushStatus: PushStatus | null;
   requireSignIn: (verb: SignInVerb, action?: () => unknown) => void;
-  /** Called by the sign-in sheet with the session verifyOtp returned. */
+  /** Called by the sign-in sheet with the session signInWithPassword or signUp returned. */
   completeSignIn: (session: Session) => Promise<void>;
   closeSheet: () => void;
   /** Removes the push token from the API, then ends the Supabase session. */

@@ -369,17 +369,22 @@ function StaffSection({ tenant, roles, manage }: { tenant: StaffTenant; roles: S
   const [role, setRole] = useState<StaffRole | ''>(roles.includes('case_worker') ? 'case_worker' : (roles[0] ?? ''));
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  // An invited person's first password (ENG-24): from the API's answer, shown once, never stored.
+  const [firstPassword, setFirstPassword] = useState<{ email: string; password: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function invite(event: FormEvent) {
     event.preventDefault();
     setSent(false);
+    setFirstPassword(null);
     if (!email.trim() || !role) return setError('invalid_request');
     setBusy(true);
     setError(null);
-    const result = await call(`staff/tenants/${tenant.id}/staff`, { method: 'POST', body: { email: email.trim(), role } });
+    const result = await call<{ temporaryPassword?: unknown }>(`staff/tenants/${tenant.id}/staff`, { method: 'POST', body: { email: email.trim(), role } });
     setBusy(false);
     if (!result.ok) return setError(String(result.error));
+    const password = result.data?.temporaryPassword;
+    if (typeof password === 'string') setFirstPassword({ email: email.trim(), password });
     setEmail('');
     setSent(true);
     await refresh();
@@ -434,9 +439,17 @@ function StaffSection({ tenant, roles, manage }: { tenant: StaffTenant; roles: S
           </button>
           <ErrorText id={ids.error} code={error} />
           {sent ? (
-            <p role="status" className="success">
-              {t('console.staff.invited')}
-            </p>
+            <div role="status" className="stack-sm">
+              <p className="success">{t('console.staff.invited')}</p>
+              {firstPassword ? (
+                <p>
+                  {t('console.staff.temporaryPassword', { email: firstPassword.email })}{' '}
+                  <code className="secret" data-testid="first-password">
+                    {firstPassword.password}
+                  </code>
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </form>
       ) : null}

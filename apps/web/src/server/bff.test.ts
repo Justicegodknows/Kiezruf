@@ -185,6 +185,7 @@ describe('BFF proxy: allowlist and request checks', () => {
     for (const [method, path] of [
       ['POST', '/api/auth/verify'],
       ['POST', '/api/auth/code'],
+      ['POST', '/api/auth/sign-in'],
       ['POST', '/api/staff/auth/verify'],
       ['POST', '/api/staff/auth/totp'],
       ['POST', '/api/staff/auth/logout'],

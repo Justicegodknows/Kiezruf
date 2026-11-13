@@ -15,6 +15,8 @@ export interface TokenOptions {
   email: string;
   /** aal2 with a TOTP check `mfaAgeSeconds` ago: a staff session. */
   mfa?: boolean;
+  /** A user the API created for a staff invitation (`app_metadata.kiezruf_invited`, ENG-24). */
+  invited?: boolean;
   mfaAgeSeconds?: number;
   expiresInSeconds?: number;
   secret?: string;
@@ -23,7 +25,7 @@ export interface TokenOptions {
 
 export function accessToken(o: TokenOptions): string {
   const now = Math.floor(Date.now() / 1000);
-  const amr = [{ method: 'otp', timestamp: now - 60 }];
+  const amr = [{ method: 'password', timestamp: now - 60 }];
   if (o.mfa) amr.push({ method: 'totp', timestamp: now - (o.mfaAgeSeconds ?? 30) });
   const payload = {
     iss: `${TEST_SUPABASE_URL}/auth/v1`,
@@ -33,6 +35,7 @@ export function accessToken(o: TokenOptions): string {
     email: o.email,
     aal: o.mfa ? 'aal2' : 'aal1',
     amr,
+    app_metadata: { provider: 'email', providers: ['email'], ...(o.invited ? { kiezruf_invited: true } : {}) },
     iat: now,
     exp: now + (o.expiresInSeconds ?? 3600),
     ...o.overrides,

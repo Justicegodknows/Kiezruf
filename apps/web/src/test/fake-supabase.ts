@@ -37,10 +37,13 @@ export const fake = {
   /** Expired tokens and the token a refresh turns them into. */
   refresh: {} as Record<string, string>,
   factors: [] as FakeFactor[],
-  /** The email code verifyOtp accepts, and the TOTP code mfa.verify accepts. */
-  emailCode: '123456',
+  /** The password signInWithPassword accepts, the addresses signUp treats as taken, and the TOTP code mfa.verify accepts. */
+  password: 'correct horse battery',
+  existingEmails: ['taken@example.org'] as string[],
+  /** True: signUp answers without a session, as a project that sends confirmation emails does. */
+  confirmations: false,
   totpCode: '654321',
-  /** Errors to return instead, by method name (e.g. `signInWithOtp`). */
+  /** Errors to return instead, by method name (e.g. `signInWithPassword`). */
   errors: {} as Record<string, Err>,
   /** Every Supabase call, with its arguments. */
   calls: [] as { method: string; args: unknown }[],
@@ -51,6 +54,8 @@ export const fake = {
     this.refresh = {};
     this.factors = [];
     this.errors = {};
+    this.existingEmails = ['taken@example.org'];
+    this.confirmations = false;
     this.calls = [];
     this.created = [];
   },
@@ -98,14 +103,18 @@ function createServerClient(url: string, key: string, options: Options) {
         const amr = [{ method: 'otp', timestamp: 1 }, ...(info.totpAt ? [{ method: 'totp', timestamp: info.totpAt }] : [])];
         return { data: { claims: { aal: info.aal, amr, iat: Math.floor(Date.now() / 1000) } }, error: null };
       }),
-      signInWithOtp: vi.fn(async (args: unknown) => {
-        record('signInWithOtp', args);
-        return { data: {}, error: failure('signInWithOtp') };
+      signUp: vi.fn(async (args: { email: string; password: string; options?: unknown }) => {
+        record('signUp', args);
+        if (failure('signUp')) return { data: { session: null, user: null }, error: failure('signUp') };
+        if (fake.existingEmails.includes(args.email)) return { data: { session: null, user: null }, error: { code: 'user_already_exists', status: 422 } };
+        if (fake.confirmations) return { data: { session: null, user: { email: args.email } }, error: null };
+        signIn('tok_aal1_fresh_session_token', { aal: 'aal1', email: args.email });
+        return { data: { session: { access_token: 'tok_aal1_fresh_session_token' }, user: { email: args.email } }, error: null };
       }),
-      verifyOtp: vi.fn(async (args: { email: string; token: string; type: string }) => {
-        record('verifyOtp', args);
-        if (failure('verifyOtp') || args.token !== fake.emailCode) {
-          return { data: { session: null, user: null }, error: failure('verifyOtp') ?? { code: 'otp_expired', status: 403 } };
+      signInWithPassword: vi.fn(async (args: { email: string; password: string }) => {
+        record('signInWithPassword', args);
+        if (failure('signInWithPassword') || args.password !== fake.password) {
+          return { data: { session: null, user: null }, error: failure('signInWithPassword') ?? { code: 'invalid_credentials', status: 400 } };
         }
         signIn('tok_aal1_fresh_session_token', { aal: 'aal1', email: args.email });
         return { data: { session: { access_token: 'tok_aal1_fresh_session_token' }, user: { email: args.email } }, error: null };

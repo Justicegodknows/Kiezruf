@@ -86,20 +86,21 @@ describe('chunked secure storage', () => {
 
 describe('Supabase auth errors', () => {
   test.each([
-    [new AuthApiError('Token has expired or is invalid', 403, 'otp_expired'), 'verify', 'invalid_code'],
-    [new AuthApiError('bad', 400, undefined), 'verify', 'invalid_code'],
-    [new AuthApiError('email rate limit exceeded', 429, 'over_email_send_rate_limit'), 'send', 'too_many_codes'],
-    [new AuthApiError('Request rate limit reached', 429, 'over_request_rate_limit'), 'verify', 'too_many_attempts'],
-    [new AuthApiError('invalid', 400, 'email_address_invalid'), 'send', 'email_invalid'],
-    [new AuthRetryableFetchError('Failed to fetch', 0), 'send', 'network'],
-    [new AuthApiError('boom', 500, 'unexpected_failure'), 'send', 'unknown'],
-    [new Error('not an auth error'), 'verify', 'unknown'],
+    [new AuthApiError('Invalid login credentials', 400, 'invalid_credentials'), 'sign-in', 'invalid_credentials'],
+    [new AuthApiError('bad', 400, undefined), 'sign-in', 'invalid_credentials'],
+    [new AuthApiError('User already registered', 422, 'user_already_exists'), 'sign-up', 'email_taken'],
+    [new AuthApiError('Password should be at least 10 characters', 422, 'weak_password'), 'sign-up', 'weak_password'],
+    [new AuthApiError('Request rate limit reached', 429, 'over_request_rate_limit'), 'sign-in', 'too_many_attempts'],
+    [new AuthApiError('invalid', 400, 'email_address_invalid'), 'sign-up', 'email_invalid'],
+    [new AuthRetryableFetchError('Failed to fetch', 0), 'sign-up', 'network'],
+    [new AuthApiError('boom', 500, 'unexpected_failure'), 'sign-up', 'unknown'],
+    [new Error('not an auth error'), 'sign-in', 'unknown'],
   ] as const)('%s on %s → %s', (error, step, code) => {
     expect(signInErrorCode(error, step)).toBe(code);
   });
 
   test('every code the sheet can show has German and English text', () => {
-    for (const code of ['invalid_code', 'too_many_codes', 'too_many_attempts', 'network', 'unknown', 'invalid_request'] as const) {
+    for (const code of ['invalid_credentials', 'weak_password', 'email_taken', 'too_many_attempts', 'network', 'unknown', 'invalid_request'] as const) {
       expect(de.errors[code]).toBeTruthy();
       expect(en.errors[code]).not.toBe(de.errors[code]);
     }

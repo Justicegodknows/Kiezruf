@@ -5,9 +5,10 @@ import type { MessageKey } from '@/i18n';
 export const API_ERROR_CODES = [
   'unauthorized',
   'invalid_request',
-  'invalid_code',
+  'invalid_credentials',
+  'weak_password',
+  'email_taken',
   'too_many_attempts',
-  'too_many_codes',
   'not_found',
   'not_live',
   'no_metadata',

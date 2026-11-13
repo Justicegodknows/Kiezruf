@@ -1,7 +1,7 @@
 // In-memory stand-in for src/auth/supabase.ts in jest (jest.setup.ts). No network, no storage.
-// verifyOtp accepts any code and signs in with the access token "fresh-token"; tests override single calls
-// with mockResolvedValueOnce. Auth events are delivered like supabase-js does: INITIAL_SESSION after subscribing,
-// SIGNED_IN after verifyOtp, SIGNED_OUT after signOut.
+// signInWithPassword and signUp accept any address and password and sign in with the access token "fresh-token";
+// tests override single calls with mockResolvedValueOnce. Auth events are delivered like supabase-js does:
+// INITIAL_SESSION after subscribing, SIGNED_IN after signing in or up, SIGNED_OUT after signOut.
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 type Listener = (event: AuthChangeEvent, session: Session | null) => void;
@@ -25,14 +25,15 @@ function emit(event: AuthChangeEvent) {
 }
 
 const auth = {
-  signInWithOtp: jest.fn(async (_credentials: { email: string; options?: object }) => ({
-    data: { user: null, session: null },
-    error: null as unknown,
-  })),
-  verifyOtp: jest.fn(async (params: { email: string; token: string; type: 'email' }) => {
-    session = fakeSession('fresh-token', params.email);
+  signInWithPassword: jest.fn(async (credentials: { email: string; password: string }) => {
+    session = fakeSession('fresh-token', credentials.email);
     emit('SIGNED_IN');
-    return { data: { user: session.user, session }, error: null as unknown };
+    return { data: { user: session.user, session } as { user: Session['user'] | null; session: Session | null }, error: null as unknown };
+  }),
+  signUp: jest.fn(async (credentials: { email: string; password: string; options?: object }) => {
+    session = fakeSession('fresh-token', credentials.email);
+    emit('SIGNED_IN');
+    return { data: { user: session.user, session } as { user: Session['user'] | null; session: Session | null }, error: null as unknown };
   }),
   signOut: jest.fn(async (_options?: { scope?: 'global' | 'local' | 'others' }) => {
     session = null;

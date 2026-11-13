@@ -135,7 +135,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
+describe('console sign-in: Supabase email and password, then TOTP (ENG-22, ENG-24)', () => {
   // What Supabase returns from mfa.enroll, re-encoded by the server as base64 (src/server/auth-handlers.ts).
   const QR = 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=';
 
@@ -145,8 +145,7 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     let signedIn = false;
     const calls = mockFetch(({ method, path }) => {
       if (path === '/api/staff/session') return { body: signedIn ? { signedIn: true, me: me('case_worker', NK) } : { signedIn: false } };
-      if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/auth/verify') return { body: { signedIn: true, aal: 'aal1' } };
+      if (method === 'POST' && path === '/api/auth/sign-in') return { body: { signedIn: true, aal: 'aal1' } };
       if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'enroll', qrCode: QR, secret: 'JBSWY3DPEHPK3PXP' } };
       if (method === 'POST' && path === '/api/auth/mfa/verify') {
         signedIn = true;
@@ -157,8 +156,7 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     renderConsole(<SignInPage />, { gated: false });
 
     fireEvent.change(screen.getByLabelText(de['console.signin.email']), { target: { value: 'me@bezirksamt.berlin.de' } });
-    fireEvent.click(screen.getByRole('button', { name: de['signin.sendCode'] }));
-    fireEvent.change(await screen.findByLabelText(de['signin.code']), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText(de['signin.password']), { target: { value: 'correct horse battery' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
 
     expect(await screen.findByRole('heading', { name: de['console.signin.enrollTitle'] })).toHaveFocus();
@@ -173,8 +171,7 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.enrollSubmit'] }));
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(`/console/reports/${ID}`));
 
-    expect(calls.find((c) => c.path === '/api/auth/code')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', locale: 'de' });
-    expect(calls.find((c) => c.path === '/api/auth/verify')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', code: '123456' });
+    expect(calls.find((c) => c.path === '/api/auth/sign-in')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', password: 'correct horse battery' });
     // Only the authenticator code: the factor and challenge stay on the server.
     expect(calls.find((c) => c.path === '/api/auth/mfa/verify')?.body).toEqual({ code: '654321' });
     expect(calls.map((c) => c.path)).not.toContain('/api/staff/auth/verify');
@@ -184,16 +181,14 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     window.history.replaceState(null, '', '/console/sign-in');
     mockFetch(({ method, path }) => {
       if (path === '/api/staff/session') return { body: { signedIn: false } };
-      if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/auth/verify') return { body: { signedIn: true, aal: 'aal1' } };
+      if (method === 'POST' && path === '/api/auth/sign-in') return { body: { signedIn: true, aal: 'aal1' } };
       if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'totp' } };
       if (method === 'POST' && path === '/api/auth/mfa/verify') return { status: 400, body: { error: 'invalid_totp' } };
       return undefined;
     });
     renderConsole(<SignInPage />, { gated: false });
     fireEvent.change(screen.getByLabelText(de['console.signin.email']), { target: { value: 'me@bezirksamt.berlin.de' } });
-    fireEvent.click(screen.getByRole('button', { name: de['signin.sendCode'] }));
-    fireEvent.change(await screen.findByLabelText(de['signin.code']), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText(de['signin.password']), { target: { value: 'correct horse battery' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
     fireEvent.change(await screen.findByLabelText(de['console.signin.totp']), { target: { value: '000000' } });
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -203,20 +198,18 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     expect(nav.replace).not.toHaveBeenCalled();
   });
 
-  it('shows a wrong or expired email code translated', async () => {
+  it('shows a wrong email or password translated', async () => {
     window.history.replaceState(null, '', '/console/sign-in');
     mockFetch(({ method, path }) => {
       if (path === '/api/staff/session') return { body: { signedIn: false } };
-      if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/auth/verify') return { status: 400, body: { error: 'invalid_code' } };
+      if (method === 'POST' && path === '/api/auth/sign-in') return { status: 400, body: { error: 'invalid_credentials' } };
       return undefined;
     });
     renderConsole(<SignInPage />, { gated: false });
     fireEvent.change(screen.getByLabelText(de['console.signin.email']), { target: { value: 'me@bezirksamt.berlin.de' } });
-    fireEvent.click(screen.getByRole('button', { name: de['signin.sendCode'] }));
-    fireEvent.change(await screen.findByLabelText(de['signin.code']), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText(de['signin.password']), { target: { value: 'correct horse battery' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(de['error.invalid_code']);
+    expect(await screen.findByRole('alert')).toHaveTextContent(de['error.invalid_credentials']);
   });
 
   it('goes straight to the TOTP step when the session exists but its TOTP check is missing or too old', async () => {
@@ -236,7 +229,7 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     fireEvent.change(screen.getByLabelText(de['console.signin.totp']), { target: { value: '654321' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/console'));
-    expect(calls.some((c) => c.path === '/api/auth/code')).toBe(false);
+    expect(calls.some((c) => c.path === '/api/auth/sign-in')).toBe(false);
   });
 
   it('tells an account without a staff role that it has no console access', async () => {
@@ -245,8 +238,7 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     mockFetch(({ method, path }) => {
       // GET /staff/me answers 403 not_staff once the session is at aal2.
       if (path === '/api/staff/session') return { body: aal2 ? { signedIn: false, reason: 'not_staff' } : { signedIn: false } };
-      if (method === 'POST' && path === '/api/auth/code') return { status: 202, body: { sent: true } };
-      if (method === 'POST' && path === '/api/auth/verify') return { body: { signedIn: true, aal: 'aal1' } };
+      if (method === 'POST' && path === '/api/auth/sign-in') return { body: { signedIn: true, aal: 'aal1' } };
       if (method === 'POST' && path === '/api/auth/mfa') return { body: { next: 'totp' } };
       if (method === 'POST' && path === '/api/auth/mfa/verify') {
         aal2 = true;
@@ -256,8 +248,7 @@ describe('console sign-in: Supabase email code, then TOTP (ENG-22)', () => {
     });
     renderConsole(<SignInPage />, { gated: false });
     fireEvent.change(screen.getByLabelText(de['console.signin.email']), { target: { value: 'a@example.org' } });
-    fireEvent.click(screen.getByRole('button', { name: de['signin.sendCode'] }));
-    fireEvent.change(await screen.findByLabelText(de['signin.code']), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText(de['signin.password']), { target: { value: 'correct horse battery' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.next'] }));
     fireEvent.change(await screen.findByLabelText(de['console.signin.totp']), { target: { value: '654321' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
@@ -525,7 +516,7 @@ describe('console: tenants & roles (US-40, US-42, US-46)', () => {
       if (path === '/api/staff/tenants') return { body: { tenants: role === 'platform_admin' ? TENANTS : TENANTS.filter((t) => t.path.startsWith(scope.path)) } };
       if (path.endsWith('/contacts') && method === 'GET') return { body: { contacts: [{ id: 'c1', name: 'Verkehrslenkung Berlin', email: 'vlb@berlin.de' }] } };
       if (path.endsWith('/staff') && method === 'GET') return { body: { staff: [{ accountId: 'acc-me', email: 'me@bezirksamt.berlin.de', role }] } };
-      if (method === 'POST' && path.endsWith('/staff')) return { status: 201, body: {} };
+      if (method === 'POST' && path.endsWith('/staff')) return { status: 201, body: { accountId: 'acc-new', role: 'case_worker', temporaryPassword: 'Tmp-Pass_1234567' } };
       if (method === 'PUT' && path.endsWith('/settings')) return { body: {} };
       return undefined;
     });
@@ -553,6 +544,10 @@ describe('console: tenants & roles (US-40, US-42, US-46)', () => {
     fireEvent.change(screen.getByLabelText(de['console.staff.email']), { target: { value: 'new@bezirksamt.berlin.de' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.staff.invite'] }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ email: 'new@bezirksamt.berlin.de', role: 'case_worker' }));
+    // The invited person's first password is shown once to the admin (ENG-24).
+    const shown = await screen.findByTestId('first-password');
+    expect(shown).toHaveTextContent('Tmp-Pass_1234567');
+    expect(shown.closest('[role="status"]')).toHaveTextContent('new@bezirksamt.berlin.de');
   });
 
   it('lets a platform admin activate a node', async () => {

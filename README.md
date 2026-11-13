@@ -22,7 +22,7 @@ pnpm db:up            # MinIO (S3 photos) and Mailpit (app emails) in Docker
 cp .env.example .env  # the API, worker, migrations and seed read it; check the Supabase values against `supabase start`
 pnpm --filter api db:migrate   # applies the SQL migrations in apps/api/drizzle to the Supabase database
 pnpm --filter api db:seed      # loads the tenant tree: Berlin and its 12 Bezirke
-pnpm --filter api staff:grant you@example.org de platform_admin   # first console user
+pnpm --filter api staff:grant you@example.org de platform_admin   # first console user; prints a temporary password
 pnpm --filter api db:seed:demo   # optional: demo citizens, reports with photos, comments, votes and demo staff
 # MinIO: create the buckets photos-private and photos-public once in the console (http://localhost:9001)
 pnpm dev:api          # http://localhost:4000/health
@@ -31,14 +31,14 @@ pnpm dev:web          # http://localhost:3000 (copy apps/web/.env.example to app
 pnpm dev:mobile       # Expo dev server (EXPO_PUBLIC_SUPABASE_* and EXPO_PUBLIC_API_BASE_URL)
 ```
 
-Demo data (`db:seed:demo`) follows the product plan's sample reports: 14 reports in Neukölln and Spandau with drawn photos, comments, Me too votes, co-reporters, status history, a forwarded report, a vote spike, a held and a flagged comment, a recurring hotspot and this week's briefing. All demo accounts use the domain `kiezruf-demo.invalid`, which can receive no mail. Demo staff: `fallbearbeitung.neukoelln@`, `admin.neukoelln@`, `admin.spandau@`, `senatsverwaltung@` (Berlin viewer) and `plattform@` (platform admin); sign in with Supabase and read the code in the local mail catcher. `--reset` replaces the demo data, `--remove` deletes it; real accounts and reports are not touched. It refuses `NODE_ENV=production` and needs `--yes` for a database that is not on this machine (staging).
+Demo data (`db:seed:demo`) follows the product plan's sample reports: 14 reports in Neukölln and Spandau with drawn photos, comments, Me too votes, co-reporters, status history, a forwarded report, a vote spike, a held and a flagged comment, a recurring hotspot and this week's briefing. All demo accounts use the domain `kiezruf-demo.invalid`, which can receive no mail. Demo staff: `fallbearbeitung.neukoelln@`, `admin.neukoelln@`, `admin.spandau@`, `senatsverwaltung@` (Berlin viewer) and `plattform@` (platform admin); to sign in as one, run `staff:grant` for that address and role, which creates its Supabase user and prints a temporary password (ENG-24). `--reset` replaces the demo data, `--remove` deletes it; real accounts and reports are not touched. It refuses `NODE_ENV=production` and needs `--yes` for a database that is not on this machine (staging).
 
-Sign-in codes arrive in Supabase's local mail catcher (http://127.0.0.1:54324); app emails (notifications, briefings) in Mailpit (http://localhost:8025). MinIO console: http://localhost:9001. The compose file still starts the plain PostgreSQL image (`infra/postgres`) if you want to run the API without Supabase; sign-in then needs a Supabase project anyway.
+Sign-in is email and password and sends no mail (ENG-24); app emails (notifications, briefings) in Mailpit (http://localhost:8025). MinIO console: http://localhost:9001. The compose file still starts the plain PostgreSQL image (`infra/postgres`) if you want to run the API without Supabase; sign-in then needs a Supabase project anyway.
 
 ### Deployment
 
 - **Web (Vercel):** project root `apps/web`, region `fra1` (`apps/web/vercel.json`). Env: `API_BASE_URL` (the API on vlincta.com), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_MAP_STYLE_URL`.
-- **Supabase (EU, Frankfurt):** run the migrations against its database (`DATABASE_URL`, direct or session pooler on 5432), then the seed and `staff:grant`. In the dashboard: email OTP with 6 digits, the template in `supabase/templates/code.html`, MFA TOTP on, and no exposed schema of ours in the Data API.
+- **Supabase (EU, Frankfurt):** run the migrations against its database (`DATABASE_URL`, direct or session pooler on 5432), then the seed and `staff:grant`. Project settings come from `supabase/config.toml` with `npx supabase@3.1.0 config push --remote=<project-ref>` (`[remotes.production]`): email and password sign-up without confirmation, passwords of at least 10 characters, MFA TOTP on, and no exposed schema of ours in the Data API.
 - **API and worker (vlincta.com):** `pnpm --filter api build`, then `node dist/server.js` and the worker; env as in `.env.example`, with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `TRUST_PROXY` set to Vercel's egress or the proxy in front of the API.
 
 ## Tests
@@ -77,7 +77,7 @@ How the suites map to the plan:
 | API and worker (`apps/api`) | vlincta.com |
 | Photos | S3-compatible storage (MinIO locally) |
 
-Sign-in is Supabase Auth. Clients sign in with `supabase.auth.signInWithOtp({ email })` and `verifyOtp({ email, token, type: 'email' })` (6-digit code), then call the API with `Authorization: Bearer <access_token>`; supabase-js refreshes it. The API verifies the token (Supabase JWT signing keys, or `SUPABASE_JWT_SECRET` for HS256 projects) and links it to an `account` row on first use: by Supabase user id, or by the verified email for staff who were invited before they first signed in. Signing out is `supabase.auth.signOut()`.
+Sign-in is Supabase Auth with email and password (ENG-24). Citizens create an account with `supabase.auth.signUp({ email, password })` (no confirmation email, so it signs in at once) and later use `signInWithPassword({ email, password })`; then they call the API with `Authorization: Bearer <access_token>`; supabase-js refreshes it. The web app does both on its server (`POST /api/auth/sign-up`, `POST /api/auth/sign-in`). The API verifies the token (Supabase JWT signing keys, or `SUPABASE_JWT_SECRET` for HS256 projects) and links it to an `account` row on first use: by Supabase user id; or, for a user the API itself created for a staff invitation (`app_metadata.kiezruf_invited`), by its email. Because sign-up proves no email ownership, a self-registered user never takes over an existing account: if its address is already held by an unlinked account, the API answers `409 email_taken`. Signing out is `supabase.auth.signOut()`. There is no password reset by email yet.
 
 Staff also need Supabase MFA (TOTP): `mfa.enroll({ factorType: 'totp' })` the first time (show `totp.qr_code`), then `mfa.challenge` + `mfa.verify`. Staff routes accept only tokens at `aal2` whose TOTP check is at most 12 hours old; otherwise they answer `401 mfa_required`.
 
@@ -112,7 +112,7 @@ Status changes and go-live are sent by the worker (`pnpm --filter api worker`). 
 
 ## API (admin console, Phase 2)
 
-Staff sign in with Supabase: email code, then TOTP (`aal2`, at most 12 hours old). Every `/staff/*` route runs inside the caller's tenant subtree (US-42): a report outside it answers `404`, never `403`. Viewers read; case workers and tenant admins change reports of the tenant that owns them (ENG-05). Score and level appear only here (US-24).
+Staff sign in with Supabase: email and password, then TOTP (`aal2`, at most 12 hours old). Every `/staff/*` route runs inside the caller's tenant subtree (US-42): a report outside it answers `404`, never `403`. Viewers read; case workers and tenant admins change reports of the tenant that owns them (ENG-05). Score and level appear only here (US-24).
 
 | Endpoint | What |
 | --- | --- |
@@ -128,12 +128,12 @@ Staff sign in with Supabase: email code, then TOTP (`aal2`, at most 12 hours old
 | `PATCH /staff/comments/:id` `{ state: "visible" \| "removed", reason }` · `POST /staff/accounts/:id/ban` `{ reason }` | Restore or remove a comment; ban an account (tenant admins) |
 | `GET /staff/tenants` · `PATCH /staff/tenants/:id` `{ status }` · `PUT /staff/tenants/:id/settings` `{ thresholds: { critical, high, medium }, office }` | Tenant tree in scope; activate a node (platform admin); thresholds and office name (tenant admin) (US-40, US-46) |
 | `GET` / `POST /staff/tenants/:id/contacts` · `DELETE /staff/tenants/:id/contacts/:contactId` | External contacts for forwarding `{ name, email }` |
-| `GET` / `POST /staff/tenants/:id/staff` · `DELETE /staff/tenants/:id/staff/:accountId` | Staff and roles at a node; inviting `{ email, role }` mails a console link (US-42, US-46) |
+| `GET` / `POST /staff/tenants/:id/staff` · `DELETE /staff/tenants/:id/staff/:accountId` | Staff and roles at a node (US-42, US-46). Inviting `{ email, role }` creates the person's Supabase user and answers `201 { accountId, role, temporaryPassword }`, the first password shown once to the inviting admin; someone who is already staff just gets the role (no password). `409 email_taken` when a self-registered account holds the address (ENG-24). Also mails a console link, without the password |
 | `GET /forwarded/:token` | The report behind a forward link, without login; `410 link_expired` after 90 days (US-45) |
 
 More error codes: `not_staff`, `mfa_required`, `read_only`, `invalid_transition`, `reason_required`, `not_same_tenant`, `invalid_target`, `link_expired`, `forbidden_role`.
 
-Citizen payloads gain `publicNote` on report detail (US-28). The first platform admin is created with `pnpm --filter api staff:grant <email> <tenant-path> platform_admin`.
+Citizen payloads gain `publicNote` on report detail (US-28). The first platform admin is created with `pnpm --filter api staff:grant <email> <tenant-path> platform_admin`, which also creates their Supabase user and prints a temporary password (needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`).
 
 ## API (analysis and AI, Phase 3)
 

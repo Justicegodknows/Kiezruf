@@ -18,14 +18,14 @@ export async function tenantPath(world: KiezrufWorld, name: string, pick: 'deepe
   return row.path;
 }
 
-/** A new staff account with one role, signed in through email code and TOTP. Returns the staff session token. */
+/** A new staff account with one role, signed in through password and TOTP. Returns the staff session token. */
 export async function signInNewStaff(world: KiezrufWorld, path: string, role: string): Promise<string> {
   const email = uniqueEmail('feature-staff');
   await world.db.execute(sql`
     WITH a AS (INSERT INTO account (email) VALUES (${email}) RETURNING id)
     INSERT INTO staff_role (account_id, tenant_id, role) SELECT a.id, t.id, ${role}::staff_role_kind FROM a, tenant t WHERE t.path = ${path}::ltree`);
-  // A Supabase session after the email code and the authenticator (aal2), as staff get it (ENG-22).
-  return accessToken({ email, mfa: true });
+  // A Supabase session after the password and the authenticator (aal2), with the invited user the API created (ENG-24).
+  return accessToken({ email, mfa: true, invited: true });
 }
 
 export async function citizenToken(world: KiezrufWorld): Promise<string> {

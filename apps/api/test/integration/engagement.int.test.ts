@@ -26,7 +26,7 @@ const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 beforeAll(async () => {
   db = await createMigratedDatabase('engagement', { seed: true });
   t = await buildTestApp(db, {
-    supabaseAdmin: { deleteUser: async (id) => void deletedUsers.push(id), banUser: async () => {} },
+    supabaseAdmin: { createInvitedUser: async () => null, deleteUser: async (id) => void deletedUsers.push(id), banUser: async () => {} },
   });
 });
 afterAll(async () => {

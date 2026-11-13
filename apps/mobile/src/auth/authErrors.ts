@@ -2,7 +2,7 @@
 import { isAuthError } from '@supabase/supabase-js';
 import type { ErrorCode } from '../api/errors';
 
-export type SignInStep = 'send' | 'verify';
+export type SignInStep = 'sign-in' | 'sign-up';
 
 /** 'email_invalid' is shown with signin.emailInvalid; everything else with errors.<code>. */
 export type SignInErrorCode = ErrorCode | 'email_invalid';
@@ -14,11 +14,11 @@ export function signInErrorCode(error: unknown, step: SignInStep): SignInErrorCo
   // AuthRetryableFetchError: no answer from Supabase (offline, timeout, 5xx gateway).
   if (error.name === 'AuthRetryableFetchError' || status === 0) return 'network';
   if (code === 'email_address_invalid') return 'email_invalid';
-  if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || status === 429) {
-    return step === 'send' ? 'too_many_codes' : 'too_many_attempts';
-  }
-  // Supabase answers an unknown or expired code with otp_expired (403); other 4xx on verify mean the same to us.
-  if (step === 'verify' && (code === 'otp_expired' || (status >= 400 && status < 500))) return 'invalid_code';
+  if (code === 'over_request_rate_limit' || status === 429) return 'too_many_attempts';
+  if (code === 'weak_password') return 'weak_password';
+  if (code === 'user_already_exists' || code === 'email_exists') return 'email_taken';
   if (code === 'validation_failed') return 'invalid_request';
+  // A wrong password, or an address without an account: one answer, so the sheet does not reveal who has an account.
+  if (step === 'sign-in' && (code === 'invalid_credentials' || (status >= 400 && status < 500))) return 'invalid_credentials';
   return 'unknown';
 }

@@ -39,9 +39,8 @@ const setFix = (accuracy: number, latitude = 52.4795, longitude = 13.4365) =>
 
 async function completeSignIn() {
   await fireEvent.changeText(await screen.findByTestId('signin-identifier'), 'name@example.de');
-  await fireEvent.press(screen.getByTestId('signin-send'));
-  await fireEvent.changeText(await screen.findByTestId('signin-code'), '482913');
-  await fireEvent.press(screen.getByTestId('signin-confirm'));
+  await fireEvent.changeText(screen.getByTestId('signin-password'), 'correct horse battery');
+  await fireEvent.press(screen.getByTestId('signin-submit'));
 }
 
 const composeDraft = (over: Partial<Draft> = {}): Draft => ({

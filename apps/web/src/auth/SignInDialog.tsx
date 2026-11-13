@@ -1,6 +1,6 @@
 'use client';
 
-// Sign-in sheet (US-01): email, then the 6-digit code from the email. Same account as in the app (US-04).
+// Sign-in sheet (US-01, ENG-24): email and password, or a new account. Same account as in the app (US-04).
 // Supabase Auth (ENG-22) behind this site's /api/auth/* routes: the session lands in httpOnly cookies.
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Dialog } from '@/components/Dialog';
@@ -19,47 +19,36 @@ export function SignInDialog({ open, onCancel, onSignedIn }: { open: boolean; on
   );
 }
 
+type Mode = 'sign-in' | 'sign-up';
+
 function SignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   const { t, locale } = useI18n();
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const emailId = useId();
-  const codeId = useId();
+  const passwordId = useId();
   const errorId = useId();
-  const codeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const firstStep = useRef(true);
+  const firstMode = useRef(true);
 
-  // Moving between the steps puts focus in the new step's field, so it never drops out of the dialog (WCAG 2.4.3).
+  // Switching between signing in and creating an account keeps focus in the form (WCAG 2.4.3).
   useEffect(() => {
-    if (firstStep.current) {
-      firstStep.current = false;
+    if (firstMode.current) {
+      firstMode.current = false;
       return;
     }
-    (step === 'code' ? codeRef : emailRef).current?.focus();
-  }, [step]);
+    emailRef.current?.focus();
+  }, [mode]);
 
-  async function sendCode(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const result = await api('auth/code', { method: 'POST', body: { email: email.trim(), locale } });
-    setBusy(false);
-    if (!result.ok) {
-      setError(String(result.error));
-      return;
-    }
-    setStep('code');
-  }
-
-  async function verify(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    const result = await api('auth/verify', { method: 'POST', body: { email: email.trim(), code } });
+    const body = mode === 'sign-up' ? { email: email.trim(), password, locale } : { email: email.trim(), password };
+    const result = await api(mode === 'sign-up' ? 'auth/sign-up' : 'auth/sign-in', { method: 'POST', body });
     if (!result.ok) {
       setBusy(false);
       setError(String(result.error));
@@ -68,69 +57,57 @@ function SignInForm({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
     await onSignedIn();
   }
 
-  if (step === 'email') {
-    return (
-      <form onSubmit={sendCode} className="stack" noValidate={false}>
-        <div className="field">
-          <label htmlFor={emailId}>{t('signin.email')}</label>
-          <input
-            ref={emailRef}
-            id={emailId}
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            maxLength={254}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            aria-describedby={error ? errorId : undefined}
-            aria-invalid={error ? true : undefined}
-          />
-        </div>
-        <ErrorText id={errorId} code={error} />
-        <button type="submit" className="btn primary" disabled={busy}>
-          {busy ? t('common.sending') : t('signin.sendCode')}
-        </button>
-        <p className="muted small">{t('signin.privacy')}</p>
-      </form>
-    );
-  }
-
+  const creating = mode === 'sign-up';
+  const describedBy = error ? errorId : undefined;
   return (
-    <form onSubmit={verify} className="stack">
-      <p role="status">{t('signin.codeSent', { email: email.trim() })}</p>
+    <form onSubmit={submit} className="stack">
       <div className="field">
-        <label htmlFor={codeId}>{t('signin.code')}</label>
+        <label htmlFor={emailId}>{t('signin.email')}</label>
         <input
-          ref={codeRef}
-          id={codeId}
-          name="code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="\d{6}"
-          maxLength={6}
+          ref={emailRef}
+          id={emailId}
+          type="email"
+          name="email"
+          autoComplete={creating ? 'email' : 'username'}
           required
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          aria-describedby={error ? errorId : undefined}
+          maxLength={254}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor={passwordId}>{creating ? t('signin.newPassword') : t('signin.password')}</label>
+        <input
+          id={passwordId}
+          type="password"
+          name="password"
+          autoComplete={creating ? 'new-password' : 'current-password'}
+          required
+          minLength={creating ? 10 : undefined}
+          maxLength={72}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          aria-describedby={describedBy}
           aria-invalid={error ? true : undefined}
         />
       </div>
       <ErrorText id={errorId} code={error} />
-      <button type="submit" className="btn primary" disabled={busy || code.length !== 6}>
-        {busy ? t('common.sending') : t('signin.verify')}
+      <button type="submit" className="btn primary" disabled={busy}>
+        {busy ? t('common.sending') : creating ? t('signin.createSubmit') : t('signin.submit')}
       </button>
       <button
         type="button"
         className="btn ghost"
         onClick={() => {
-          setStep('email');
-          setCode('');
+          setMode(creating ? 'sign-in' : 'sign-up');
           setError(null);
         }}
       >
-        {t('signin.otherEmail')}
+        {creating ? t('signin.toSignIn') : t('signin.toCreate')}
       </button>
+      <p className="muted small">{t('signin.privacy')}</p>
     </form>
   );
 }

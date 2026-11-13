@@ -1,15 +1,12 @@
-# Sign in with a 6-digit email code from Supabase Auth (US-01, ENG-22). Supabase has no fixed test code for
-# email sign-in: TEST_CODE must be read from the test inbox (e.g. Inbucket/Mailpit of a local `supabase start`)
-# before this subflow runs. The flows using it stay tagged wip until that is wired up.
+# Sign in with email and password through Supabase Auth (US-01, ENG-22, ENG-24). TEST_EMAIL and TEST_PASSWORD
+# belong to a citizen account on the Supabase project the build points at (create it once in the app's sign-up).
 appId: ${APP_ID}
 ---
 - tapOn:
     id: "signin-identifier"
 - inputText: ${TEST_EMAIL}
 - tapOn:
-    id: "signin-send"
+    id: "signin-password"
+- inputText: ${TEST_PASSWORD}
 - tapOn:
-    id: "signin-code"
-- inputText: ${TEST_CODE}
-- tapOn:
-    id: "signin-confirm"
+    id: "signin-submit"

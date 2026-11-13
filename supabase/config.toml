@@ -1,7 +1,7 @@
 # Local Supabase for development (ENG-22): `supabase start` (Supabase CLI 3, needs Docker).
 # The hosted project gets the same settings with `npx supabase@3.1.0 config push --remote=ggjqqfotolfkpxigkydt`
-# (overrides under [remotes.production] below). The email templates are refused there until the project has a
-# custom SMTP sender (Supabase does not allow template changes on the free plan's built-in sender; E-13).
+# (overrides under [remotes.production] below). Sign-in is email and password (ENG-24); Supabase sends no email for it,
+# so the free plan's built-in sender is enough.
 project_id = "kiezruf"
 
 [api]
@@ -32,22 +32,16 @@ additional_redirect_urls = ["http://localhost:3000/console"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 enable_signup = true
+# ENG-24: passwords of at least 10 characters, no further character rules (the web and app check the same length).
+minimum_password_length = 10
+password_requirements = ""
 
 [auth.email]
-enable_signup = true
+enabled = true
 double_confirm_changes = true
+# No confirmation email (ENG-24): a new account is signed in at once. Email ownership is therefore not proven, which
+# the API accounts for when linking staff (only users it created for an invitation take over an invited account).
 enable_confirmations = false
-# US-01: a 6-digit code, valid 10 minutes.
-otp_length = 6
-otp_expiry = 600
-
-[auth.email.template.magic_link]
-subject = "Ihr Kiezruf-Code / Your Kiezruf code"
-content_path = "./supabase/templates/code.html"
-
-[auth.email.template.confirmation]
-subject = "Ihr Kiezruf-Code / Your Kiezruf code"
-content_path = "./supabase/templates/code.html"
 
 # Staff need a second factor (ENG-17, ENG-22).
 [auth.mfa]
