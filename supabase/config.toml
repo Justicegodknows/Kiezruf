@@ -55,3 +55,12 @@ max_enrolled_factors = 10
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true
+
+# The hosted project (ENG-22). `supabase config push --remote=ggjqqfotolfkpxigkydt` applies everything above to it,
+# with these values in place of the local ones.
+[remotes.production]
+project_id = "ggjqqfotolfkpxigkydt"
+
+[remotes.production.auth]
+site_url = "https://kiezruf.vercel.app"
+additional_redirect_urls = ["https://kiezruf.vercel.app/console"]
