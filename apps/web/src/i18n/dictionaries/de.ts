@@ -42,6 +42,8 @@ const de = {
     },
     photoCaption: 'Rathaus Neukölln an der Karl-Marx-Straße. Hier sitzt das Bezirksamt, das deine Meldungen bearbeitet.',
     photoAlt: 'Das Rathaus Neukölln mit Uhrturm an der Karl-Marx-Straße, davor Ampeln und Passanten',
+    bandText: 'Ein paar Schritte weiter ist die Fußgängerampel vor dem Rathaus ausgefallen. So sieht die Meldung in der App aus: Bearbeitungsstand, Hinweis vom Bezirksamt und wie viele Nachbarn betroffen sind.',
+    bandLink: 'Meldung öffnen',
     numbersTitle: 'Neukölln in Zahlen',
     numbersLead: 'Wie viele Meldungen eingehen, wie viele das Bezirksamt erledigt und worum es am häufigsten geht.',
     nearbyTitle: 'Meldungen in deiner Nähe',

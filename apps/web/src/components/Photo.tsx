@@ -10,6 +10,7 @@ export function Photo({
   className,
   sizes,
   eager,
+  creditOnPhoto,
 }: {
   photo: PhotoKey;
   alt: string;
@@ -21,6 +22,8 @@ export function Photo({
   sizes: string;
   /** Above the fold: load eagerly with high priority (it is the page's largest image). */
   eager?: boolean;
+  /** Put the credit on the photo (top right), for layouts where something overlaps the area below it. */
+  creditOnPhoto?: boolean;
 }) {
   const c = PHOTOS[photo];
   return (
@@ -38,7 +41,7 @@ export function Photo({
         {label && <span className="photo__label">{label}</span>}
       </div>
       {credit && (
-        <figcaption className="photo__credit">
+        <figcaption className={creditOnPhoto ? 'photo__credit photo__credit--on' : 'photo__credit'}>
           {credit}: {c.author},{' '}
           <a href={c.licenseUrl} rel="license noopener" target="_blank">
             {c.license}

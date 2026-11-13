@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { CategoryBars } from '@/components/charts/CategoryBars';
 import { TrendChart } from '@/components/charts/TrendChart';
 import { Icon, type IconName } from '@/components/Icon';
+import { AppPreview } from '@/components/AppPreview';
 import { Photo } from '@/components/Photo';
 import { ReportExplorer, type ReportListItem } from '@/components/ReportExplorer';
 import { hasLocale } from '@/i18n/config';
@@ -42,6 +43,9 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
     { key: 'follow', icon: 'bell' },
     { key: 'fixed', icon: 'check' },
   ];
+
+  // The report made at the place in the photo band (the Rathaus on Karl-Marx-Straße).
+  const spotlight = listPublicReports().find((r) => r.photo === 'rathaus');
 
   // Newest open reports for the street-sign plates in the hero.
   const plates = listPublicReports()
@@ -96,10 +100,38 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
       </section>
 
       {/* The place behind the product: the district office on Karl-Marx-Straße. */}
-      <div className="container band">
-        <Photo photo="rathaus" alt={t.home.photoAlt} className="band__photo" sizes="(min-width: 1200px) 1136px, 100vw" credit={t.report.photoBy} eager />
-        <p className="band__caption">{t.home.photoCaption}</p>
-      </div>
+      {/* The street and the app side by side: the photo shows the place, the device shows the report made there. */}
+      <section className="container band" aria-labelledby="band-title">
+        <div className="band__text">
+          <h2 id="band-title" className="band__caption">
+            {/* Non-breaking hyphens keep the street name on one line. */}
+            {t.home.photoCaption.replace('Karl-Marx-Straße', 'Karl\u2011Marx\u2011Straße')}
+          </h2>
+          <p className="lead lead--sm">{t.home.bandText}</p>
+          {spotlight && (
+            <Link href={`/${lang}/reports/${spotlight.id}`} className="band__link">
+              {t.home.bandLink}
+            </Link>
+          )}
+        </div>
+        <div className="band__visual">
+          <Photo photo="rathaus" alt={t.home.photoAlt} className="band__photo" sizes="(min-width: 960px) 680px, 100vw" credit={t.report.photoBy} creditOnPhoto eager />
+          {spotlight && (
+            <AppPreview
+              href={`/${lang}/reports/${spotlight.id}`}
+              breadcrumb={`${t.categories[spotlight.category]} / ${t.subcategories[spotlight.subcategory]}`}
+              title={spotlight.title[lang]}
+              status={spotlight.status}
+              statusLabel={t.status[spotlight.status]}
+              statusLabels={t.status}
+              note={spotlight.officeNote?.[lang]}
+              noteTitle={t.report.officeNote}
+              meToo={t.report.meToo}
+              affected={fill(t.report.meTooCount, { count: spotlight.meToo })}
+            />
+          )}
+        </div>
+      </section>
 
       <section className="section" aria-labelledby="steps-title">
         <div className="container">

@@ -44,6 +44,8 @@ const en: Dictionary = {
     },
     photoCaption: 'Rathaus Neukölln on Karl-Marx-Straße, home of the district office that handles your reports.',
     photoAlt: 'Neukölln town hall with its clock tower on Karl-Marx-Straße, traffic lights and people in front',
+    bandText: 'A few steps away, the pedestrian light outside the town hall has failed. This is how the report looks in the app: its progress, the note from the district office and how many neighbours are affected.',
+    bandLink: 'Open the report',
     numbersTitle: 'Neukölln in numbers',
     numbersLead: 'How many reports come in, how many the district office resolves, and what they are mostly about.',
     nearbyTitle: 'Reports near you',
