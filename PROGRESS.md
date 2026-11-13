@@ -8,7 +8,7 @@
 > How to acknowledge that you read it: run `pnpm progress:read` (humans, or any agent),
 > or, in Claude Code, read this file in full with the Read tool.
 
-**Last updated:** 2026-11-12 · **Phase:** 0 to 3 · **Overall:** code for Phases 1 to 3 is complete (API, citizen web, mobile app, admin console, photo pipeline, analysis, weekly briefing) and its automated tests pass locally; nothing has run in a real browser or on a device, no real AI provider or Supabase project has been called yet. Hosting: web on Vercel, sign-in and database on Supabase, API and worker on vlincta.com (ENG-22)
+**Last updated:** 2026-11-13 · **Phase:** 0 to 3 · **Overall:** code for Phases 1 to 3 is complete (API, citizen web, mobile app, admin console, photo pipeline, analysis, weekly briefing) and its automated tests pass locally; nothing has run in a real browser or on a device, no real AI provider or Supabase project has been called yet. Hosting: web on Vercel, sign-in and database on Supabase, API and worker on vlincta.com (ENG-22)
 
 ## Sources of truth
 
@@ -71,7 +71,7 @@ If this file conflicts with the product plan, the product plan wins. Fix this fi
 5. Console browser tests: a Supabase sign-in fixture (a seeded staff user with a known TOTP secret on local Supabase), so the Playwright and axe console suites can run; Maestro flows need a test inbox for the email code.
 6. Product owner: confirm ENG-05, ENG-06, ENG-10, ENG-14, ENG-19, ENG-21 and E-12, and update the routing SQL in the engineering plan to match ENG-06.
 7. Gaps to schedule: passkeys as a second factor; split (undo a merge, US-17); per-tenant category lists (US-46); roll-up KPIs and comparison table (US-43, Should); actor names in the report history; new-account vote counts on spike items; citizens blurring extra areas themselves (US-31).
-8. Small follow-ups: move the accepted upload types into `@kiezruf/shared`; set `TRUST_PROXY` to the web server's address in every environment; cover the SMTP mailer with a test; remove the stray `apps/web/pnpm-workspace.yaml` from the first commit (pnpm run inside `apps/web` treats that folder as its own workspace and fails to find `@kiezruf/shared`).
+8. Small follow-ups: move the accepted upload types into `@kiezruf/shared`; set `TRUST_PROXY` to the web server's address in every environment; cover the SMTP mailer with a test.
 
 ## Blockers and open questions
 
@@ -124,6 +124,7 @@ Newest first. Add one line per commit that changes project state.
 
 | Date | Change | By |
 | --- | --- | --- |
+| 2026-11-13 | Removed the stray `apps/web/pnpm-workspace.yaml` from the first commit: pnpm run inside `apps/web` treated that folder as its own workspace and could not find `@kiezruf/shared`. The root `pnpm-workspace.yaml` is now the only one; install, `pnpm --filter web build` and pnpm inside `apps/web` work. | Claude |
 | 2026-11-13 | Accessibility fix found by the first CI axe run: the report location map (forward link and console report page) had an `aria-hidden` container holding MapLibre's focusable canvas and attribution control. Only the canvas is now hidden and out of the tab order; the map credits stay reachable. All 16 axe pages pass locally. | Claude |
 | 2026-11-13 | Vercel project `kiezruf` recreated (root `apps/web`, Node 22.x, GitHub connected) and deployed to https://kiezruf.vercel.app; Supabase and API environment variables still to set. CI fixes from PR 1's first run: the database image upgrades `postgresql-16` with PostGIS (PostGIS 3.7 failed to load on 16.x older than it was built for, which broke integration tests and Gherkin features); the audit job no longer caches pnpm (its post-step failed on a store folder that never exists). | Claude |
 | 2026-11-12 | Demo data: `db:seed:demo` with citizens, staff, the prototype's reports, drawn photos, comments, votes, a spike, a forward, a recurring hotspot and briefings; `PhotoStorage.putOriginal`. Fixed on the way (migration 0013): deleting a report failed, because the score triggers tried to mark the deleted report. | Claude |
