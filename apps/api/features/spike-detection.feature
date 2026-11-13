@@ -1,4 +1,4 @@
-@US-26 @US-37 @wip
+@US-26 @US-37
 Feature: Spike detection discounts suspicious votes
 
   Scenario: Vote spike from new accounts

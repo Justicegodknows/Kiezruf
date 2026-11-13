@@ -3,14 +3,15 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@expo-google-fonts/barlow": "^0.4.1",
-    "@expo-google-fonts/barlow-condensed": "^0.4.1",
     "@kiezruf/shared": "workspace:*",
+    "@maplibre/maplibre-react-native": "^11.5.1",
+    "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",
     "expo": "~58.0.24",
     "expo-camera": "~58.0.14",
     "expo-constants": "~58.0.16",
-    "expo-font": "~58.0.12",
+    "expo-dev-client": "~58.0.19",
+    "expo-device": "~58.0.5",
     "expo-image-manipulator": "~58.0.16",
     "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.17",
@@ -19,17 +20,14 @@
     "expo-notifications": "~58.1.9",
     "expo-router": "~58.0.31",
     "expo-secure-store": "~58.0.3",
-    "expo-splash-screen": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "i18next": "^27.1.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
     "react-i18next": "^18.0.1",
     "react-native": "0.88.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
-    "react-native-svg": "15.16.0",
-    "react-native-web": "^0.21.4",
+    "react-native-url-polyfill": "^4.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -57,15 +55,12 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "testTimeout": 20000,
     "transformIgnorePatterns": [
-      "node_modules/(?!(.pnpm|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@kiezruf/.*|standard-navigation))"
+      "node_modules/(?!(.pnpm|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@maplibre/.*|@kiezruf/.*))"
     ],
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1"
-    },
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/src/app/"
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
     ]
   }
 }

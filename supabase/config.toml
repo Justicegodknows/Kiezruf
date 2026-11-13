@@ -1,0 +1,61 @@
+# Local Supabase for development (ENG-22): `supabase start` (Supabase CLI 3, needs Docker).
+# The hosted project gets the same settings with `npx supabase@3.1.0 config push --remote=ggjqqfotolfkpxigkydt`
+# (overrides under [remotes.production] below). Sign-in is email and password (ENG-24); Supabase sends no email for it,
+# so the free plan's built-in sender is enough.
+project_id = "kiezruf"
+
+[api]
+enabled = true
+port = 54321
+# Our tables are never served through the Data API: every query goes through the Kiezruf API (ENG-08).
+schemas = ["graphql_public"]
+extra_search_path = ["extensions"]
+max_rows = 100
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+# Catches Supabase's own emails (sign-in codes) locally: http://127.0.0.1:54324
+[local_smtp]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/console"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+# ENG-24: passwords of at least 10 characters, no further character rules (the web and app check the same length).
+minimum_password_length = 10
+password_requirements = ""
+
+[auth.email]
+enabled = true
+double_confirm_changes = true
+# No confirmation email (ENG-24): a new account is signed in at once. Email ownership is therefore not proven, which
+# the API accounts for when linking staff (only users it created for an invitation take over an invited account).
+enable_confirmations = false
+
+# Staff need a second factor (ENG-17, ENG-22).
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+# The hosted project (ENG-22). `supabase config push --remote=ggjqqfotolfkpxigkydt` applies everything above to it,
+# with these values in place of the local ones.
+[remotes.production]
+project_id = "ggjqqfotolfkpxigkydt"
+
+[remotes.production.auth]
+site_url = "https://kiezruf.vercel.app"
+additional_redirect_urls = ["https://kiezruf.vercel.app/console"]
