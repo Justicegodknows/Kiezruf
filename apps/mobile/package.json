@@ -34,6 +34,8 @@
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~58.0.4",
     "jest": "^30.5.2",
     "jest-expo": "~58.0.14",
     "test-renderer": "^1.3.1",
@@ -47,7 +49,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watchAll",
-    "test:maestro": "maestro test .maestro --exclude-tags wip"
+    "test:maestro": "maestro test .maestro --exclude-tags wip",
+    "lint": "expo lint"
   },
   "private": true,
   "jest": {

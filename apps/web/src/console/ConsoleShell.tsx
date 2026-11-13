@@ -12,6 +12,7 @@ import { CONSOLE_HOME, CONSOLE_HOTSPOTS, CONSOLE_QUEUE, CONSOLE_TRENDS } from '@
 import { AccountMenu } from './components/AccountMenu';
 import { roleLabel } from './format';
 import { StaffProvider, useStaff } from './StaffProvider';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 // The weekly briefing comes first: it is the console's landing page (US-53).
 const LINKS: { href: string; label: MessageKey }[] = [
@@ -58,6 +59,7 @@ function ConsoleHeader() {
         </Suspense>
       ) : null}
       <div className="header-tools">
+        <ThemeToggle />
         {me ? (
           <span className="small muted staff-who">
             {me.email}

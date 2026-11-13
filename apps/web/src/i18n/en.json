@@ -16,6 +16,8 @@
   "nav.signIn": "Sign in",
   "nav.signedIn": "Signed in",
   "nav.language": "Language",
+  "nav.themeLight": "Switch to light theme",
+  "nav.themeDark": "Switch to dark theme",
   "language.de": "Deutsch",
   "language.en": "English",
   "signin.title": "Sign in",

@@ -1,22 +1,46 @@
-/* Kiezruf citizen web and municipal console. System fonts only (no font host, GDPR). Colours meet WCAG 2.1 AA contrast on their
-   backgrounds; state is never shown by colour alone (text or icon shape as well). */
+/* Design system (from main's `design` branch): paper and asphalt neutrals, tram green for links and active states,
+   signal yellow for the primary action, Barlow and Barlow Condensed (self-hosted by next/font at build time, so no
+   font host is contacted in the browser). Light by default; dark follows the OS unless the visitor picked a theme
+   (`data-theme` on <html>, set by ThemeToggle). Our component styles below only use these names. */
 :root {
-  --bg: #ffffff;
-  --surface: #f5f6f4;
-  --text: #1a1c1a;
-  --muted: #4f5650; /* 7.1:1 on white */
-  --line: #8a918b; /* 3.3:1, for borders of controls */
-  --line-soft: #d6dad5;
-  --accent: #0b5d3b; /* 7.6:1 on white */
-  --accent-text: #ffffff;
-  --accent-soft: #e3f1ea;
-  --danger: #a3191d; /* 7.3:1 on white */
-  --danger-soft: #fbe9e9;
-  --info-soft: #e8eef8;
-  --focus: #1f4fd1;
-  --radius: 10px;
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color-scheme: light;
+  --bg: #f4f6f3; /* paper */
+  --surface: #ebefec; /* panels and inputs set apart from the page */
+  --raised: #ffffff; /* cards and dialogs */
+  --text: #1a2430; /* asphalt, 14.4:1 on paper */
+  --muted: #535f6a; /* 6.0:1 on paper, 5.6:1 on --surface */
+  --line: #74807b; /* 3.8:1 on paper, 3.5:1 on --surface, for borders of controls */
+  --line-soft: #d3dad6;
+  --accent: #0d6b5b; /* tram green, 5.9:1 on paper */
+  --accent-text: #ffffff;
+  --accent-soft: #e0eee9;
+  --signal: #f2c230; /* signal yellow, the primary action */
+  --signal-hover: #e8b51a;
+  --on-signal: #1a2430;
+  --danger: #b42318; /* 6.0:1 on paper */
+  --on-danger: #ffffff;
+  --danger-soft: #fde8e6;
+  --info-soft: #e7eefa;
+  --focus: #0d6b5b;
+  --radius: 6px;
+  --font: var(--font-sans), system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-head: var(--font-display), var(--font);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #10171d; --surface: #161f27; --raised: #1c2731; --text: #e9eef0; --muted: #a3afb7; --line: #6b7a86;
+    --line-soft: #27333d; --accent: #55c6ad; --accent-text: #06241d; --accent-soft: #143029; --signal: #f2c230;
+    --signal-hover: #f7d257; --on-signal: #1a2430; --danger: #f68d83; --on-danger: #2a0d0b; --danger-soft: #431d1a;
+    --info-soft: #172b45; --focus: #f2c230;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #10171d; --surface: #161f27; --raised: #1c2731; --text: #e9eef0; --muted: #a3afb7; --line: #6b7a86;
+  --line-soft: #27333d; --accent: #55c6ad; --accent-text: #06241d; --accent-soft: #143029; --signal: #f2c230;
+  --signal-hover: #f7d257; --on-signal: #1a2430; --danger: #f68d83; --on-danger: #2a0d0b; --danger-soft: #431d1a;
+  --info-soft: #172b45; --focus: #f2c230;
 }
 
 *,
@@ -43,7 +67,9 @@ body {
 h1,
 h2,
 h3 {
-  line-height: 1.25;
+  font-family: var(--font-head);
+  font-weight: 600;
+  line-height: 1.2;
   margin: 0 0 0.5rem;
 }
 h1 {
@@ -155,9 +181,13 @@ main:focus {
   font-size: 0.9rem;
 }
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--on-signal);
+}
+.btn.primary:hover {
+  background: var(--signal-hover);
+  border-color: var(--text);
 }
 .btn.dark {
   background: var(--text);
@@ -167,7 +197,7 @@ main:focus {
 .btn.danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--on-danger);
 }
 .btn.ghost {
   border-color: transparent;
@@ -1143,4 +1173,22 @@ a.btn {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Light/dark switch in the headers (ThemeToggle). */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.icon-button:hover {
+  border-color: var(--line);
 }

@@ -1,0 +1,63 @@
+diff --git a/dist/cjs.js b/dist/cjs.js
+index 7c36cbdd06cc22c92d590be3f87a08a91ca06b40..21ff99c6d88060bac19cd73d7600a708a3575360 100644
+--- a/dist/cjs.js
++++ b/dist/cjs.js
+@@ -80,11 +80,15 @@ function mergeObject(target, source, options) {
+ 	var destination = {};
+ 	if (options.isMergeableObject(target)) {
+ 		getKeys(target).forEach(function(key) {
++			// Patched (GHSA-gcqx-w48m-w2h4): never assign __proto__, it would swap the result's prototype.
++			if (key === '__proto__') {
++				return
++			}
+ 			destination[key] = cloneUnlessOtherwiseSpecified(target[key], options);
+ 		});
+ 	}
+ 	getKeys(source).forEach(function(key) {
+-		if (propertyIsUnsafe(target, key)) {
++		if (key === '__proto__' || propertyIsUnsafe(target, key)) { // Patched (GHSA-gcqx-w48m-w2h4)
+ 			return
+ 		}
+ 
+diff --git a/dist/umd.js b/dist/umd.js
+index 4071e7c56ec8e5273fe166f6e723ac460fab8b72..726e0c2f87a577cedd9e5c17649b90127d03c951 100644
+--- a/dist/umd.js
++++ b/dist/umd.js
+@@ -84,11 +84,15 @@
+ 		var destination = {};
+ 		if (options.isMergeableObject(target)) {
+ 			getKeys(target).forEach(function(key) {
++				// Patched (GHSA-gcqx-w48m-w2h4): never assign __proto__, it would swap the result's prototype.
++				if (key === '__proto__') {
++					return
++				}
+ 				destination[key] = cloneUnlessOtherwiseSpecified(target[key], options);
+ 			});
+ 		}
+ 		getKeys(source).forEach(function(key) {
+-			if (propertyIsUnsafe(target, key)) {
++			if (key === '__proto__' || propertyIsUnsafe(target, key)) { // Patched (GHSA-gcqx-w48m-w2h4)
+ 				return
+ 			}
+ 
+diff --git a/index.js b/index.js
+index 77968aed5d456cccc294f60912ef381fa1e52a7b..a5f3fde43a6df6809fd466b5532f5fb5e4415f1f 100644
+--- a/index.js
++++ b/index.js
+@@ -55,11 +55,15 @@ function mergeObject(target, source, options) {
+ 	var destination = {}
+ 	if (options.isMergeableObject(target)) {
+ 		getKeys(target).forEach(function(key) {
++			// Patched (GHSA-gcqx-w48m-w2h4): never assign __proto__, it would swap the result's prototype.
++			if (key === '__proto__') {
++				return
++			}
+ 			destination[key] = cloneUnlessOtherwiseSpecified(target[key], options)
+ 		})
+ 	}
+ 	getKeys(source).forEach(function(key) {
+-		if (propertyIsUnsafe(target, key)) {
++		if (key === '__proto__' || propertyIsUnsafe(target, key)) { // Patched (GHSA-gcqx-w48m-w2h4)
+ 			return
+ 		}
+ 

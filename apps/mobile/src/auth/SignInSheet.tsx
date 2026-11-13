@@ -1,7 +1,7 @@
 // Sign-in sheet (US-01, US-37): email + 6-digit code. It opens the first time someone posts, comments,
 // votes or follows; after the code is confirmed, the action they started completes on its own.
 // The code comes from Supabase Auth (ENG-22): signInWithOtp sends it, verifyOtp exchanges it for a session.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { currentLocale } from '../i18n';
@@ -14,23 +14,21 @@ import { supabase } from './supabase';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function SignInSheet() {
+  const { sheet } = useAuth();
+  // The form mounts each time the sheet opens, so it always starts at the email step with no old code or error.
+  return sheet ? <SignInForm key={sheet} sheet={sheet} /> : null;
+}
+
+type SheetReason = NonNullable<ReturnType<typeof useAuth>['sheet']>;
+
+function SignInForm({ sheet }: { sheet: SheetReason }) {
   const { t } = useTranslation();
-  const { sheet, closeSheet, completeSignIn } = useAuth();
+  const { closeSheet, completeSignIn } = useAuth();
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (sheet) {
-      setStep('email');
-      setCode('');
-      setError(null);
-    }
-  }, [sheet]);
-
-  if (!sheet) return null;
 
   const failed = (e: unknown, stepName: SignInStep) => {
     const reason = signInErrorCode(e, stepName);

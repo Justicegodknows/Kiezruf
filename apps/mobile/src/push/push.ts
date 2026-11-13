@@ -20,6 +20,7 @@ export async function registerForPush(): Promise<PushStatus> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Kiezruf',
+        // eslint-disable-next-line import/namespace -- exported by expo-notifications (tsc checks it); the plugin misses it
         importance: Notifications.AndroidImportance.DEFAULT,
       });
     }

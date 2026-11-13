@@ -22,6 +22,8 @@ const CONSOLE_PAGES = [
 ];
 // Public without login: the console sign-in, and the forward link (live and expired).
 const PUBLIC_PAGES = ['/console/sign-in', `/forwarded/${FORWARD_TOKEN}`, '/forwarded/expired_0123456789abcdef'];
+// Every page is checked in both colour schemes (light and dark, design system).
+const THEMES = ['light', 'dark'] as const;
 
 async function expectNoSeriousIssues(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -29,15 +31,17 @@ async function expectNoSeriousIssues(page: Page) {
   expect(blocking.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
 }
 
-for (const path of PAGES) {
-  test(`${path} has no serious or critical accessibility issues`, async ({ page }) => {
+for (const theme of THEMES) for (const path of PAGES) {
+  test(`${path} (${theme}) has no serious or critical accessibility issues`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme });
     await page.goto(path);
     await expectNoSeriousIssues(page);
   });
 }
 
-for (const path of CONSOLE_PAGES) {
-  test(`${path} (console, signed in) has no serious or critical accessibility issues`, async ({ page, context, baseURL }) => {
+for (const theme of THEMES) for (const path of CONSOLE_PAGES) {
+  test(`${path} (console, signed in, ${theme}) has no serious or critical accessibility issues`, async ({ page, context, baseURL }) => {
+    await page.emulateMedia({ colorScheme: theme });
     await mockConsole(context, page, baseURL!);
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -45,8 +49,9 @@ for (const path of CONSOLE_PAGES) {
   });
 }
 
-for (const path of PUBLIC_PAGES) {
-  test(`${path} has no serious or critical accessibility issues`, async ({ page }) => {
+for (const theme of THEMES) for (const path of PUBLIC_PAGES) {
+  test(`${path} (${theme}) has no serious or critical accessibility issues`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme });
     await mockForwardLinks(page);
     await page.route('**/api/staff/session', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"signedIn":false}' }));
     await page.goto(path);
