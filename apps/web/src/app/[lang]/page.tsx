@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { Icon, type IconName } from '@/components/Icon';
 import { ReportExplorer, type ReportListItem } from '@/components/ReportExplorer';
 import { hasLocale } from '@/i18n/config';
-import { formatAge, formatDistance, formatNumber } from '@/i18n/format';
+import { fill, formatAge, formatDistance, formatNumber } from '@/i18n/format';
 import { getDictionary } from '@/i18n/get-dictionary';
 import { listPublicReports } from '@/lib/sample-data';
 
@@ -36,6 +36,7 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
     { key: 'photo', icon: 'camera' },
     { key: 'locate', icon: 'pin' },
     { key: 'follow', icon: 'bell' },
+    { key: 'fixed', icon: 'check' },
   ];
 
   return (
@@ -79,18 +80,30 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
 
       <section className="section" aria-labelledby="steps-title">
         <div className="container">
-          <h2 id="steps-title" className="section__title">
-            {t.home.stepsTitle}
-          </h2>
-          <ol className="steps">
+          <header className="section__intro">
+            <p className="eyebrow">{t.home.stepsEyebrow}</p>
+            <h2 id="steps-title" className="section__title">
+              {t.home.stepsTitle}
+            </h2>
+            <p className="lead lead--sm">{t.home.stepsLead}</p>
+          </header>
+          {/* Workflow: numbered nodes joined by a connector, horizontal on wide screens, vertical on phones. */}
+          <ol className="workflow">
             {steps.map((step, i) => (
-              <li key={step.key} className="step card">
-                <span className="step__icon">
-                  <Icon name={step.icon} size={22} />
-                </span>
-                <span className="step__number mono">0{i + 1}</span>
-                <h3>{t.home.steps[step.key].title}</h3>
-                <p>{t.home.steps[step.key].body}</p>
+              <li key={step.key} className="workflow__step" data-final={i === steps.length - 1 || undefined}>
+                <div className="workflow__node">
+                  <span className="workflow__icon">
+                    <Icon name={step.icon} size={26} />
+                  </span>
+                  <span className="workflow__number" aria-hidden="true">
+                    {i + 1}
+                  </span>
+                </div>
+                <div className="workflow__body">
+                  <p className="workflow__label">{fill(t.home.stepLabel, { n: i + 1 })}</p>
+                  <h3>{t.home.steps[step.key].title}</h3>
+                  <p>{t.home.steps[step.key].body}</p>
+                </div>
               </li>
             ))}
           </ol>
@@ -99,18 +112,13 @@ export default async function HomePage({ params }: PageProps<'/[lang]'>) {
 
       <section className="section section--sunk" id="nearby" aria-labelledby="nearby-title">
         <div className="container">
-          <div className="section__head">
-            <div>
-              <h2 id="nearby-title" className="section__title">
-                {t.home.nearbyTitle}
-              </h2>
-              <p className="muted">{t.home.nearbySubtitle}</p>
-            </div>
-            <p className="notice">
-              <Icon name="lock" size={16} />
-              {t.home.guestNote}
-            </p>
-          </div>
+          <header className="section__intro">
+            <p className="eyebrow">{t.home.nearbyEyebrow}</p>
+            <h2 id="nearby-title" className="section__title">
+              {t.home.nearbyTitle}
+            </h2>
+            <p className="lead lead--sm">{t.home.nearbySubtitle}</p>
+          </header>
           <ReportExplorer
             reports={reports}
             t={{

@@ -44,6 +44,11 @@ export default async function ConsolePage({ params }: PageProps<'/[lang]/console
       safety: n(r.breakdown.safety, 1),
       score: n(r.score, 1),
     },
+    points: {
+      coReporters: r.breakdown.coReporterPoints,
+      commenters: r.breakdown.commenterPoints,
+      meToo: r.breakdown.meTooPoints,
+    },
   }));
 
   const kpis: { label: string; value: string; delta?: string; trend?: 'up' | 'down'; icon: IconName; tone?: string }[] = [
@@ -71,10 +76,6 @@ export default async function ConsolePage({ params }: PageProps<'/[lang]/console
           <h1 className="title-xl">{t.console.title}</h1>
           <p className="muted">{t.console.office}</p>
         </div>
-        <p className="notice notice--warn">
-          <Icon name="sparkle" size={16} />
-          {t.common.demoNotice}
-        </p>
       </header>
 
       <section aria-label={t.console.kpiLabel} className="kpis">
@@ -124,14 +125,12 @@ export default async function ConsolePage({ params }: PageProps<'/[lang]/console
       </div>
 
       <section aria-labelledby="queue-title" className="console__queue">
-        <div className="section__head section__head--tight">
-          <div>
-            <h2 id="queue-title" className="title-md">
-              {t.console.queueTitle}
-            </h2>
-            <p className="muted small">{t.console.queueSubtitle}</p>
-          </div>
-        </div>
+        <header className="console__section-head">
+          <h2 id="queue-title" className="title-md">
+            {t.console.queueTitle}
+          </h2>
+          <p className="muted small">{t.console.queueSubtitle}</p>
+        </header>
         <QueuePanel
           rows={rows}
           t={{
@@ -152,6 +151,7 @@ export default async function ConsolePage({ params }: PageProps<'/[lang]/console
             total: t.console.total,
             staffOnly: t.console.staffOnly,
             reference: t.report.reference,
+            place: t.report.location,
           }}
         />
       </section>
