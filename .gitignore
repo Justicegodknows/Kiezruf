@@ -19,3 +19,4 @@ apps/web/test-results/
 .vercel
 .env*
 !.env.example
+supabase/.temp
