@@ -1,4 +1,4 @@
-@US-31 @US-16 @wip
+@US-31 @US-16
 Feature: Nothing is public before it is blurred
 
   Scenario: Successful blur publishes the report

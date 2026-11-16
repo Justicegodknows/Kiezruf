@@ -1,45 +1,85 @@
 {
   "expo": {
     "name": "Kiezruf",
-    "slug": "mobile",
+    "slug": "kiezruf",
+    "scheme": "kiezruf",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "experiments": {
+      "typedRoutes": true
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "de.kiezruf.app",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "de"
+      }
     },
     "android": {
+      "package": "de.kiezruf.app",
       "adaptiveIcon": {
         "backgroundColor": "#F2C230",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-font",
+      "@maplibre/maplibre-react-native",
       [
-        "expo-splash-screen",
+        "expo-camera",
         {
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 120,
-          "resizeMode": "contain",
-          "backgroundColor": "#F4F6F3",
-          "dark": {
-            "backgroundColor": "#10171D"
-          }
+          "cameraPermission": "Kiezruf braucht die Kamera, damit du vor Ort ein Foto von einem Problem aufnehmen kannst.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Kiezruf fragt deinen Standort nur, wenn du ein Foto aufnimmst, Me too drückst oder die Karte auf dich zentrierst. So kommt deine Meldung beim richtigen Bezirksamt an. Im Hintergrund wird dein Standort nie abgefragt.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationFullAccuracyPermission": "Kiezruf braucht deinen genauen Standort, damit deine Meldung beim richtigen Bezirksamt ankommt.",
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kiezruf braucht Zugriff auf deine Fotos, damit du ein Foto anhängen kannst, das du in den letzten 48 Stunden vor Ort aufgenommen hast.",
+          "cameraPermission": "Kiezruf braucht die Kamera, damit du vor Ort ein Foto von einem Problem aufnehmen kannst.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": ["de", "en"]
         }
       ]
-    ],
-    "scheme": "kiezruf",
-    "experiments": {
-      "typedRoutes": true
-    }
+    ]
   }
 }

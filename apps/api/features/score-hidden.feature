@@ -1,4 +1,4 @@
-@US-24 @US-22 @wip
+@US-24 @US-22
 Feature: The priority score stays with staff
 
   # The console scenario "Staff see the breakdown" lives in apps/web/features/score-breakdown.feature.

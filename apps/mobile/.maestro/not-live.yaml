@@ -17,6 +17,14 @@ tags:
     id: "nav-new-report"
 - tapOn:
     id: "camera-shutter"
-- assertVisible: "Kiezruf isn't live in Friedrichshain-Kreuzberg yet"
-- tapOn: "Tell me when it starts here"
-- assertVisible: "We will tell you"
+- assertVisible:
+    id: "notlive-heading"
+    text: "(Kiezruf ist in Friedrichshain-Kreuzberg noch nicht live|Kiezruf isn't live in Friedrichshain-Kreuzberg yet)"
+- tapOn:
+    id: "notlive-notify"
+- runFlow:
+    when:
+      visible:
+        id: "signin-sheet"
+    file: subflows/sign-in.yaml
+- assertVisible: ".*(Wir sagen dir Bescheid|We will tell you)"

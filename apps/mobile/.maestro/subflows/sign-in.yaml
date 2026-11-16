@@ -1,12 +1,12 @@
-# Sign in with an email one-time code (US-01). Staging accepts the fixed test code below for the test address only.
+# Sign in with email and password through Supabase Auth (US-01, ENG-22, ENG-24). TEST_EMAIL and TEST_PASSWORD
+# belong to a citizen account on the Supabase project the build points at (create it once in the app's sign-up).
 appId: ${APP_ID}
 ---
 - tapOn:
     id: "signin-identifier"
 - inputText: ${TEST_EMAIL}
-- tapOn: "Send me a code"
 - tapOn:
-    id: "signin-code"
-- inputText: ${TEST_CODE}
+    id: "signin-password"
+- inputText: ${TEST_PASSWORD}
 - tapOn:
-    id: "signin-confirm"
+    id: "signin-submit"

@@ -1,4 +1,4 @@
-@US-34 @wip
+@US-34
 Feature: Delete my account
 
   Scenario: Self-service deletion

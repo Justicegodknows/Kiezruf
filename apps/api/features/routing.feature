@@ -1,4 +1,4 @@
-@US-03 @US-41 @US-44 @wip
+@US-03 @US-41 @US-44
 Feature: Route an on-site report to the right office
 
   Background:

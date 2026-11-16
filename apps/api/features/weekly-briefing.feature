@@ -1,4 +1,4 @@
-@US-53 @US-56 @wip
+@US-53 @US-56
 Feature: Weekly briefing cites its sources
 
   Scenario: Briefing generated on Monday

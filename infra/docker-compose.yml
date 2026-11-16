@@ -1,7 +1,9 @@
 # Local development services. Production runs in a German data centre (see plan, Architecture).
 services:
   db:
-    image: postgis/postgis:16-3.4
+    # PostGIS, ltree and pgvector in one image (ENG-04). Built on first `pnpm db:up`.
+    build: ./postgres
+    image: kiezruf/postgres:16-postgis-pgvector
     environment:
       POSTGRES_USER: kiezruf
       POSTGRES_PASSWORD: kiezruf

@@ -7,6 +7,7 @@ const sql = postgres(inject('databaseUrl'), { max: 1, onnotice: () => {} });
 beforeAll(async () => {
   await sql`CREATE EXTENSION IF NOT EXISTS postgis`;
   await sql`CREATE EXTENSION IF NOT EXISTS ltree`;
+  await sql`CREATE EXTENSION IF NOT EXISTS vector`;
 });
 afterAll(() => sql.end());
 
@@ -21,9 +22,11 @@ describe('extensions', () => {
     expect(row?.extname).toBe('ltree');
   });
 
-  // The engineering plan lists pgvector for photo similarity. The postgis/postgis image does not ship it,
-  // so the image needs to change before this can pass.
-  it.todo('has pgvector (photo similarity for duplicates, US-13)');
+  // Photo similarity for duplicates (US-13). The image in infra/postgres adds pgvector to PostGIS (ENG-04).
+  it('has pgvector', async () => {
+    const [row] = await sql`SELECT '[1,0]'::vector <=> '[0,1]'::vector AS distance`;
+    expect(row?.distance).toBe(1);
+  });
 });
 
 describe('tenant subtree checks with ltree (US-42)', () => {
