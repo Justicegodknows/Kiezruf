@@ -36,7 +36,7 @@ function ReportRows({ kind }: { kind: 'reports' | 'follows' }) {
       <div className="stack-sm">
         <p>{kind === 'reports' ? t('myReports.empty') : t('following.empty')}</p>
         <p>
-          <Link href={kind === 'reports' ? '/new-report' : '/'} className="btn primary">
+          <Link href={kind === 'reports' ? '/new-report' : '/berlin'} className="btn primary">
             {kind === 'reports' ? t('nav.report') : t('nav.browse')}
           </Link>
         </p>

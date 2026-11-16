@@ -10,7 +10,7 @@ import { LOCALES, type MessageKey } from '@/i18n';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const LINKS: { href: string; label: MessageKey }[] = [
-  { href: '/', label: 'nav.browse' },
+  { href: '/berlin', label: 'nav.browse' },
   { href: '/new-report', label: 'nav.report' },
   { href: '/my-reports', label: 'nav.myReports' },
   { href: '/following', label: 'nav.following' },
@@ -59,7 +59,7 @@ function CurrentNavLinks() {
 function NavLinks({ pathname }: { pathname: string | null }) {
   const { t } = useI18n();
   const current = (href: string) =>
-    pathname !== null && (href === '/' ? pathname === '/' || pathname.startsWith('/berlin/') : pathname.startsWith(href));
+    pathname !== null && (href === '/berlin' ? pathname === '/berlin' || pathname.startsWith('/berlin/') : pathname.startsWith(href));
   return (
     <nav aria-label={t('nav.label')}>
       <ul className="nav-list">

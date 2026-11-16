@@ -4,9 +4,9 @@ import { FORWARD_TOKEN, mockConsole, mockForwardLinks, REPORT_ID } from '../supp
 
 // Definition of Done: automated axe checks pass with no serious issues (BITV 2.0 / WCAG 2.1 AA, US-36).
 // Add every new citizen and console page to this list.
-// Citizen web: browse (map and list), report detail, posting, My reports, followed reports, account.
+// Citizen web: landing page, browse (map and list), report detail, posting, My reports, followed reports, account.
 // The pages render without the API too (empty, signed-out or error states), which is what the check sees in CI.
-const PAGES = ['/', '/berlin/neukoelln/be-nk-2026-0112', '/new-report', '/my-reports', '/following', '/account'];
+const PAGES = ['/', '/berlin', '/berlin/neukoelln/be-nk-2026-0112', '/new-report', '/my-reports', '/following', '/account'];
 
 // Console (Phase 2): signed in as a fake case worker with mocked /api/staff/* answers (tests/support/console-mocks.ts),
 // so the checks see the filled queue, report detail with actions, moderation and tenants pages.

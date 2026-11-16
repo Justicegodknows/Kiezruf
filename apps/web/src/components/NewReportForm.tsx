@@ -316,7 +316,7 @@ export function NewReportForm() {
           <Link href="/my-reports" className="btn primary">
             {t('posted.toMyReports')}
           </Link>
-          <Link href="/" className="btn">
+          <Link href="/berlin" className="btn">
             {t('posted.toMap')}
           </Link>
         </p>
