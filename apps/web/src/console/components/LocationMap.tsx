@@ -3,6 +3,7 @@
 // The report's map position for staff (MapLibre, ENG-13). The coordinates next to it are the text alternative,
 // so the map is not in the tab order.
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { loadMapLibre } from '@/lib/maplibre';
 import { useEffect, useRef, useState } from 'react';
 import { MAP_STYLE_URL } from '@/components/ReportMap';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -15,7 +16,7 @@ export function LocationMap({ lat, lon, label }: { lat: number; lon: number; lab
   useEffect(() => {
     let cancelled = false;
     let map: { remove: () => void } | null = null;
-    import('maplibre-gl')
+    loadMapLibre()
       .then(({ Map, Marker }) => {
         if (cancelled || !container.current) return;
         const m = new Map({ container: container.current, style: MAP_STYLE_URL, center: [lon, lat], zoom: 16, attributionControl: { compact: true }, interactive: true });

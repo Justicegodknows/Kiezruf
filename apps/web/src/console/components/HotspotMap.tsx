@@ -6,6 +6,7 @@
 // is hidden from assistive technology and its markers are not in the tab order. Clicking a marker moves focus to
 // the cluster's row in the table.
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { loadMapLibre } from '@/lib/maplibre';
 import type { Level } from '@kiezruf/shared';
 import { useEffect, useRef, useState } from 'react';
 import { MAP_STYLE_URL } from '@/components/ReportMap';
@@ -27,7 +28,7 @@ export function HotspotMap({ clusters, onSelect }: { clusters: HotspotCluster[];
     if (clusters.length === 0) return;
     let cancelled = false;
     let map: { remove: () => void } | null = null;
-    import('maplibre-gl')
+    loadMapLibre()
       .then(({ Map, Marker, LngLatBounds, NavigationControl }) => {
         if (cancelled || !container.current) return;
         const first = clusters[0]!;

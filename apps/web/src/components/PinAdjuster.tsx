@@ -3,6 +3,7 @@
 // Confirm the location (US-10): the pin starts at the browser fix and can move up to MAX_PIN_ADJUST_M.
 // Drag the pin on the map, or use the buttons (keyboard), which move it 10 m at a time.
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { loadMapLibre } from '@/lib/maplibre';
 import { MAX_PIN_ADJUST_M } from '@kiezruf/shared';
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
@@ -28,7 +29,7 @@ export function PinAdjuster({ origin, pin, onChange }: { origin: Point; pin: Poi
   useEffect(() => {
     let cancelled = false;
     let map: MapLibreMap | null = null;
-    import('maplibre-gl')
+    loadMapLibre()
       .then(({ Map, Marker: MarkerClass }) => {
         if (cancelled || !container.current) return;
         map = new Map({ container: container.current, style: MAP_STYLE_URL, center: [origin.lon, origin.lat], zoom: 17, attributionControl: { compact: true } });

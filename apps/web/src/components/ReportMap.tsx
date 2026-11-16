@@ -4,6 +4,7 @@
 // full keyboard and screen-reader alternative, so the pins are pointer shortcuts and not in the tab order.
 // Pins are neutral: the same shape for every report, no score or level (US-24).
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { loadMapLibre } from '@/lib/maplibre';
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -44,7 +45,7 @@ export function ReportMap({
   useEffect(() => {
     let cancelled = false;
     let map: MapLibreMap | null = null;
-    import('maplibre-gl')
+    loadMapLibre()
       .then(({ Map, Marker: MarkerClass, NavigationControl }) => {
         if (cancelled || !container.current) return;
         map = new Map({
