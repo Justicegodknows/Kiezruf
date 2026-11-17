@@ -635,6 +635,7 @@
   "home.lead": "Broken traffic light, pothole in the bike lane, damaged swing? Report it in a minute. The district office sees what matters to most neighbours and handles that first.",
   "home.ctaBrowse": "See reports on the map",
   "home.ctaReport": "Report a problem",
+  "home.ctaConsole": "Open the console",
   "home.platesLabel": "Just reported",
   "home.platesLoading": "Loading new reports …",
   "home.platesEmpty": "There are no open reports here right now.",

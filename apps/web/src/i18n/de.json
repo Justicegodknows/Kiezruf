@@ -635,6 +635,7 @@
   "home.lead": "Kaputte Ampel, Schlagloch im Radweg, defekte Schaukel? Melden Sie es in einer Minute. Das Bezirksamt sieht, was vielen Nachbarn wichtig ist, und kümmert sich zuerst darum.",
   "home.ctaBrowse": "Meldungen auf der Karte ansehen",
   "home.ctaReport": "Problem melden",
+  "home.ctaConsole": "Zur Verwaltung",
   "home.platesLabel": "Gerade gemeldet",
   "home.platesLoading": "Neue Meldungen werden geladen …",
   "home.platesEmpty": "Gerade gibt es hier keine offenen Meldungen.",

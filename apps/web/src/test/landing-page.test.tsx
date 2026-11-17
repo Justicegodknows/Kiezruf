@@ -72,6 +72,7 @@ describe('landing page', () => {
     expect(screen.getByRole('heading', { level: 1, name: de['home.title'] })).toBeInTheDocument();
     for (const link of screen.getAllByRole('link', { name: de['home.ctaBrowse'] })) expect(link).toHaveAttribute('href', '/berlin');
     expect(screen.getByRole('link', { name: de['home.ctaReport'] })).toHaveAttribute('href', '/new-report');
+    expect(screen.getByRole('link', { name: de['home.ctaConsole'] })).toHaveAttribute('href', '/console');
     expect(screen.queryByRole('link', { name: de['home.bandLink'] })).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: de['home.photoAlt'] })).toBeInTheDocument();
   });
