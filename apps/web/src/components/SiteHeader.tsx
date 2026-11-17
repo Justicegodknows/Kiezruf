@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useChangeLocale } from '@/auth/useChangeLocale';
@@ -20,7 +20,8 @@ const LINKS: { href: string; label: MessageKey }[] = [
 export function SiteHeader() {
   const { t, locale } = useI18n();
   const changeLocale = useChangeLocale();
-  const { signedIn, loading, requireSignIn } = useAuth();
+  const { signedIn, loading, requireSignIn, signOut } = useAuth();
+  const router = useRouter();
 
   return (
     <header className="site-header">
@@ -45,7 +46,19 @@ export function SiteHeader() {
             {t('nav.signIn')}
           </button>
         ) : null}
-        {signedIn ? <span className="muted small">{t('nav.signedIn')}</span> : null}
+        {signedIn ? (
+          // Same as the Account page: end the session, then leave pages that only make sense signed in.
+          <button
+            type="button"
+            className="btn sm"
+            onClick={async () => {
+              await signOut();
+              router.push('/');
+            }}
+          >
+            {t('account.signOut')}
+          </button>
+        ) : null}
       </div>
     </header>
   );
