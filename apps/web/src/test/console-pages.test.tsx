@@ -20,11 +20,14 @@ import { mockFetch } from './helpers';
 
 const nav = vi.hoisted(() => ({
   replace: vi.fn(),
+  hard: vi.fn(),
   push: vi.fn(),
   search: '',
   pathname: '/console',
 }));
 
+// Entering the console after sign-in is a full page load (lib/hard-navigate.ts); jsdom cannot navigate.
+vi.mock('@/lib/hard-navigate', () => ({ hardNavigate: nav.hard }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: nav.replace, push: nav.push, back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams(nav.search),
@@ -125,6 +128,7 @@ function renderConsole(ui: ReactElement, opts: { gated?: boolean } = {}) {
 
 beforeEach(() => {
   nav.replace.mockReset();
+  nav.hard.mockReset();
   nav.push.mockReset();
   nav.search = '';
   nav.pathname = '/console';
@@ -169,7 +173,7 @@ describe('console sign-in: Supabase email and password, then TOTP (ENG-22, ENG-2
 
     fireEvent.change(screen.getByLabelText(de['console.signin.totp']), { target: { value: '65a4321' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.enrollSubmit'] }));
-    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(`/console/reports/${ID}`));
+    await waitFor(() => expect(nav.hard).toHaveBeenCalledWith(`/console/reports/${ID}`));
 
     expect(calls.find((c) => c.path === '/api/auth/sign-in')?.body).toEqual({ email: 'me@bezirksamt.berlin.de', password: 'correct horse battery' });
     // Only the authenticator code: the factor and challenge stay on the server.
@@ -196,6 +200,7 @@ describe('console sign-in: Supabase email and password, then TOTP (ENG-22, ENG-2
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.invalid_totp']);
     expect(nav.replace).not.toHaveBeenCalled();
+    expect(nav.hard).not.toHaveBeenCalled();
   });
 
   it('shows a wrong email or password translated', async () => {
@@ -228,8 +233,19 @@ describe('console sign-in: Supabase email and password, then TOTP (ENG-22, ENG-2
     expect(await screen.findByText(de['console.signin.mfaAgain'])).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(de['console.signin.totp']), { target: { value: '654321' } });
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
-    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('/console'));
+    await waitFor(() => expect(nav.hard).toHaveBeenCalledWith('/console'));
     expect(calls.some((c) => c.path === '/api/auth/sign-in')).toBe(false);
+  });
+
+  it('sends a staff member who is already signed in on to the console with a full page load', async () => {
+    // A client-side route change could replay the proxy's redirect to sign-in that the router cached from a prefetch
+    // made while signed out, and the page would bounce between sign-in and the console.
+    nav.search = 'next=%2Fconsole';
+    window.history.replaceState(null, '', '/console/sign-in?next=%2Fconsole');
+    mockFetch(({ path }) => (path === '/api/staff/session' ? { body: { signedIn: true, me: me('platform_admin', NK) } } : undefined));
+    renderConsole(<SignInPage />, { gated: false });
+    await waitFor(() => expect(nav.hard).toHaveBeenCalledWith('/console'));
+    expect(nav.replace).not.toHaveBeenCalled();
   });
 
   it('tells an account without a staff role that it has no console access', async () => {
@@ -254,6 +270,7 @@ describe('console sign-in: Supabase email and password, then TOTP (ENG-22, ENG-2
     fireEvent.click(screen.getByRole('button', { name: de['console.signin.submit'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.not_staff']);
     expect(nav.replace).not.toHaveBeenCalled();
+    expect(nav.hard).not.toHaveBeenCalled();
   });
 
   it('sends a staff member whose TOTP check expired (401 mfa_required) back to sign-in', async () => {

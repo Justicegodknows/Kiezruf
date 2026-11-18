@@ -79,7 +79,7 @@ export function Onboarding({ onTopics }: { onTopics?: (topics: TopicId[]) => voi
               {t('kz.start')}
               <KzIcon name="arrow" size={18} stroke={2.4} />
             </button>
-            <Link href="/console" className="kz-onboard__console" onClick={markOnboarded}>
+            <Link href="/console" prefetch={false} className="kz-onboard__console" onClick={markOnboarded}>
               {t('kz.consoleLong')}
             </Link>
           </div>
