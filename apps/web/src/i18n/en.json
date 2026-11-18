@@ -767,5 +767,7 @@
   "kz.topic.clean": "Clean streets",
   "kz.petitionsTitle": "Petitions",
   "kz.petitionCount.one": "{count} petition",
-  "kz.petitionCount.other": "{count} petitions"
+  "kz.petitionCount.other": "{count} petitions",
+  "kz.console": "Console",
+  "kz.consoleLong": "Console for district offices"
 }

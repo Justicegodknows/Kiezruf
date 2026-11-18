@@ -152,7 +152,13 @@ export function BrowseShell({ children }: { children: ReactNode }) {
             ) : null}
           </div>
         </div>
-        <AccountButton />
+        <div className="kz-bar__right">
+          {/* Staff sign in to the console from here (/console asks for the sign-in and the second factor). */}
+          <Link href="/console" className="kz-pill kz-pill--quiet" aria-label={t('kz.consoleLong')}>
+            {t('kz.console')}
+          </Link>
+          <AccountButton />
+        </div>
       </header>
 
       <div className="kz-feed">

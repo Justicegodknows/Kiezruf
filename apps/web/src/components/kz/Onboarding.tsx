@@ -4,6 +4,7 @@
 // Every step can be skipped. Sign-up is email and password (ENG-24), not the prototype's name and email: accounts
 // have no name, and Kiezruf signs in with a password. Shown once per browser (lib/topics.ts).
 import { useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useId, useState, type FormEvent } from 'react';
 import { SESSION_QUERY_KEY, useAuth } from '@/auth/AuthProvider';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -78,6 +79,9 @@ export function Onboarding({ onTopics }: { onTopics?: (topics: TopicId[]) => voi
               {t('kz.start')}
               <KzIcon name="arrow" size={18} stroke={2.4} />
             </button>
+            <Link href="/console" className="kz-onboard__console" onClick={markOnboarded}>
+              {t('kz.consoleLong')}
+            </Link>
           </div>
         </div>
       ) : null}

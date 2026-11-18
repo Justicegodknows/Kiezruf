@@ -767,5 +767,7 @@
   "kz.topic.clean": "Saubere Straßen",
   "kz.petitionsTitle": "Petitionen",
   "kz.petitionCount.one": "{count} Petition",
-  "kz.petitionCount.other": "{count} Petitionen"
+  "kz.petitionCount.other": "{count} Petitionen",
+  "kz.console": "Verwaltung",
+  "kz.consoleLong": "Zur Verwaltung für Bezirksämter"
 }

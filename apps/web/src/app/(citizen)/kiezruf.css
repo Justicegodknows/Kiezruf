@@ -1759,3 +1759,29 @@
   hyphens: auto;
   overflow-wrap: anywhere;
 }
+.kz-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.kz-pill--quiet {
+  border-color: transparent;
+  background: var(--kz-tint-2);
+  color: var(--accent);
+  padding: 0 14px;
+}
+.kz a.kz-pill--quiet:hover {
+  background: var(--kz-tint);
+  color: var(--text);
+}
+.kz .kz-onboard__console {
+  align-self: center;
+  padding: 6px;
+  color: #dce6ff;
+  font-size: 14px;
+  text-underline-offset: 3px;
+}
+.kz .kz-onboard__console:hover {
+  color: #fff;
+}
