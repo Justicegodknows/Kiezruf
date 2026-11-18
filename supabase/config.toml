@@ -1,5 +1,5 @@
 # Local Supabase for development (ENG-22): `supabase start` (Supabase CLI 3, needs Docker).
-# The hosted project gets the same settings with `npx supabase@3.1.0 config push --remote=ggjqqfotolfkpxigkydt`
+# The hosted project gets the same settings with `npx supabase@3.1.0 config push --remote=yhfifblsoqsfwipicxbz`
 # (overrides under [remotes.production] below). Sign-in is email and password (ENG-24); Supabase sends no email for it,
 # so the free plan's built-in sender is enough.
 project_id = "kiezruf"
@@ -51,10 +51,10 @@ max_enrolled_factors = 10
 enroll_enabled = true
 verify_enabled = true
 
-# The hosted project (ENG-22). `supabase config push --remote=ggjqqfotolfkpxigkydt` applies everything above to it,
+# The hosted project (ENG-22). `supabase config push --remote=yhfifblsoqsfwipicxbz` applies everything above to it,
 # with these values in place of the local ones.
 [remotes.production]
-project_id = "ggjqqfotolfkpxigkydt"
+project_id = "yhfifblsoqsfwipicxbz"
 
 [remotes.production.auth]
 site_url = "https://kiezruf.vercel.app"

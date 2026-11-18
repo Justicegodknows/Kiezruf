@@ -11,6 +11,7 @@
 //   GET  /api/staff/session                       the staff member and their grants, or why not
 import type { Factor } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import QRCode from 'qrcode';
 import { callApi, isCrossSite, json, readJsonBody } from './bff';
 import { accessToken, authErrorCode, signOutHere, supabaseEnv, supabaseForRequest, type RequestSupabase } from './supabase';
 
@@ -106,13 +107,45 @@ export async function postAuthLogout(request: NextRequest) {
 
 const isTotp = (factor: Factor) => factor.factor_type === 'totp';
 
-/** Supabase hands the QR code as `data:image/svg+xml;utf-8,<svg…>`; as base64 it survives `#` and quotes in an img src. */
+/**
+ * Supabase hands the QR code as SVG behind one or more `data:image/svg+xml;utf-8,` prefixes (supabase-js adds one even
+ * when the server already did), sometimes URL-encoded or with an XML declaration. As base64 it survives `#` and quotes
+ * in an img src. Anything that is not an SVG image gives null.
+ */
 export function qrDataUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const match = /^data:image\/svg\+xml;(?:utf-8|charset=utf-8),([\s\S]*)$/i.exec(value);
-  const svg = match ? match[1]! : value.trim().startsWith('<svg') ? value.trim() : null;
-  if (!svg || !svg.trim().startsWith('<svg')) return null;
+  let text = value.trim();
+  for (let i = 0; i < 3; i++) {
+    const match = /^data:image\/svg\+xml;(?:utf-?8|charset=utf-?8)?,([\s\S]*)$/i.exec(text);
+    if (!match) break;
+    text = match[1]!.trim();
+  }
+  if (/^%3c/i.test(text)) {
+    try {
+      text = decodeURIComponent(text).trim();
+    } catch {
+      return null;
+    }
+  }
+  const svg = text.replace(/^<\?xml[^>]*\?>\s*/i, '');
+  if (!svg.startsWith('<svg')) return null;
   return `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`;
+}
+
+/**
+ * The enrolment QR code. Drawn here from the `otpauth://` URI (on this server: the secret goes to no other service),
+ * so it does not depend on the format of Supabase's own image, which is the fallback.
+ */
+export async function totpQrCode(uri: unknown, supabaseQr: unknown): Promise<string | null> {
+  if (typeof uri === 'string' && uri.startsWith('otpauth://totp/')) {
+    try {
+      const svg = await QRCode.toString(uri, { type: 'svg', errorCorrectionLevel: 'M', margin: 2 });
+      return qrDataUrl(svg);
+    } catch {
+      // fall through to Supabase's image
+    }
+  }
+  return qrDataUrl(supabaseQr);
 }
 
 /**
@@ -134,7 +167,7 @@ export async function postMfaStart(request: NextRequest) {
   const enrolled = await supabase.client.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Kiezruf ${new Date().toISOString().slice(0, 10)}` });
   if (enrolled.error) return fail(supabase, enrolled.error);
   const totp = enrolled.data.type === 'totp' ? enrolled.data.totp : null;
-  return supabase.apply(json({ next: 'enroll', qrCode: qrDataUrl(totp?.qr_code), secret: typeof totp?.secret === 'string' ? totp.secret : null }));
+  return supabase.apply(json({ next: 'enroll', qrCode: await totpQrCode(totp?.uri, totp?.qr_code), secret: typeof totp?.secret === 'string' ? totp.secret : null }));
 }
 
 /** Verifies a TOTP code against the verified factor, or the one being enrolled. The session becomes aal2. */

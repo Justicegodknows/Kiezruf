@@ -4,7 +4,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_COOKIE, fake, stubSupabaseEnv, SVG } from '@/test/fake-supabase';
-import { getSession, getStaffSession, postAuthLogout, postAuthSignIn, postAuthSignUp, postMfaStart, postMfaVerify, qrDataUrl } from './auth-handlers';
+import { getSession, getStaffSession, postAuthLogout, postAuthSignIn, postAuthSignUp, postMfaStart, postMfaVerify, qrDataUrl, totpQrCode } from './auth-handlers';
 import { authCookieOptions, authErrorCode } from './supabase';
 
 vi.mock('@supabase/ssr', async () => (await import('@/test/fake-supabase')).ssrModule);
@@ -151,8 +151,10 @@ describe('console MFA: enrol the first time, then challenge and verify', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ next: 'enroll', qrCode: expect.stringMatching(/^data:image\/svg\+xml;base64,/), secret: 'JBSWY3DPEHPK3PXP' });
-    // The SVG survives intact (a raw `#` in a data URL would cut it off).
-    expect(Buffer.from(body.qrCode.split(',')[1], 'base64').toString('utf8')).toBe(SVG);
+    // Drawn on this server from the otpauth URI (not Supabase's image), as base64 so a `#` cannot cut it off.
+    const svg = Buffer.from(body.qrCode.split(',')[1], 'base64').toString('utf8');
+    expect(svg).toMatch(/^<svg[\s\S]*<\/svg>\s*$/);
+    expect(svg).not.toBe(SVG);
     expect(calledWith('enroll')).toEqual([{ factorType: 'totp', friendlyName: expect.stringMatching(/^Kiezruf /) }]);
   });
 
@@ -264,5 +266,19 @@ describe('Supabase helpers', () => {
     expect(qrDataUrl(`data:image/svg+xml;utf-8,${SVG}`)).toMatch(/^data:image\/svg\+xml;base64,/);
     expect(qrDataUrl('data:text/html,<script>alert(1)</script>')).toBeNull();
     expect(qrDataUrl(undefined)).toBeNull();
+  });
+
+  it('reads the SVG behind the forms Supabase has used: double prefix, XML declaration, URL-encoded', () => {
+    const decoded = (url: string | null) => Buffer.from(url!.split(',')[1]!, 'base64').toString('utf8');
+    expect(decoded(qrDataUrl(`data:image/svg+xml;utf-8,data:image/svg+xml;utf-8,${SVG}`))).toBe(SVG);
+    expect(decoded(qrDataUrl(`data:image/svg+xml;utf-8,<?xml version="1.0" encoding="UTF-8"?>\n${SVG}`))).toBe(SVG);
+    expect(decoded(qrDataUrl(`data:image/svg+xml;utf-8,${encodeURIComponent(SVG)}`))).toBe(SVG);
+    expect(qrDataUrl('data:image/svg+xml;utf-8,%E0%A4%A')).toBeNull();
+  });
+
+  it('draws the QR code from the otpauth URI, else falls back to Supabase’s image', async () => {
+    expect(await totpQrCode('otpauth://totp/Kiezruf?secret=JBSWY3DPEHPK3PXP', undefined)).toMatch(/^data:image\/svg\+xml;base64,/);
+    expect(await totpQrCode(undefined, `data:image/svg+xml;utf-8,${SVG}`)).toMatch(/^data:image\/svg\+xml;base64,/);
+    expect(await totpQrCode('https://example.org', 'nonsense')).toBeNull();
   });
 });

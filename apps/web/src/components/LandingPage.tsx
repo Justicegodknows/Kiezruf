@@ -92,6 +92,10 @@ export function LandingPage() {
                 <Icon name="camera" />
                 {t('home.ctaReport')}
               </Link>
+              {/* For district office staff, as in main's design; the console asks them to sign in. */}
+              <Link href="/console" className="btn lg">
+                {t('home.ctaConsole')}
+              </Link>
             </div>
           </div>
           <Plates reports={plates} state={query.isPending ? 'loading' : query.isError ? 'error' : 'ready'} />
