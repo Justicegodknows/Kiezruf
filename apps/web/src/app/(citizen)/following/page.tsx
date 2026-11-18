@@ -1,15 +1,9 @@
 import type { Metadata } from 'next';
-import { OwnReportList } from '@/components/OwnReportList';
-import { PageHeading } from '@/components/PageHeading';
+import { PetitionListPage } from '@/components/kz/Pages';
 import { MESSAGES } from '@/i18n';
 
-export const metadata: Metadata = { title: MESSAGES.de['following.title'] };
+export const metadata: Metadata = { title: MESSAGES.de['kz.followed'] };
 
-export default function FollowingPage() {
-  return (
-    <div className="page narrow">
-      <PageHeading title="following.title" intro="following.intro" />
-      <OwnReportList kind="follows" />
-    </div>
-  );
+export default function Page() {
+  return <PetitionListPage kind="follows" />;
 }

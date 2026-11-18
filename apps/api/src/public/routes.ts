@@ -19,7 +19,8 @@ const PointQuery = z.object({
 });
 
 const NearbyQuery = PointQuery.extend({
-  radiusM: z.coerce.number().int().min(50).max(10_000).default(2_000),
+  // Up to 30 km: one request covers all of Berlin from its centre (the citizen feed's area picker).
+  radiusM: z.coerce.number().int().min(50).max(30_000).default(2_000),
   category: z.string().refine((key) => CATEGORY_KEYS.includes(key)).optional(),
   status: z.enum(PUBLIC_STATUSES as [string, ...string[]]).optional(),
   maxAgeDays: z.coerce.number().int().min(1).max(365).optional(),
@@ -68,7 +69,8 @@ export function publicRoutes(app: FastifyInstance, deps: AppDeps) {
     const here = sql`ST_SetSRID(ST_MakePoint(${q.lon}, ${q.lat}), 4326)::geography`;
     const rows = await withCitizenAccess(deps.db, (tx) =>
       tx.execute(sql`
-        SELECT ${PUBLIC_FIELDS}, round(ST_Distance(p.location, ${here}))::integer AS "distanceM"
+        SELECT ${PUBLIC_FIELDS}, round(ST_Distance(p.location, ${here}))::integer AS "distanceM",
+               (SELECT pp.public_key FROM public_photo pp WHERE pp.report_id = p.id ORDER BY pp.public_key LIMIT 1) AS "photoKey"
         FROM public_report p JOIN tenant t ON t.id = p.tenant_id
         WHERE ST_DWithin(p.location, ${here}, ${q.radiusM})
           ${q.category ? sql`AND p.category = ${q.category}` : sql``}
@@ -77,7 +79,9 @@ export function publicRoutes(app: FastifyInstance, deps: AppDeps) {
         ORDER BY "distanceM", p.created_at DESC
         LIMIT ${q.limit}`),
     );
-    return reply.send({ reports: rows });
+    // The first blurred photo, for the feed's cards; the detail answer lists them all.
+    const reports = rows.map(({ photoKey, ...r }) => ({ ...r, photoUrl: photoKey ? `${deps.publicPhotoBaseUrl}/${photoKey}` : null }));
+    return reply.send({ reports });
   });
 
   app.get('/public/reports/:publicId', async (request, reply) => {

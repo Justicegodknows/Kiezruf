@@ -48,26 +48,36 @@ function serve(opts: { suggestion: unknown; matches: unknown[] }) {
 
 async function fillIn() {
   renderWithProviders(<NewReportForm />);
-  fireEvent.click(screen.getByRole('button', { name: de['compose.locate'] }));
+  fireEvent.click(screen.getByRole('button', { name: de['kz.useLoc'] }));
   await screen.findByText(/Ihre Meldung geht an/);
-  fireEvent.change(screen.getByLabelText(de['compose.choosePhotos']), { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+  fireEvent.change(screen.getByLabelText(de['kz.takePhoto'], { exact: false }), { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+  fireEvent.change(screen.getByLabelText(de['kz.petTitle']), { target: { value: 'Schlagloch im Radweg' } });
+}
+
+/** The categories under the chosen topic ("What exactly is it?"); picks the Mobility topic first when none is shown. */
+function categories() {
+  const shown = screen.queryByRole('group', { name: de['kz.whatExactly'] });
+  if (shown) return shown;
+  fireEvent.click(screen.getByRole('button', { name: de['kz.topic.mobility'] }));
+  return screen.getByRole('group', { name: de['kz.whatExactly'] });
 }
 
 describe('category suggested from the photo (US-14)', () => {
   it('pre-selects a confident suggestion, says so, lets the citizen change it and sends it as feedback', async () => {
     const calls = serve({ suggestion: { category: 'pothole', confidence: 0.86, preselect: true }, matches: [] });
     await fillIn();
-    const traffic = screen.getByRole('group', { name: de['group.traffic'] });
-    await waitFor(() => expect(within(traffic).getByLabelText(de['category.pothole'])).toBeChecked());
+    await waitFor(() => expect(within(categories()).getByLabelText(de['category.pothole'])).toBeChecked());
+    const traffic = categories();
     expect(screen.getByText(/Anhand Ihres Fotos vorgeschlagen: Schlagloch/)).toBeInTheDocument();
     expect(calls.find((c) => c.path === '/api/uploads/suggest')?.body).toEqual({ key: 'originals/acc/1.jpg' });
 
     fireEvent.click(within(traffic).getByLabelText(de['category.bike_lane']));
     expect(screen.queryByText(/Anhand Ihres Fotos vorgeschlagen/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: de['review.post'] }));
-    expect(await screen.findByRole('heading', { name: de['posted.title'] })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: de['kz.publish'] }));
+    expect(await screen.findByRole('heading', { name: de['kz.live'] })).toBeInTheDocument();
     const posted = calls.find((c) => c.path === '/api/reports');
-    expect(posted?.body).toMatchObject({ category: 'bike_lane', photoKeys: ['originals/acc/1.jpg'], suggestion: { category: 'pothole', confidence: 0.86 } });
+    // The title goes first in the description (lib/petition.ts reads it back as the petition's title).
+    expect(posted?.body).toMatchObject({ description: 'Schlagloch im Radweg', category: 'bike_lane', photoKeys: ['originals/acc/1.jpg'], suggestion: { category: 'pothole', confidence: 0.86 } });
     // The early upload is reused, not repeated.
     expect(calls.filter((c) => c.path === '/api/uploads')).toHaveLength(1);
   });
@@ -76,12 +86,12 @@ describe('category suggested from the photo (US-14)', () => {
     const calls = serve({ suggestion: { category: 'pothole', confidence: 0.62, preselect: false }, matches: [] });
     await fillIn();
     await waitFor(() => expect(calls.some((c) => c.path === '/api/uploads/suggest')).toBe(true));
-    const traffic = screen.getByRole('group', { name: de['group.traffic'] });
+    const traffic = categories();
     expect(within(traffic).getByLabelText(de['category.pothole'])).not.toBeChecked();
     expect(screen.queryByText(/Anhand Ihres Fotos vorgeschlagen/)).not.toBeInTheDocument();
     fireEvent.click(within(traffic).getByLabelText(de['category.pothole']));
-    fireEvent.click(screen.getByRole('button', { name: de['review.post'] }));
-    await screen.findByRole('heading', { name: de['posted.title'] });
+    fireEvent.click(screen.getByRole('button', { name: de['kz.publish'] }));
+    await screen.findByRole('heading', { name: de['kz.live'] });
     expect(calls.find((c) => c.path === '/api/reports')?.body).not.toHaveProperty('suggestion');
   });
 });
@@ -90,9 +100,8 @@ describe('"Already reported?" before posting (US-13)', () => {
   it('shows the matches and adds the photo to the chosen report instead of posting', async () => {
     const calls = serve({ suggestion: { category: 'pothole', confidence: 0.9, preselect: true }, matches: [MATCH] });
     await fillIn();
-    const traffic = screen.getByRole('group', { name: de['group.traffic'] });
-    await waitFor(() => expect(within(traffic).getByLabelText(de['category.pothole'])).toBeChecked());
-    fireEvent.click(screen.getByRole('button', { name: de['review.post'] }));
+    await waitFor(() => expect(within(categories()).getByLabelText(de['category.pothole'])).toBeChecked());
+    fireEvent.click(screen.getByRole('button', { name: de['kz.publish'] }));
 
     const panel = (await screen.findByRole('heading', { name: de['dup.title'] })).closest('section')!;
     expect(calls.find((c) => c.path === '/api/reports/duplicates')?.body).toEqual({ lat: 52.48, lon: 13.43, category: 'pothole', photoKey: 'originals/acc/1.jpg' });
@@ -102,10 +111,10 @@ describe('"Already reported?" before posting (US-13)', () => {
     expect(panel).toHaveTextContent(de['status.open']);
     // No score or level for citizens (US-24).
     expect(panel).not.toHaveTextContent(/Kritisch|Score/);
-    expect(screen.getByRole('button', { name: de['review.post'] })).toBeDisabled();
+    expect(screen.getByRole('button', { name: de['kz.publish'] })).toBeDisabled();
 
     fireEvent.click(within(panel).getByRole('button', { name: new RegExp(de['dup.join']) }));
-    expect(await screen.findByRole('heading', { name: de['dup.joinedTitle'] })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: de['kz.joined'] })).toBeInTheDocument();
     expect(calls.find((c) => c.path === `/api/reports/${MATCH.publicId}/co-report`)?.body).toMatchObject({ photoKeys: ['originals/acc/1.jpg'], capture: { lat: 52.48, lon: 13.43, accuracyM: 12 } });
     expect(calls.some((c) => c.path === '/api/reports')).toBe(false);
     expect(screen.getByRole('link', { name: de['dup.showReport'] })).toHaveAttribute('href', '/berlin/berlin/be-nk-2026-0112');
@@ -114,11 +123,10 @@ describe('"Already reported?" before posting (US-13)', () => {
   it('"No, mine is new" posts the report', async () => {
     const calls = serve({ suggestion: { category: 'pothole', confidence: 0.9, preselect: true }, matches: [MATCH] });
     await fillIn();
-    const traffic = screen.getByRole('group', { name: de['group.traffic'] });
-    await waitFor(() => expect(within(traffic).getByLabelText(de['category.pothole'])).toBeChecked());
-    fireEvent.click(screen.getByRole('button', { name: de['review.post'] }));
+    await waitFor(() => expect(within(categories()).getByLabelText(de['category.pothole'])).toBeChecked());
+    fireEvent.click(screen.getByRole('button', { name: de['kz.publish'] }));
     fireEvent.click(await screen.findByRole('button', { name: de['dup.new'] }));
-    expect(await screen.findByRole('heading', { name: de['posted.title'] })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: de['kz.live'] })).toBeInTheDocument();
     expect(calls.filter((c) => c.path === '/api/reports')).toHaveLength(1);
   });
 
@@ -126,9 +134,9 @@ describe('"Already reported?" before posting (US-13)', () => {
     const calls = serve({ suggestion: { category: null, confidence: null, preselect: false }, matches: [] });
     await fillIn();
     await waitFor(() => expect(calls.some((c) => c.path === '/api/uploads/suggest')).toBe(true));
-    fireEvent.click(within(screen.getByRole('group', { name: de['group.traffic'] })).getByLabelText(de['category.pothole']));
-    fireEvent.click(screen.getByRole('button', { name: de['review.post'] }));
-    expect(await screen.findByRole('heading', { name: de['posted.title'] })).toBeInTheDocument();
+    fireEvent.click(within(categories()).getByLabelText(de['category.pothole']));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.publish'] }));
+    expect(await screen.findByRole('heading', { name: de['kz.live'] })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: de['dup.title'] })).not.toBeInTheDocument();
     expect(calls.findIndex((c) => c.path === '/api/reports/duplicates')).toBeLessThan(calls.findIndex((c) => c.path === '/api/reports'));
   });

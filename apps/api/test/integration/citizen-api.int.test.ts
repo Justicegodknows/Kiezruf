@@ -245,7 +245,8 @@ describe('browsing without an account (US-01, US-15, US-24)', () => {
     expect(res.statusCode).toBe(200);
     const reports = res.json().reports as Record<string, unknown>[];
     expect(reports.map((r) => r.publicId)).toEqual([publicId]);
-    expect(Object.keys(reports[0]!).sort()).toEqual([...PUBLIC_KEYS, 'distanceM'].sort());
+    // The list adds the distance and the first blurred photo (or null) for the feed's cards.
+    expect(Object.keys(reports[0]!).sort()).toEqual([...PUBLIC_KEYS, 'distanceM', 'photoUrl'].sort());
     expect(reports[0]).toMatchObject({ status: 'open', meTooCount: 0, distanceM: 0, tenantName: 'Neukölln' });
   });
 

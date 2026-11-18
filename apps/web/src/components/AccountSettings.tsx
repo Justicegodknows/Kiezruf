@@ -1,45 +1,117 @@
 'use client';
 
-// Account (US-29, US-34, US-35): language, email notifications, sign out, delete the account.
+// Account (US-29, US-34, US-35) after the app prototype: language and topics for everyone; signed in, the citizen's
+// petitions, email notifications, sign out and deleting the account.
 // On the web only the email switches matter; push settings are kept as they are.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useId, useState } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useChangeLocale } from '@/auth/useChangeLocale';
-import { LOCALES, type MessageKey } from '@/i18n';
+import { LOCALES } from '@/i18n';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api, apiOrThrow, type NotificationSettings } from '@/lib/api-client';
+import { initialsOf, TOPICS, topicLabelKey, type TopicId } from '@/lib/petition';
+import { saveTopics, useTopics } from '@/lib/topics';
 import { Dialog } from './Dialog';
+import { KzIcon, PathIcon } from './kz/ui';
 import { ErrorText } from './ErrorText';
 import { SignedInOnly } from './SignedInOnly';
 
 export function AccountSettings() {
-  const { t } = useI18n();
-  return (
-    <SignedInOnly why={t('account.signInWhy')}>
-      <AccountBody />
-    </SignedInOnly>
-  );
-}
-
-function AccountBody() {
   const { t, locale } = useI18n();
-  const { session, signOut, markSignedOut } = useAuth();
+  const { session, signedIn } = useAuth();
   const changeLocale = useChangeLocale();
   const router = useRouter();
   const [languageError, setLanguageError] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleted, setDeleted] = useState(false);
-  const ids = { language: useId(), notifications: useId(), danger: useId(), confirm: useId() };
+  const topics = useTopics();
+  const ids = { language: useId(), topics: useId(), contact: useId() };
 
   async function onLanguage(next: (typeof LOCALES)[number]) {
     setLanguageError(null);
     const result = await changeLocale(next);
     if (result && !result.ok) setLanguageError(String(result.error));
   }
+
+  function toggleTopic(id: TopicId) {
+    const next = topics.includes(id) ? topics.filter((x) => x !== id) : [...topics, id];
+    saveTopics(next);
+  }
+
+  return (
+    <div className="stack" style={{ gap: 28 }}>
+      <div className="kz-me">
+        <span className="kz-me__avatar" aria-hidden="true">
+          {initialsOf(session?.email) ?? 'Me'}
+        </span>
+        <div className="stack-sm" style={{ minWidth: 0 }}>
+          <span className="kz-me__name">{signedIn ? (session?.email ?? t('kz.yourAccount')) : t('kz.guest')}</span>
+          <span className="kz-note">{signedIn ? t('account.signedInAs', { email: session?.email ?? '' }) : t('kz.guestNote')}</span>
+        </div>
+      </div>
+
+      <section className="kz-group" aria-labelledby={ids.language}>
+        <h2 id={ids.language} className="kz-label">
+          {t('kz.language')}
+        </h2>
+        <div className="kz-segmented" role="group" aria-labelledby={ids.language}>
+          {(['en', 'de'] as const).map((l) => (
+            <button key={l} type="button" lang={l} aria-pressed={locale === l} onClick={() => void onLanguage(l)}>
+              {l === 'en' ? 'English' : 'Deutsch'}
+            </button>
+          ))}
+        </div>
+        <ErrorText code={languageError} />
+      </section>
+
+      <section className="kz-group" aria-labelledby={ids.topics}>
+        <h2 id={ids.topics} className="kz-label">
+          {t('kz.yourTopics')}
+        </h2>
+        <p className="kz-note">{t('kz.topicsNote')}</p>
+        <div className="kz-topics">
+          {TOPICS.map((x) => {
+            const on = topics.includes(x.id);
+            return (
+              <button key={x.id} type="button" className="kz-topic" aria-pressed={on} onClick={() => toggleTopic(x.id)}>
+                <span className="kz-topic__icon">
+                  <PathIcon d={x.icon} />
+                </span>
+                {on ? (
+                  <span className="kz-topic__check">
+                    <KzIcon name="check" size={13} stroke={3} />
+                  </span>
+                ) : null}
+                <span>{t(topicLabelKey(x.id))}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <SignedInOnly why={t('account.signInWhy')}>
+        <AccountBody />
+      </SignedInOnly>
+
+      <div className="kz-sticky-foot">
+        <button type="button" className="kz-cta" onClick={() => router.push('/')}>
+          {t('kz.saveClose')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AccountBody() {
+  const { t } = useI18n();
+  const { signOut, markSignedOut } = useAuth();
+  const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleted, setDeleted] = useState(false);
+  const ids = { petitions: useId(), notifications: useId(), danger: useId(), confirm: useId() };
 
   async function deleteAccount() {
     setDeleting(true);
@@ -64,44 +136,48 @@ function AccountBody() {
   }
 
   return (
-    <div className="stack">
-      {session?.email ? <p>{t('account.signedInAs', { email: session.email })}</p> : null}
-
-      <section aria-labelledby={ids.language} className="stack-sm">
-        <h2 id={ids.language}>{t('account.language')}</h2>
-        <fieldset className="radio-group">
-          <legend className="visually-hidden">{t('account.language')}</legend>
-          {LOCALES.map((l) => (
-            <label key={l} className="radio" lang={l}>
-              <input type="radio" name="language" value={l} checked={locale === l} onChange={() => void onLanguage(l)} />
-              {t(`language.${l}` as MessageKey)}
-            </label>
-          ))}
-        </fieldset>
-        <ErrorText code={languageError} />
+    <div className="stack" style={{ gap: 28 }}>
+      <section className="kz-group" aria-labelledby={ids.petitions}>
+        <h2 id={ids.petitions} className="kz-label">
+          {t('kz.yourPetitions')}
+        </h2>
+        <Link href="/my-reports" className="kz-row-link">
+          {t('kz.myPetitions')}
+          <KzIcon name="arrow" size={18} stroke={2.2} />
+        </Link>
+        <Link href="/following" className="kz-row-link">
+          {t('kz.followed')}
+          <KzIcon name="arrow" size={18} stroke={2.2} />
+        </Link>
       </section>
 
-      <section aria-labelledby={ids.notifications} className="stack-sm">
-        <h2 id={ids.notifications}>{t('account.notifications')}</h2>
-        <NotificationSwitches />
+      <section className="kz-group" aria-labelledby={ids.notifications}>
+        <h2 id={ids.notifications} className="kz-label">
+          {t('account.notifications')}
+        </h2>
+        <div className="kz-panel">
+          <NotificationSwitches />
+        </div>
       </section>
 
-      <section className="stack-sm">
+      <section className="kz-group">
         <button
           type="button"
-          className="btn"
+          className="kz-cta kz-cta--light"
           onClick={async () => {
             await signOut();
             router.push('/');
           }}
         >
-          {t('account.signOut')}
+          {t('kz.signOut')}
         </button>
       </section>
 
-      <section aria-labelledby={ids.danger} className="stack-sm danger-zone">
-        <h2 id={ids.danger}>{t('account.delete')}</h2>
-        <p>{t('account.deleteExplain')}</p>
+      <section aria-labelledby={ids.danger} className="kz-group danger-zone">
+        <h2 id={ids.danger} className="kz-label">
+          {t('account.delete')}
+        </h2>
+        <p className="kz-note">{t('account.deleteExplain')}</p>
         <button type="button" className="btn danger" onClick={() => setConfirmOpen(true)}>
           {t('account.delete')}
         </button>

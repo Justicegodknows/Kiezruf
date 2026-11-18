@@ -11,7 +11,7 @@ import { ScoreBreakdown } from '@/console/components/ScoreBreakdown';
 import { formatScore, parseLocaleNumber } from '@/console/format';
 import { forwardTargetsFrom } from '@/console/tenants';
 import { LEVELS, STAFF_ROLES, TENANT_STATUSES, type Breakdown, type StaffMe, type StaffTenant } from '@/console/types';
-import { ReportCard } from '@/components/ReportCard';
+import { PetitionCard } from '@/components/kz/PetitionCard';
 import { MeTooButton } from '@/components/MeTooButton';
 import { I18nProvider } from '@/i18n/I18nProvider';
 import de from '@/i18n/de.json';
@@ -342,19 +342,23 @@ const REPORT: PublicReport = {
   distanceM: 80,
 };
 
-describe('citizen web: report card (US-15, US-24)', () => {
-  it('shows status and Me too count, and never a score or level', () => {
+describe('citizen web: petition card (US-15, US-24, app prototype)', () => {
+  it('shows signatures towards the next milestone, the topic and Bezirk, and never a score or level', () => {
     // A report object that (wrongly) carried score fields must still not show them.
     const leaky = { ...REPORT, score: 61.2, level: 'Critical', priority: 'High' } as PublicReport;
     render(
       <I18nProvider locale="de">
-        <ReportCard report={leaky} />
+        <PetitionCard report={leaky} />
       </I18nProvider>,
     );
     const card = screen.getByRole('article');
-    expect(within(card).getByText(de['status.acknowledged'])).toBeInTheDocument();
-    expect(within(card).getByText('20 Stimmen')).toBeInTheDocument();
-    expect(within(card).getByRole('link', { name: /Ampel/ })).toHaveAttribute('href', '/berlin/neukoelln/be-nk-2026-0112');
+    // 20 Me too votes = 20 signatures of the next milestone, 25 (80 %): "Nur noch 5 Stimmen!".
+    expect(within(card).getByRole('progressbar', { name: de['kz.signaturesCollected'] })).toHaveAttribute('aria-valuenow', '80');
+    expect(within(card).getByText(de['kz.pHigh'].replace('{n}', '5'))).toBeInTheDocument();
+    expect(within(card).getByText(`${de['kz.topic.safety']} · Neukölln`)).toBeInTheDocument();
+    const link = within(card).getByRole('link');
+    expect(link).toHaveAttribute('href', '/berlin/neukoelln/be-nk-2026-0112');
+    expect(link).toHaveTextContent('The pedestrian signal has been dark since this morning');
     expect(card.textContent).not.toMatch(/61|Critical|High|Kritisch|Hoch|Score|Priorit/i);
   });
 
@@ -378,7 +382,7 @@ describe('citizen web: Me too button (US-18)', () => {
     const onChange = vi.fn();
     renderWithProviders(<MeTooButton publicId="BE-NK-2026-0112" count={20} voted={false} onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Ich auch/ }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.signThis'] }));
 
     const dialog = await screen.findByRole('dialog', { name: de['signin.title'] });
     // A wrong password first: the error shows and the dialog stays.
@@ -427,12 +431,11 @@ describe('citizen web: Me too button (US-18)', () => {
     }
     renderWithProviders(<Harness />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Ich auch/ }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.signThis'] }));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith({ voted: true, meTooCount: 21 }));
 
-    const pressed = await screen.findByRole('button', { pressed: true });
-    expect(pressed).toHaveTextContent(de['meToo.voted']);
-    fireEvent.click(pressed);
+    expect(await screen.findByRole('status')).toHaveTextContent(de['kz.youSigned']);
+    fireEvent.click(screen.getByRole('button', { name: de['kz.withdraw'] }));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith({ voted: false, meTooCount: 20 }));
     expect(calls.filter((c) => c.path.endsWith('/me-too')).map((c) => c.method)).toEqual(['PUT', 'DELETE']);
   });
@@ -445,7 +448,7 @@ describe('citizen web: Me too button (US-18)', () => {
     });
     mockGeolocation({ lat: 52.5, lon: 13.4, accuracy: 12 });
     renderWithProviders(<MeTooButton publicId="BE-NK-2026-0112" count={20} voted={false} onChange={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: /Ich auch/ }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.signThis'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.not_on_site']);
   });
 
@@ -453,7 +456,7 @@ describe('citizen web: Me too button (US-18)', () => {
     const calls = mockFetch(({ path }) => (path === '/api/session' ? { body: { signedIn: true } } : undefined));
     mockGeolocation({ lat: 52.5, lon: 13.4, accuracy: 250 });
     renderWithProviders(<MeTooButton publicId="BE-NK-2026-0112" count={20} voted={false} onChange={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: /Ich auch/ }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.signThis'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.accuracy_too_low']);
     expect(calls.some((c) => c.path.includes('me-too'))).toBe(false);
   });

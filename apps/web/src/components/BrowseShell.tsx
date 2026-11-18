@@ -1,179 +1,220 @@
 'use client';
 
-// "Browse & vote" (web prototype): list, map and detail side by side. No account needed (US-01).
-// Nearest first, filters for category, status and age (US-15). The location is used only after "Near me".
-import { CATEGORIES } from '@kiezruf/shared';
+// The citizen feed (US-15) after the app prototype: "Berlin ▾" area picker and account button on top, the map of
+// petitions, and the petition cards (or a photo grid) below; on wide screens the list sits beside a sticky map.
+// A report's URL (/berlin/<bezirk>/<id>) opens its petition pop-up over the feed (the layout's children).
+// The first visit starts with the splash and onboarding (Onboarding.tsx). Never score or level (US-24).
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '@/i18n/I18nProvider';
-import type { MessageKey } from '@/i18n';
-import { api, apiOrThrow, type PublicReport, type RouteAnswer } from '@/lib/api-client';
-import { BERLIN_CENTER, currentFix, LocationError, type Point } from '@/lib/geo';
-import { PUBLIC_STATUSES, reportIdFromSegment, reportPath } from '@/lib/paths';
-import { ErrorText } from './ErrorText';
-import { categoryLabel, statusLabel } from './labels';
-import { NotLivePanel } from './NotLivePanel';
-import { ReportCard } from './ReportCard';
+import { formatNumber } from '@/i18n';
+import { apiOrThrow } from '@/lib/api-client';
+import { BERLIN_CENTER, currentFix, distanceM, type Point } from '@/lib/geo';
+import { reportIdFromSegment, reportPath } from '@/lib/paths';
+import { TOPICS, topicLabelKey, topicOf } from '@/lib/petition';
+import { useTopics } from '@/lib/topics';
+import { Onboarding } from './kz/Onboarding';
+import { PetitionCard, PetitionTile, type FeedReport } from './kz/PetitionCard';
+import { AccountButton, KzIcon } from './kz/ui';
 import { ReportMap } from './ReportMap';
 
-const AGE_OPTIONS = [1, 7, 30, 90] as const;
-/** Radius around the Berlin centre covers most of the city; around the citizen, the neighbourhood. */
-const CITY_RADIUS_M = 10_000;
-const LOCAL_RADIUS_M = 3_000;
+/** One request for all of Berlin from its centre (the API allows 30 km). */
+export const FEED_PATH = `public/reports?${new URLSearchParams({
+  lat: BERLIN_CENTER.lat.toFixed(6),
+  lon: BERLIN_CENTER.lon.toFixed(6),
+  radiusM: '30000',
+  limit: '200',
+}).toString()}`;
 
-export interface Filters {
-  category: string; // '' | 'group:traffic' | 'group:community' | category key
-  status: string;
-  maxAgeDays: string;
-}
-
-export function reportsQueryPath(center: Point, radiusM: number, filters: Filters): string {
-  const q = new URLSearchParams({ lat: center.lat.toFixed(6), lon: center.lon.toFixed(6), radiusM: String(radiusM), limit: '100' });
-  if (filters.category && !filters.category.startsWith('group:')) q.set('category', filters.category);
-  if (filters.status) q.set('status', filters.status);
-  if (filters.maxAgeDays) q.set('maxAgeDays', filters.maxAgeDays);
-  return `public/reports?${q.toString()}`;
-}
+const ALL = 'all';
 
 export function BrowseShell({ children }: { children: ReactNode }) {
-  const { t, tp } = useI18n();
+  const { t, tp, locale } = useI18n();
   const router = useRouter();
   const params = useParams<{ reportId?: string }>();
   const selectedId = params.reportId ? reportIdFromSegment(params.reportId) : null;
+  const query = useQuery({ queryKey: ['public-reports', FEED_PATH], queryFn: () => apiOrThrow<{ reports: FeedReport[] }>(FEED_PATH) });
+
+  const [area, setArea] = useState(ALL);
+  const [areaOpen, setAreaOpen] = useState(false);
+  const topics = useTopics();
+  const [onlyMine, setOnlyMine] = useState(true);
+  const [view, setView] = useState<'list' | 'grid'>('list');
   const [center, setCenter] = useState<Point>(BERLIN_CENTER);
-  const [nearMe, setNearMe] = useState(false);
-  const [movedTo, setMovedTo] = useState<Point | null>(null);
-  const [filters, setFilters] = useState<Filters>({ category: '', status: '', maxAgeDays: '' });
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [notLive, setNotLive] = useState<{ point: Point; tenant: string | null } | null>(null);
-  const headingId = useId();
-  const filterIds = { category: useId(), status: useId(), age: useId() };
+  const [me, setMe] = useState<Point | null>(null);
+  const [compactFab, setCompactFab] = useState(false);
+  const areaMenuId = useId();
+  const areaRef = useRef<HTMLDivElement>(null);
 
-  const radiusM = nearMe || center !== BERLIN_CENTER ? LOCAL_RADIUS_M : CITY_RADIUS_M;
-  const path = reportsQueryPath(center, radiusM, filters);
-  const query = useQuery({ queryKey: ['public-reports', path], queryFn: () => apiOrThrow<{ reports: PublicReport[] }>(path) });
+  useEffect(() => {
+    const onScroll = () => setCompactFab(window.scrollY > 160);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
+  useEffect(() => {
+    if (!areaOpen) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !areaRef.current?.contains(e.target as Node)) setAreaOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [areaOpen]);
+
+  const all = useMemo(() => query.data?.reports ?? [], [query.data]);
+  const areas = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of all) counts.set(r.tenantName, (counts.get(r.tenantName) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [all]);
+
+  const filterTopics = onlyMine && topics.length > 0;
   const reports = useMemo(() => {
-    const all = query.data?.reports ?? [];
-    if (!filters.category.startsWith('group:')) return all;
-    const group = filters.category.slice('group:'.length);
-    return all.filter((r) => CATEGORIES.find((c) => c.key === r.category)?.group === group);
-  }, [query.data, filters.category]);
+    let list = all.filter((r) => (area === ALL || r.tenantName === area) && (!filterTopics || topics.includes(topicOf(r.category))));
+    // Open petitions first, newest first; near the citizen once they asked for it.
+    const rank = (r: FeedReport) => (r.status === 'resolved' ? 1 : 0);
+    list = [...list].sort((a, b) =>
+      me ? distanceM(me, a) - distanceM(me, b) : rank(a) - rank(b) || Date.parse(b.createdAt) - Date.parse(a.createdAt),
+    );
+    return list;
+  }, [all, area, filterTopics, topics, me]);
 
-  async function locate() {
-    setLocating(true);
-    setLocationError(null);
+  async function locateMe() {
     try {
       const fix = await currentFix();
       const point = { lat: fix.lat, lon: fix.lon };
+      setMe(point);
       setCenter(point);
-      setNearMe(true);
-      setMovedTo(null);
-      const route = await api<RouteAnswer>(`public/route?lat=${point.lat.toFixed(6)}&lon=${point.lon.toFixed(6)}`);
-      setNotLive(route.ok && !route.data.live ? { point, tenant: route.data.tenant?.name ?? null } : null);
-    } catch (err) {
-      setLocationError(err instanceof LocationError ? err.code : 'location_unavailable');
-    } finally {
-      setLocating(false);
+    } catch {
+      // The browser said no; the feed stays as it is.
     }
   }
 
-  const setFilter = (key: keyof Filters) => (value: string) => setFilters((f) => ({ ...f, [key]: value }));
+  function showOnMap(r: FeedReport) {
+    setCenter({ lat: r.lat, lon: r.lon });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  const areaLabel = area === ALL ? 'Berlin' : area;
+  const fitKey = `${area}|${filterTopics ? topics.join(',') : ''}`;
 
   return (
-    <div className={`browse${selectedId ? ' has-detail' : ''}`}>
-      <section className="browse-list" aria-labelledby={headingId}>
-        <h1 id={headingId}>{nearMe ? t('browse.titleNearMe') : t('browse.title')}</h1>
-        <div className="toolbar">
-          <button type="button" className="btn" onClick={locate} disabled={locating}>
-            <span aria-hidden="true">◎ </span>
-            {locating ? t('browse.locating') : t('browse.nearMe')}
-          </button>
-          {movedTo ? (
+    <>
+      <header className="kz-bar">
+        <div className="kz-bar__left">
+          <div className="kz-area" ref={areaRef}>
             <button
               type="button"
-              className="btn"
-              onClick={() => {
-                setCenter(movedTo);
-                setMovedTo(null);
-                setNearMe(false);
-              }}
+              className="kz-area__button"
+              aria-haspopup="listbox"
+              aria-expanded={areaOpen}
+              aria-controls={areaMenuId}
+              onClick={() => setAreaOpen((o) => !o)}
             >
-              {t('browse.searchArea')}
+              {areaLabel}
+              <span className="kz-area__chev">
+                <KzIcon name="chevron" size={20} stroke={3} />
+              </span>
             </button>
-          ) : null}
+            {areaOpen ? (
+              <ul id={areaMenuId} role="listbox" aria-label={t('kz.chooseArea')} className="kz-area__menu">
+                <li className="kz-area__heading" role="presentation">
+                  {t('kz.chooseArea')}
+                </li>
+                {[[ALL, all.length] as const, ...areas].map(([name, count]) => (
+                  <li key={name} role="presentation">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={area === name}
+                      className="kz-area__option"
+                      onClick={() => {
+                        setArea(name);
+                        setAreaOpen(false);
+                      }}
+                    >
+                      <span className="kz-area__icon">
+                        <KzIcon name="pin" size={16} stroke={2.4} />
+                      </span>
+                      <span>{name === ALL ? 'Berlin' : name}</span>
+                      <span className="kz-area__count">{formatNumber(locale, count)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
-        <ErrorText code={locationError} />
-        {notLive ? <NotLivePanel point={notLive.point} tenantName={notLive.tenant} /> : null}
+        <AccountButton />
+      </header>
 
-        <form className="filters" aria-label={t('filters.label')} onSubmit={(e) => e.preventDefault()}>
-          <div className="field">
-            <label htmlFor={filterIds.category}>{t('filters.category')}</label>
-            <select id={filterIds.category} value={filters.category} onChange={(e) => setFilter('category')(e.target.value)}>
-              <option value="">{t('filters.all')}</option>
-              {(['traffic', 'community'] as const).map((group) => (
-                <optgroup key={group} label={t(`group.${group}` as MessageKey)}>
-                  <option value={`group:${group}`}>{t('filters.allInGroup', { group: t(`group.${group}` as MessageKey) })}</option>
-                  {CATEGORIES.filter((c) => c.group === group).map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {categoryLabel(t, c.key)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+      <div className="kz-feed">
+        <section className="kz-feed__map" aria-label={t('kz.mapLabel')}>
+          <ReportMap
+            reports={reports}
+            selectedId={selectedId}
+            center={center}
+            fitKey={fitKey}
+            onSelect={(report) => router.push(reportPath(report), { scroll: false })}
+            onMoved={() => {}}
+          />
+          <button type="button" className="kz-round kz-map-locate" onClick={() => void locateMe()} aria-label={t('kz.locate')}>
+            <KzIcon name="navigate" size={18} stroke={2.2} />
+          </button>
+        </section>
+
+        <section className="kz-feed__list" aria-label={t('kz.petitionsTitle')}>
+          <div className="kz-feed__tools">
+            <p role="status" className="kz-note">
+              {query.isPending ? t('common.loading') : tp('kz.petitionCount', reports.length)}
+            </p>
+            <button type="button" className="kz-chip" onClick={() => setView((v) => (v === 'list' ? 'grid' : 'list'))} aria-label={view === 'list' ? t('kz.showGrid') : t('kz.showList')}>
+              <KzIcon name={view === 'list' ? 'grid' : 'list'} size={16} stroke={1.9} />
+            </button>
           </div>
-          <div className="field">
-            <label htmlFor={filterIds.status}>{t('filters.status')}</label>
-            <select id={filterIds.status} value={filters.status} onChange={(e) => setFilter('status')(e.target.value)}>
-              <option value="">{t('filters.all')}</option>
-              {PUBLIC_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {statusLabel(t, s)}
-                </option>
+          {topics.length > 0 ? (
+            <div className="kz-feed__topics" role="group" aria-label={t('kz.yourTopics')}>
+              <button type="button" className="kz-chip" aria-pressed={!filterTopics} onClick={() => setOnlyMine(false)}>
+                {t('filters.all')}
+              </button>
+              {TOPICS.filter((x) => topics.includes(x.id)).map((x) => (
+                <button key={x.id} type="button" className="kz-chip" aria-pressed={filterTopics} onClick={() => setOnlyMine(true)}>
+                  {t(topicLabelKey(x.id))}
+                </button>
               ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor={filterIds.age}>{t('filters.age')}</label>
-            <select id={filterIds.age} value={filters.maxAgeDays} onChange={(e) => setFilter('maxAgeDays')(e.target.value)}>
-              <option value="">{t('filters.anyAge')}</option>
-              {AGE_OPTIONS.map((d) => (
-                <option key={d} value={String(d)}>
-                  {tp('filters.days', d)}
-                </option>
+            </div>
+          ) : null}
+
+          {query.isError ? <p className="kz-empty">{t('error.unavailable')}</p> : null}
+          {!query.isPending && !query.isError && reports.length === 0 ? <p className="kz-empty">{t('kz.noPetitions')}</p> : null}
+          {view === 'list' ? (
+            reports.map((r) => <PetitionCard key={r.publicId} report={r} selected={r.publicId === selectedId} onLocate={() => showOnMap(r)} />)
+          ) : (
+            <ul className="kz-grid">
+              {reports.map((r) => (
+                <li key={r.publicId}>
+                  <PetitionTile report={r} />
+                </li>
               ))}
-            </select>
-          </div>
-        </form>
+            </ul>
+          )}
+        </section>
+      </div>
 
-        <p role="status" className="small muted">
-          {query.isPending ? t('common.loading') : query.isError ? '' : tp('browse.count', reports.length)}
-        </p>
-        {query.isError ? <ErrorText code={(query.error as { code?: string }).code ?? 'unknown'} /> : null}
-        {!query.isPending && !query.isError && reports.length === 0 ? <p>{t('browse.empty')}</p> : null}
-        <ol className="report-list">
-          {reports.map((report) => (
-            <li key={report.publicId}>
-              <ReportCard report={report} selected={report.publicId === selectedId} />
-            </li>
-          ))}
-        </ol>
-      </section>
+      <Link href="/new-report" className="kz-fab" data-compact={compactFab} aria-label={t('kz.navNew')}>
+        <KzIcon name="plus" size={20} stroke={2.6} />
+        <span className="kz-fab__label">{t('kz.fabLabel')}</span>
+      </Link>
 
-      <ReportMap
-        reports={reports}
-        selectedId={selectedId}
-        center={center}
-        onSelect={(report) => router.push(reportPath(report))}
-        onMoved={setMovedTo}
-      />
-
-      <aside className="browse-detail" aria-label={t('detail.label')}>
-        {children}
-      </aside>
-    </div>
+      {children}
+      <Onboarding />
+    </>
   );
 }

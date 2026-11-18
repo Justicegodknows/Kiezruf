@@ -22,8 +22,11 @@ import { currentFix, distanceM, LocationError, type Fix, type Point } from '@/li
 import { reportPath } from '@/lib/paths';
 import { ACCEPT_ATTRIBUTE, assessPhoto, composeDecision, type ChosenPhoto } from '@/lib/photo-check';
 import { coReport, postReport, uploadPhoto, type Posted, type ShownSuggestion } from '@/lib/post-report';
+import { categoriesOf, TOPICS, topicLabelKey, topicOf, type TopicId } from '@/lib/petition';
 import { categoryToPreselect, duplicateSignature, findDuplicates, requestSuggestion, type DuplicateMatch } from '@/lib/report-assist';
 import { AlreadyReported } from './AlreadyReported';
+import { Confetti } from './kz/Confetti';
+import { KzIcon } from './kz/ui';
 import { DraftList } from './DraftList';
 import { ErrorText } from './ErrorText';
 import { categoryLabel } from './labels';
@@ -42,7 +45,7 @@ type Outcome = { kind: 'posted'; posted: Posted } | { kind: 'matches'; sig: stri
 export function NewReportForm() {
   const { t, tp, locale } = useI18n();
   const { runAuthed, signedIn } = useAuth();
-  const ids = { description: useId(), descriptionHint: useId(), photos: useId(), photosHint: useId(), dangerous: useId() };
+  const ids = { description: useId(), descriptionHint: useId(), photos: useId(), photosHint: useId(), dangerous: useId(), title: useId(), verify: useId() };
 
   const [fix, setFix] = useState<Fix | null>(null);
   const [locating, setLocating] = useState(false);
@@ -53,6 +56,9 @@ export function NewReportForm() {
   const [photoMessage, setPhotoMessage] = useState<MessageKey | null>(null);
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  // The petition's title (app prototype). It becomes the description's first line, which the feed shows as the title.
+  const [title, setTitle] = useState('');
+  const [topic, setTopic] = useState<TopicId | null>(null);
   const [dangerous, setDangerous] = useState(false);
   const [pin, setPin] = useState<Point | null>(null);
 
@@ -154,21 +160,34 @@ export function NewReportForm() {
   const needsDescription = categoryNeedsDescription(category);
   const live = route?.live === true;
   const missing: MessageKey[] = [];
-  if (!fix) missing.push('review.missingLocation');
-  else if (route && !live) missing.push('review.missingLive');
-  if (decision.kind === 'empty') missing.push('review.missingPhoto');
-  if (decision.kind === 'draft') missing.push('review.photoDraftOnly');
-  if (!category) missing.push('review.missingCategory');
-  if (needsDescription && !description.trim()) missing.push('review.missingDescription');
+  if (decision.kind === 'empty') missing.push('kz.needMedia');
+  if (decision.kind === 'draft') missing.push('kz.needPostable');
+  if (!title.trim()) missing.push('kz.needTitle');
+  if (!category) missing.push('kz.needTopic');
+  if (needsDescription && !description.trim()) missing.push('kz.needDesc');
+  if (!fix) missing.push('kz.needLoc');
+  else if (route && !live) missing.push('kz.needLive');
   // The duplicate check runs on the public position (the pin) and the first photo (US-13).
   const where = pin ?? fix;
   const firstKey = firstUpload && photos[0]?.id === firstUpload.photoId ? firstUpload.key : null;
   const currentSig = where && category ? duplicateSignature({ lat: where.lat, lon: where.lon, category, photoKey: firstKey }) : null;
   const openMatches = dupCheck && dupCheck.sig === currentSig ? dupCheck.matches : null;
-  if (openMatches) missing.push('review.answerDuplicates');
+  if (openMatches) missing.push('kz.needAnswer');
   const canPost = missing.length === 0 && decision.kind === 'post' && fix !== null && live;
   const canSaveDraft = photos.length > 0;
   const suggestionShown = suggested !== null && suggested.category === category;
+  /** Title on the first line, the citizen's reasons below (lib/petition.ts reads it back). */
+  const fullDescription = [title.trim(), description.trim()].filter(Boolean).join('\n').slice(0, MAX_DESCRIPTION_LENGTH);
+  const shownTopic = topic ?? (category ? topicOf(category) : null);
+  const topicCategories = shownTopic ? categoriesOf(shownTopic, CATEGORIES) : [];
+  const offeredTopics = TOPICS.filter((x) => categoriesOf(x.id, CATEGORIES).length > 0);
+
+  function pickTopic(next: TopicId) {
+    setTopic(next);
+    const inTopic = categoriesOf(next, CATEGORIES);
+    if (inTopic.length === 1) setCategory(inTopic[0]!);
+    else if (!inTopic.includes(category)) setCategory('');
+  }
 
   /** The first photo's key, uploading it now if the early upload has not happened. */
   async function ensureFirstKey(): Promise<ApiResult<string | null>> {
@@ -186,7 +205,7 @@ export function NewReportForm() {
     const moved = pin && distanceM(at, pin) >= 1 ? pin : null;
     return postReport({
       category,
-      description,
+      description: fullDescription,
       dangerous,
       fix: at,
       capturedAt,
@@ -266,21 +285,12 @@ export function NewReportForm() {
 
   if (joined) {
     return (
-      <section className="notice success-box" aria-labelledby="joined-title">
-        <h2 id="joined-title" tabIndex={-1} ref={(el) => el?.focus()}>
-          {t('dup.joinedTitle')}
-        </h2>
-        <p>{t('dup.joinedBody')}</p>
-        <p className="report-id">{joined.publicId}</p>
-        <p className="row">
-          <Link href={reportPath({ publicId: joined.publicId })} className="btn primary">
-            {t('dup.showReport')}
-          </Link>
-          <Link href="/my-reports" className="btn">
-            {t('posted.toMyReports')}
-          </Link>
-        </p>
-      </section>
+      <SuccessScreen
+        title={t('kz.joined')}
+        body={t('dup.joinedBody')}
+        publicId={joined.publicId}
+        primary={{ href: reportPath({ publicId: joined.publicId }), label: t('dup.showReport') }}
+      />
     );
   }
 
@@ -289,7 +299,7 @@ export function NewReportForm() {
     try {
       await saveDraft({
         category,
-        description,
+        description: fullDescription,
         dangerous,
         reasons: decision.kind === 'draft' ? decision.reasons : [],
         photos: photos.map((p) => ({ name: p.file.name, type: p.file.type, blob: p.file })),
@@ -304,101 +314,55 @@ export function NewReportForm() {
 
   if (posted) {
     return (
-      <section className="notice success-box" aria-labelledby="posted-title">
-        <h2 id="posted-title" tabIndex={-1} ref={(el) => el?.focus()}>
-          {t('posted.title')}
-        </h2>
-        <p>{t('posted.id')}</p>
-        <p className="report-id">{posted.publicId}</p>
-        <p>{t('posted.processing')}</p>
-        <p>{t('posted.following')}</p>
-        <p className="row">
-          <Link href="/my-reports" className="btn primary">
-            {t('posted.toMyReports')}
-          </Link>
-          <Link href="/berlin" className="btn">
-            {t('posted.toMap')}
-          </Link>
-        </p>
-      </section>
+      <SuccessScreen
+        title={t('kz.live')}
+        body={t('kz.livePinned', { title: title.trim() || categoryLabel(t, category) })}
+        publicId={posted.publicId}
+        primary={{ href: '/', label: t('kz.seeMap') }}
+      />
     );
   }
 
   return (
-    <div className="stack">
-      <p className="notice info">{t('compose.onSiteNote')}</p>
-      <form onSubmit={submit} className="stack compose" noValidate>
-        {/* 1. Location */}
-        <fieldset className="step">
-          <legend>{t('compose.step.location')}</legend>
-          <p className="small">{t('compose.locationHint')}</p>
-          <button type="button" className="btn" onClick={locate} disabled={locating}>
-            {locating ? t('compose.locating') : fix ? t('compose.relocate') : t('compose.locate')}
-          </button>
-          <div aria-live="polite">
-            {fix ? (
-              <p className="success">
-                <span aria-hidden="true">✓ </span>
-                {t('compose.locationOk', { accuracy: formatDistance(locale, fix.accuracyM) })}
-              </p>
-            ) : null}
-            {route?.live && route.tenant ? <p>{t('compose.receivingOffice', { office: route.tenant.office ?? route.tenant.name, tenant: route.tenant.name })}</p> : null}
-          </div>
-          <ErrorText code={locationError} />
-          {locationError === 'accuracy_too_low' ? <p className="small">{t('compose.accuracyAdvice', { max: formatNumber(locale, MAX_ACCURACY_M) })}</p> : null}
-          {fix && route && !route.live ? <NotLivePanel point={fix} tenantName={route.tenant?.name} /> : null}
-        </fieldset>
-
-        {/* 2. Photos */}
-        <fieldset className="step">
-          <legend>{t('compose.step.photos')}</legend>
-          <p id={ids.photosHint} className="small">
+    <div className="kz-create">
+      <form onSubmit={submit} className="kz-create" noValidate>
+        {/* Photos (US-04, US-06) */}
+        <fieldset className="kz-group kz-fieldset">
+          <legend className="kz-field-label">{t('kz.photoLabel')}</legend>
+          {photos.length < MAX_PHOTOS ? (
+            <label htmlFor={ids.photos} className="kz-drop">
+              <span className="kz-drop__icon">
+                <KzIcon name="camera" size={22} stroke={2} />
+              </span>
+              <span>{photos.length ? t('kz.addPhoto') : t('kz.takePhoto')}</span>
+              <span className="kz-drop__sub">{t('kz.shotOnSpot', { max: MAX_PHOTOS })}</span>
+              <input id={ids.photos} type="file" accept={ACCEPT_ATTRIBUTE} multiple onChange={addPhotos} aria-describedby={ids.photosHint} />
+            </label>
+          ) : null}
+          <p id={ids.photosHint} className="kz-note">
             {t('compose.photosHint', { max: MAX_PHOTOS, hours: MAX_PHOTO_AGE_HOURS })}
           </p>
-          <label htmlFor={ids.photos} className="label">
-            {t('compose.choosePhotos')}
-          </label>
-          <input
-            id={ids.photos}
-            className="file-input"
-            type="file"
-            accept={ACCEPT_ATTRIBUTE}
-            multiple
-            onChange={addPhotos}
-            disabled={photos.length >= MAX_PHOTOS}
-            aria-describedby={ids.photosHint}
-          />
           {photoMessage ? (
             <p role="alert" className="error">
               {t(photoMessage, { max: MAX_PHOTOS })}
             </p>
           ) : null}
-          <p className="small muted" aria-live="polite">
+          <p className="kz-note" aria-live="polite">
             {tp('compose.photoCount', photos.length, { max: MAX_PHOTOS })}
           </p>
           {photos.length > 0 ? (
-            <ul className="photo-picks">
+            <ul className="kz-shots">
               {photos.map((p, i) => (
-                <li key={p.id} className={p.verdict.postable ? 'ok' : 'draft'}>
+                <li key={p.id} className="kz-shot" data-ok={p.verdict.postable}>
                   {/* Local preview of the citizen's own file (object URL). */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.preview} alt={t('compose.photoAlt', { n: i + 1, name: p.file.name })} />
-                  <p className="small">
-                    {p.verdict.postable ? (
-                      <span className="success">
-                        <span aria-hidden="true">✓ </span>
-                        {t('compose.photoOk')}
-                      </span>
-                    ) : (
-                      <span className="error">
-                        <span aria-hidden="true">⚠ </span>
-                        {t(`photo.reason.${p.verdict.reason}` as MessageKey, { hours: MAX_PHOTO_AGE_HOURS })}
-                      </span>
-                    )}
-                  </p>
-                  <button type="button" className="btn ghost sm" onClick={() => removePhoto(p.id)}>
-                    {t('compose.removePhoto', { n: i + 1 })}
+                  <button type="button" className="kz-shot__remove" onClick={() => removePhoto(p.id)} aria-label={t('compose.removePhoto', { n: i + 1 })}>
+                    <KzIcon name="close" size={14} stroke={2.6} />
                   </button>
+                  <span className="kz-shot__state" data-ok={p.verdict.postable}>
+                    {p.verdict.postable ? t('compose.photoOk') : t(`photo.reason.${p.verdict.reason}` as MessageKey, { hours: MAX_PHOTO_AGE_HOURS })}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -406,9 +370,22 @@ export function NewReportForm() {
           {decision.kind === 'draft' ? <p className="notice info">{t('compose.draftExplain', { hours: MAX_PHOTO_AGE_HOURS })}</p> : null}
         </fieldset>
 
-        {/* 3. Category and description */}
-        <fieldset className="step">
-          <legend>{t('compose.step.category')}</legend>
+        {/* Title */}
+        <label className="kz-field" htmlFor={ids.title}>
+          {t('kz.petTitle')}
+          <input id={ids.title} type="text" maxLength={90} placeholder={t('kz.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)} required aria-required />
+        </label>
+
+        {/* Topic, then the category within it (US-08); the AI's suggestion pre-selects one (US-14). */}
+        <fieldset className="kz-group kz-fieldset">
+          <legend className="kz-field-label">{t('kz.topic')}</legend>
+          <div className="kz-chips">
+            {offeredTopics.map((x) => (
+              <button key={x.id} type="button" className="kz-choice" aria-pressed={shownTopic === x.id} onClick={() => pickTopic(x.id)}>
+                {t(topicLabelKey(x.id))}
+              </button>
+            ))}
+          </div>
           <div aria-live="polite">
             {suggestionShown ? (
               <p className="notice info suggestion-note">
@@ -417,108 +394,159 @@ export function NewReportForm() {
               </p>
             ) : null}
           </div>
-          {(['traffic', 'community'] as const).map((group) => (
-            <fieldset key={group} className="radio-group">
-              <legend>{t(`group.${group}` as MessageKey)}</legend>
-              {CATEGORIES.filter((c) => c.group === group).map((c) => (
-                <label key={c.key} className="radio">
-                  <input type="radio" name="category" value={c.key} checked={category === c.key} onChange={() => setCategory(c.key)} />
-                  {categoryLabel(t, c.key)}
-                </label>
-              ))}
+          {shownTopic && topicCategories.length > 1 ? (
+            <fieldset className="kz-group kz-fieldset">
+              <legend className="kz-field-label">{t('kz.whatExactly')}</legend>
+              <div className="kz-chips">
+                {topicCategories.map((key) => (
+                  <label key={key} className="kz-choice kz-choice--radio">
+                    <input type="radio" name="category" value={key} checked={category === key} onChange={() => setCategory(key)} />
+                    {categoryLabel(t, key)}
+                  </label>
+                ))}
+              </div>
             </fieldset>
-          ))}
-          <div className="field">
-            <label htmlFor={ids.description}>
-              {needsDescription ? t('compose.descriptionRequired') : t('compose.descriptionOptional')}
-            </label>
-            <textarea
-              id={ids.description}
-              rows={4}
-              maxLength={MAX_DESCRIPTION_LENGTH}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required={needsDescription}
-              aria-required={needsDescription}
-              aria-describedby={ids.descriptionHint}
-            />
-            <p id={ids.descriptionHint} className="small muted">
-              {needsDescription ? t('compose.otherNeedsDescription') : ''} {t('comments.counter', { used: description.length, max: MAX_DESCRIPTION_LENGTH })}
-            </p>
-          </div>
-          <label className="checkbox" htmlFor={ids.dangerous}>
-            <input id={ids.dangerous} type="checkbox" role="switch" checked={dangerous} onChange={(e) => setDangerous(e.target.checked)} />
-            {t('compose.dangerous')}
-          </label>
-          {dangerous ? (
-            <div className="notice emergency" role="alert">
-              <p>
-                <strong>{t('emergency.title')}</strong>
-              </p>
-              <p>
-                {t('emergency.fire')} <a href="tel:112">112</a> · {t('emergency.police')} <a href="tel:110">110</a>
-              </p>
-              <p className="small">{t('emergency.note')}</p>
-            </div>
           ) : null}
         </fieldset>
 
-        {/* 4. Pin */}
-        <fieldset className="step">
-          <legend>{t('compose.step.pin')}</legend>
-          {fix && pin ? <PinAdjuster origin={fix} pin={pin} onChange={setPin} /> : <p className="small muted">{t('compose.pinNeedsLocation')}</p>}
-        </fieldset>
+        {/* Why it matters (required for "Other", US-08) */}
+        <div className="kz-field">
+          <label htmlFor={ids.description}>{needsDescription ? t('compose.descriptionRequired') : t('kz.why')}</label>
+          <textarea
+            id={ids.description}
+            rows={4}
+            maxLength={MAX_DESCRIPTION_LENGTH - title.length - 1}
+            placeholder={t('kz.descPh')}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required={needsDescription}
+            aria-required={needsDescription}
+            aria-describedby={ids.descriptionHint}
+          />
+          <span id={ids.descriptionHint} className="kz-note">
+            {needsDescription ? t('compose.otherNeedsDescription') : ''} {t('comments.counter', { used: fullDescription.length, max: MAX_DESCRIPTION_LENGTH })}
+          </span>
+        </div>
 
-        {/* "Already reported?" (US-13), before the review */}
+        {/* Dangerous right now? (US-09) */}
+        <label className="kz-switch" htmlFor={ids.dangerous}>
+          <input id={ids.dangerous} type="checkbox" role="switch" checked={dangerous} onChange={(e) => setDangerous(e.target.checked)} />
+          {t('compose.dangerous')}
+        </label>
+        {dangerous ? (
+          <div className="notice emergency" role="alert">
+            <p>
+              <strong>{t('emergency.title')}</strong>
+            </p>
+            <p>
+              {t('emergency.fire')} <a href="tel:112">112</a> · {t('emergency.police')} <a href="tel:110">110</a>
+            </p>
+            <p className="small">{t('emergency.note')}</p>
+          </div>
+        ) : null}
+
+        {/* Verify you are on site (US-03, US-41, US-44), then the pin (US-10) */}
+        <section className="kz-verify" data-ok={Boolean(fix && live)} aria-labelledby={ids.verify}>
+          <div className="kz-verify__head">
+            <span className="kz-verify__icon">
+              <KzIcon name="pin" size={20} stroke={2.2} />
+            </span>
+            <div className="stack-sm">
+              <h2 id={ids.verify} className="kz-verify__title">
+                {t('kz.verifyTitle')}
+              </h2>
+              <p className="kz-note">{t('kz.verifyText')}</p>
+            </div>
+          </div>
+          {locating ? (
+            <div role="status" className="kz-status-box">
+              <span className="kz-blink" />
+              {t('kz.finding')}
+            </div>
+          ) : fix ? (
+            <div role="status" className="kz-status-box">
+              <span className="kz-tick">
+                <KzIcon name="check" size={14} stroke={2.8} />
+              </span>
+              <span>
+                {t('kz.locVerified')}
+                <span className="kz-sub">
+                  {t('compose.locationOk', { accuracy: formatDistance(locale, fix.accuracyM) })}
+                  {route?.live && route.tenant ? ` ${t('compose.receivingOffice', { office: route.tenant.office ?? route.tenant.name, tenant: route.tenant.name })}` : ''}
+                </span>
+              </span>
+            </div>
+          ) : null}
+          {!locating ? (
+            <button type="button" className="kz-soft-button" onClick={locate}>
+              {fix ? t('compose.relocate') : t('kz.useLoc')}
+            </button>
+          ) : null}
+          <ErrorText code={locationError} />
+          {locationError === 'accuracy_too_low' ? <p className="kz-note">{t('compose.accuracyAdvice', { max: formatNumber(locale, MAX_ACCURACY_M) })}</p> : null}
+          {fix && route && !route.live ? <NotLivePanel point={fix} tenantName={route.tenant?.name} /> : null}
+          {fix && pin && live ? (
+            <details>
+              <summary className="kz-field-label">{t('kz.adjustPin')}</summary>
+              <PinAdjuster origin={fix} pin={pin} onChange={setPin} />
+            </details>
+          ) : null}
+        </section>
+
+        {/* "Already reported?" (US-13), before publishing */}
         {openMatches ? <AlreadyReported matches={openMatches} busy={joining ?? posting} onJoin={(m) => void join(m)} onNew={() => void postAsNew()} /> : null}
 
-        {/* 5. Review */}
-        <fieldset className="step">
-          <legend>{t('compose.step.review')}</legend>
-          <dl className="facts">
-            <dt>{t('review.photos')}</dt>
-            <dd>{tp('compose.photoCount', photos.length, { max: MAX_PHOTOS })}</dd>
-            <dt>{t('review.category')}</dt>
-            <dd>{category ? categoryLabel(t, category) : '–'}</dd>
-            <dt>{t('review.description')}</dt>
-            <dd>{description.trim() || '–'}</dd>
-            <dt>{t('review.dangerous')}</dt>
-            <dd>{dangerous ? t('common.yes') : t('common.no')}</dd>
-            <dt>{t('review.location')}</dt>
-            <dd>{pin ? t('pin.coords', { lat: pin.lat.toFixed(5), lon: pin.lon.toFixed(5) }) : '–'}</dd>
-            <dt>{t('review.office')}</dt>
-            <dd>{route?.live && route.tenant ? `${route.tenant.office ?? route.tenant.name} (${route.tenant.name})` : '–'}</dd>
-          </dl>
-          {missing.length > 0 ? (
-            <div className="small">
-              <p>{t('review.missingIntro')}</p>
-              <ul className="bullets">
-                {missing.map((key) => (
-                  <li key={key}>{t(key)}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+        <div className="kz-sticky-foot stack-sm">
+          {missing.length > 0 ? <p className="kz-hint">{t('kz.stillNeeded', { list: missing.map((key) => t(key)).join(', ') })}</p> : null}
           <ErrorText code={postError} />
-          <div className="row">
-            <button type="submit" className="btn primary" disabled={!canPost || posting}>
-              {posting ? t('review.posting') : t('review.post')}
+          <button type="submit" className="kz-cta" disabled={!canPost || posting}>
+            {posting ? t('kz.publishing') : t('kz.publish')}
+          </button>
+          {canSaveDraft ? (
+            <button type="button" className="kz-link-button" onClick={keepAsDraft}>
+              {t('kz.saveDraft')}
             </button>
-            {canSaveDraft ? (
-              <button type="button" className="btn" onClick={keepAsDraft}>
-                {t('review.saveDraft')}
-              </button>
-            ) : null}
-          </div>
+          ) : null}
           {draftError ? <ErrorText code="unknown" /> : null}
           {draftSaved > 0 ? (
-            <p role="status" className="success">
+            <p role="status" className="kz-hint">
               {t('drafts.saved')}
             </p>
           ) : null}
-        </fieldset>
+        </div>
       </form>
       <DraftList refresh={draftSaved} />
     </div>
+  );
+}
+
+/** "Your petition is live." (app prototype): the whole screen blue, with confetti. */
+function SuccessScreen({ title, body, publicId, primary }: { title: string; body: string; publicId: string; primary: { href: string; label: string } }) {
+  const { t } = useI18n();
+  return (
+    <section className="kz-success kz-success--page" aria-labelledby="posted-title">
+      <div className="kz-success__inner">
+        <span className="kz-success__icon">
+          <KzIcon name="check" size={34} stroke={2.8} />
+        </span>
+        <h1 id="posted-title" tabIndex={-1} ref={(el) => el?.focus()}>
+          {title}
+        </h1>
+        <p>{body}</p>
+        <p>
+          {t('posted.id')} <span className="kz-success__id">{publicId}</span>
+        </p>
+      </div>
+      <div className="kz-success__actions">
+        <Link href={primary.href} className="kz-cta kz-cta--light">
+          {primary.label}
+          <KzIcon name="arrow" size={18} stroke={2.4} />
+        </Link>
+        <Link href="/my-reports" className="kz-link-button">
+          {t('posted.toMyReports')}
+        </Link>
+      </div>
+      <Confetti />
+    </section>
   );
 }

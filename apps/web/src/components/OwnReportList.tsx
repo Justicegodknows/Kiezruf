@@ -8,6 +8,7 @@ import { formatDateTime } from '@/i18n';
 import { useI18n } from '@/i18n/I18nProvider';
 import { apiOrThrow, type OwnReport } from '@/lib/api-client';
 import { isPublicStatus, reportPath } from '@/lib/paths';
+import { splitDescription, topicLabelKey, topicOf } from '@/lib/petition';
 import { ErrorText } from './ErrorText';
 import { categoryLabel, statusLabel } from './labels';
 import { SignedInOnly } from './SignedInOnly';
@@ -36,8 +37,8 @@ function ReportRows({ kind }: { kind: 'reports' | 'follows' }) {
       <div className="stack-sm">
         <p>{kind === 'reports' ? t('myReports.empty') : t('following.empty')}</p>
         <p>
-          <Link href={kind === 'reports' ? '/new-report' : '/berlin'} className="btn primary">
-            {kind === 'reports' ? t('nav.report') : t('nav.browse')}
+          <Link href={kind === 'reports' ? '/new-report' : '/'} className="kz-cta">
+            {kind === 'reports' ? t('kz.navNew') : t('kz.backToPetitions')}
           </Link>
         </p>
       </div>
@@ -45,31 +46,34 @@ function ReportRows({ kind }: { kind: 'reports' | 'follows' }) {
   }
   return (
     <>
-      <p className="small muted">{tp('myReports.count', reports.length)}</p>
-      <ul className="report-list">
-        {reports.map((r) => (
-          <li key={r.publicId} className="card">
-            <h2 className="card-title">
-              {isPublicStatus(r.status) ? (
-                <Link href={reportPath(r)} className="card-link">
-                  {categoryLabel(t, r.category)} · {r.publicId}
-                </Link>
-              ) : (
-                <>
-                  {categoryLabel(t, r.category)} · {r.publicId}
-                </>
-              )}
-            </h2>
-            <div className="card-row">
-              <StatusBadge status={r.status} label={statusLabel(t, r.status)} />
-            </div>
-            {!isPublicStatus(r.status) ? <p className="small">{t(r.status === 'rejected' ? 'myReports.rejectedNote' : 'myReports.notPublicYet')}</p> : null}
-            {r.description ? <p className="card-desc">{r.description}</p> : null}
-            <p className="small muted">
-              {r.office ? `${r.office} (${r.tenantName})` : r.tenantName} · {formatDateTime(locale, r.createdAt ?? r.updatedAt ?? '')}
-            </p>
-          </li>
-        ))}
+      <p className="kz-note">{tp('myReports.count', reports.length)}</p>
+      <ul className="stack" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {reports.map((r) => {
+          const title = splitDescription(r.description).title ?? categoryLabel(t, r.category);
+          return (
+            <li key={r.publicId} className="kz-panel">
+              <h2 className="kz-section-title">
+                {isPublicStatus(r.status) ? (
+                  <Link href={reportPath(r)} className="card-link">
+                    {title}
+                  </Link>
+                ) : (
+                  title
+                )}
+              </h2>
+              <p className="kz-note">
+                {t(topicLabelKey(topicOf(r.category)))} · {categoryLabel(t, r.category)} · {r.publicId}
+              </p>
+              <div className="card-row">
+                <StatusBadge status={r.status} label={statusLabel(t, r.status)} />
+              </div>
+              {!isPublicStatus(r.status) ? <p className="kz-note">{t(r.status === 'rejected' ? 'myReports.rejectedNote' : 'myReports.notPublicYet')}</p> : null}
+              <p className="kz-note">
+                {r.office ? `${r.office} (${r.tenantName})` : r.tenantName} · {formatDateTime(locale, r.createdAt ?? r.updatedAt ?? '')}
+              </p>
+            </li>
+          );
+        })}
       </ul>
     </>
   );
