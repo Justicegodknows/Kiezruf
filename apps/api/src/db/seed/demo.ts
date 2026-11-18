@@ -1,6 +1,7 @@
 // Demo data for local development and staging: the product plan's sample reports (kiezruf-mvp-prototype.html,
 // REPORTS) in Neukölln and Spandau, with citizens, photos, comments, Me too votes, co-reporters, status history,
-// a forwarded report, a vote spike, a recurring hotspot, demo staff and this week's briefing.
+// a forwarded report, a vote spike, a recurring hotspot, demo staff and this week's briefing; twelve weeks of earlier
+// reports with the offices' answers (demo-history.ts) and demand in Bezirke that are not live yet.
 //
 // Every demo account uses the reserved domain DEMO_DOMAIN (".invalid" can never receive mail), so demo data is easy to
 // find and remove (`--reset`). Demo photos are drawn scenes without people or plates, so they are published directly
@@ -14,6 +15,7 @@ import { differenceHash, sanitise } from '../../photos/image.js';
 import { recomputeScores } from '../../scoring/recompute.js';
 import type { PhotoStorage } from '../../storage/photos.js';
 import type { Db, Tx } from '../client.js';
+import { DEMAND, historyReports } from './demo-history.js';
 import { demoPhoto, type Scene } from './demo-photos.js';
 
 export const DEMO_DOMAIN = 'kiezruf-demo.invalid';
@@ -22,7 +24,7 @@ const HOUR = 3_600_000;
 
 type Status = 'open' | 'acknowledged' | 'in_progress' | 'forwarded' | 'resolved';
 
-interface DemoReport {
+export interface DemoReport {
   key: string;
   tenant: 'nk' | 'sp';
   category: string;
@@ -44,6 +46,10 @@ interface DemoReport {
   /** 19 votes within 40 minutes, 15 from accounts younger than 7 days (prototype: BE-NK-2026-0098). */
   spike?: boolean;
   forwardTo?: string;
+  /** The office's status changes, hours after posting; without it a single change to `status` an hour in. */
+  timeline?: { status: Status; afterHours: number; note?: string }[];
+  /** Earlier reports from demo-history.ts: they share drawn photos instead of one each. */
+  history?: boolean;
 }
 
 // From the prototype's sample reports, in German as the apps show them first. Places are real; coordinates checked
@@ -199,21 +205,37 @@ export async function seedDemo(deps: DemoDeps): Promise<DemoResult> {
   }
 
   // Photos first, outside the transaction: one drawn scene per photo, stored like a citizen's upload.
-  const photoFiles = new Map<string, { originalKey: string; publicKey: string; phash: string; id: string }>();
+  type PhotoFile = { originalKey: string; publicKey: string; phash: string };
+  const photoFiles = new Map<string, PhotoFile>();
+  // Earlier reports share three drawings per scene, so the history does not mean hundreds of uploads.
+  const shared = new Map<string, PhotoFile>();
   let variant = 0;
-  const reportsToSeed = [...DEMO_REPORTS, ...recurringReports(now)];
-  for (const r of reportsToSeed) {
+  let stored = 0;
+  const store = async (scene: Scene): Promise<PhotoFile> => {
+    const id = randomUUID();
+    const original = await demoPhoto(scene, variant++);
+    const clean = await sanitise(original);
+    const file = { originalKey: `originals/demo/${id}.jpg`, publicKey: `public/${id}.jpg`, phash: await differenceHash(clean) };
+    await deps.storage.putOriginal(file.originalKey, original, 'image/jpeg');
+    await deps.storage.putPublic(file.publicKey, clean, 'image/jpeg');
+    stored++;
+    return file;
+  };
+  const reportsToSeed = [...historyReports(now), ...DEMO_REPORTS, ...recurringReports(now)];
+  for (const [n, r] of reportsToSeed.entries()) {
     for (const [i, scene] of r.scenes.entries()) {
-      const id = randomUUID();
-      const original = await demoPhoto(scene, variant++);
-      const clean = await sanitise(original);
-      const file = { id, originalKey: `originals/demo/${id}.jpg`, publicKey: `public/${id}.jpg`, phash: await differenceHash(clean) };
-      await deps.storage.putOriginal(file.originalKey, original, 'image/jpeg');
-      await deps.storage.putPublic(file.publicKey, clean, 'image/jpeg');
+      let file: PhotoFile;
+      if (r.history) {
+        const poolKey = `${scene}:${n % 3}`;
+        file = shared.get(poolKey) ?? (await store(scene));
+        shared.set(poolKey, file);
+      } else {
+        file = await store(scene);
+      }
       photoFiles.set(`${r.key}:${i}`, file);
     }
   }
-  log(`Stored ${photoFiles.size} demo photos.`);
+  log(`Stored ${stored} demo photos for ${reportsToSeed.length} reports.`);
 
   const result = await deps.db.transaction(async (tx) => {
     const citizens = await createCitizens(tx, now);
@@ -232,6 +254,7 @@ export async function seedDemo(deps: DemoDeps): Promise<DemoResult> {
     for (const r of reportsToSeed) {
       const created = new Date(now.getTime() - r.ageHours * HOUR);
       const author = nextCitizen();
+      const lastChange = r.timeline?.length ? new Date(created.getTime() + r.timeline.at(-1)!.afterHours * HOUR) : null;
       const tenantId = tenants.get(r.tenant)!;
       const year = berlinYear(created);
       const [seq] = await tx.execute<{ n: number }>(sql`SELECT next_report_sequence(${tenantId}, ${year}) AS n`);
@@ -242,7 +265,7 @@ export async function seedDemo(deps: DemoDeps): Promise<DemoResult> {
                             capture_accuracy_m, capture_at, created_by, created_at, updated_at, public_note)
         VALUES (${publicId}, ${tenantId}, ${r.category}, ${r.status}::report_status, ${r.description}, ${r.danger > 0}, ${at}, ${at},
                 12, ${created.toISOString()}::timestamptz, ${author}, ${created.toISOString()}::timestamptz,
-                ${new Date(created.getTime() + Math.min(r.ageHours, 2) * HOUR / 2).toISOString()}::timestamptz, ${r.publicNote ?? null})
+                ${(lastChange ?? new Date(created.getTime() + Math.min(r.ageHours, 2) * HOUR / 2)).toISOString()}::timestamptz, ${r.publicNote ?? null})
         RETURNING id`);
       const reportId = report!.id;
       counts.reports++;
@@ -251,7 +274,7 @@ export async function seedDemo(deps: DemoDeps): Promise<DemoResult> {
         const f = photoFiles.get(`${r.key}:${i}`)!;
         await tx.execute(sql`
           INSERT INTO photo (id, report_id, original_key, public_key, blur_status, phash, attempts, processed_at, created_at)
-          VALUES (${f.id}, ${reportId}, ${f.originalKey}, ${f.publicKey}, 'done', ${f.phash}, 1, ${created.toISOString()}::timestamptz,
+          VALUES (${randomUUID()}, ${reportId}, ${f.originalKey}, ${f.publicKey}, 'done', ${f.phash}, 1, ${created.toISOString()}::timestamptz,
                   ${created.toISOString()}::timestamptz)`);
         counts.photos++;
       }
@@ -289,10 +312,14 @@ export async function seedDemo(deps: DemoDeps): Promise<DemoResult> {
       // Status history as the office wrote it (US-28), one hour after posting.
       const office = staff.get(r.tenant === 'nk' ? 'fallbearbeitung.neukoelln' : 'admin.spandau')!;
       const when = new Date(created.getTime() + Math.min(1, r.ageHours / 2) * HOUR).toISOString();
-      if (r.status !== 'open') {
+      const timeline = r.timeline ?? (r.status !== 'open' ? [{ status: r.status, afterHours: Math.min(1, r.ageHours / 2), note: r.publicNote }] : []);
+      let from: string = 'open';
+      for (const step of timeline) {
         await tx.execute(sql`
           INSERT INTO audit_event (kind, report_id, tenant_id, actor_id, from_value, to_value, public_note, created_at)
-          VALUES ('status', ${reportId}, ${tenantId}, ${office}, 'open', ${r.status}, ${r.publicNote ?? null}, ${when}::timestamptz)`);
+          VALUES ('status', ${reportId}, ${tenantId}, ${office}, ${from}, ${step.status}, ${step.note ?? null},
+                  ${new Date(created.getTime() + step.afterHours * HOUR).toISOString()}::timestamptz)`);
+        from = step.status;
       }
       if (r.forwardTo) {
         await tx.execute(sql`
@@ -311,6 +338,17 @@ export async function seedDemo(deps: DemoDeps): Promise<DemoResult> {
           await tx.execute(sql`INSERT INTO comment_flag (comment_id, account_id, reason) VALUES (${spam!.id}, ${nextCitizen()}, 'Werbung') ON CONFLICT DO NOTHING`);
         }
         counts.comments++;
+      }
+    }
+
+    // Demand in Bezirke that are not live yet (US-44), once: these rows carry no account, so --reset cannot tell them apart.
+    const [demand] = await tx.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM demand_signal`);
+    if (demand!.n === 0) {
+      for (const d of DEMAND) {
+        for (let i = 0; i < d.count; i++) {
+          const at = new Date(now.getTime() - ((i * 37) % 60) * 24 * HOUR - (i % 24) * HOUR).toISOString();
+          await tx.execute(sql`INSERT INTO demand_signal (tenant_id, created_at) SELECT id, ${at}::timestamptz FROM tenant WHERE path = ${d.path}::ltree`);
+        }
       }
     }
     return { citizens: citizens.length + 15, staff: staff.size, ...counts };

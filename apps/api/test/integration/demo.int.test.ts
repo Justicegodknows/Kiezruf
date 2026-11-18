@@ -5,11 +5,14 @@ import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../../src/db/client.js';
 import { DEMO_DOMAIN, DEMO_REPORTS, DEMO_STAFF, hasDemoData, removeDemoData, seedDemo } from '../../src/db/seed/demo.js';
+import { DEMAND, historyReports } from '../../src/db/seed/demo-history.js';
 import { buildTestApp, type TestApp } from '../support/app.js';
 import { accessToken } from '../support/tokens.js';
 import { createMigratedDatabase } from './helpers.js';
 
 let db: Db;
+const NOW = new Date();
+const HISTORY = historyReports(NOW);
 let t: TestApp;
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 const staff = (role: string) => accessToken({ email: DEMO_STAFF.find((s) => s.role === role)!.email, mfa: true, invited: true });
@@ -18,7 +21,7 @@ const get = (url: string, token?: string) => t.app.inject({ method: 'GET', url, 
 beforeAll(async () => {
   db = await createMigratedDatabase('demo', { seed: true });
   t = await buildTestApp(db);
-  await seedDemo({ db, storage: t.storage, now: new Date() });
+  await seedDemo({ db, storage: t.storage, now: NOW });
 }, 120_000);
 afterAll(async () => {
   await t?.app.close();
@@ -26,15 +29,16 @@ afterAll(async () => {
 });
 
 describe('demo data', () => {
-  it('creates the prototype reports, the recurring ones, citizens and staff, all on the demo domain', async () => {
+  it('creates the prototype reports, the recurring ones, twelve weeks of history, citizens and staff, all on the demo domain', async () => {
     const [counts] = await db.execute<{ reports: number; accounts: number; photos: number; comments: number }>(sql`
       SELECT (SELECT count(*)::int FROM report) AS reports,
              (SELECT count(*)::int FROM account WHERE email LIKE ${`%@${DEMO_DOMAIN}`}) AS accounts,
              (SELECT count(*)::int FROM photo WHERE blur_status = 'done') AS photos,
              (SELECT count(*)::int FROM comment) AS comments`);
-    expect(counts!.reports).toBe(DEMO_REPORTS.length + 2);
+    expect(HISTORY.length).toBeGreaterThan(100);
+    expect(counts!.reports).toBe(DEMO_REPORTS.length + 2 + HISTORY.length);
     expect(counts!.accounts).toBe(60 + 15 + DEMO_STAFF.length);
-    expect(counts!.photos).toBe(DEMO_REPORTS.reduce((n, r) => n + r.scenes.length, 0) + 2);
+    expect(counts!.photos).toBe(DEMO_REPORTS.reduce((n, r) => n + r.scenes.length, 0) + 2 + HISTORY.length);
     expect(counts!.comments).toBeGreaterThan(20);
   });
 
@@ -58,15 +62,28 @@ describe('demo data', () => {
     const queue = (await get('/staff/reports', worker)).json().reports;
     expect(queue[0]).toMatchObject({ category: 'traffic_light', level: 'Critical' });
     expect(queue.every((r: { tenant: { name: string } }) => r.tenant.name === 'Neukölln')).toBe(true);
-    expect(queue.find((r: { category: string }) => r.category === 'youth_centre')).toMatchObject({ spike: true });
+    expect(queue.some((r: { category: string; spike: boolean }) => r.category === 'youth_centre' && r.spike)).toBe(true);
 
     const moderation = (await get('/staff/moderation', worker)).json();
     expect(moderation.comments.map((c: { state: string }) => c.state).sort()).toEqual(['held', 'visible']);
-    const hotspot = (await get('/staff/hotspots', worker)).json().clusters.find((c: { group: string; count: number }) => c.group === 'community' && c.count >= 3);
-    expect(hotspot).toMatchObject({ recurring: true, weekdayPattern: 'mon' });
+    const clusters = (await get('/staff/hotspots', worker)).json().clusters as { group: string; count: number; recurring: boolean; weekdayPattern: string | null }[];
+    expect(clusters.some((c) => c.group === 'community' && c.count >= 3 && c.recurring && c.weekdayPattern === 'mon')).toBe(true);
 
     const duplicates = await get(`/staff/reports/${queue.find((r: { description: string }) => r.description?.includes('Nr. 108')).publicId}/duplicates`, worker);
     expect(duplicates.json().matches).toHaveLength(1);
+  });
+
+  it('gives the history the offices\' answers: most older reports resolved, with their status changes', async () => {
+    const [row] = await db.execute<{ resolved: number; older: number; events: number; demand: number }>(sql`
+      SELECT (SELECT count(*)::int FROM report WHERE status = 'resolved' AND created_at < now() - interval '21 days') AS resolved,
+             (SELECT count(*)::int FROM report WHERE created_at < now() - interval '21 days') AS older,
+             (SELECT count(*)::int FROM audit_event WHERE kind = 'status') AS events,
+             (SELECT count(*)::int FROM demand_signal) AS demand`);
+    expect(row!.resolved / row!.older).toBeGreaterThan(0.7);
+    expect(row!.events).toBeGreaterThan(HISTORY.length * 2);
+    expect(row!.demand).toBe(DEMAND.reduce((n, d) => n + d.count, 0));
+    const trends = (await get('/staff/trends', staff('case_worker'))).json();
+    expect(trends.medianHoursToResolve).toBeGreaterThan(24);
   });
 
   it('writes this week\'s briefing for both Bezirke, and the Berlin viewer sees both', async () => {
