@@ -54,12 +54,9 @@ async function fillIn() {
   fireEvent.change(screen.getByLabelText(de['kz.petTitle']), { target: { value: 'Schlagloch im Radweg' } });
 }
 
-/** The categories under the chosen topic ("What exactly is it?"); picks the Mobility topic first when none is shown. */
+/** The traffic categories, all on show as in v1 (Verkehr / Gemeinschaft). */
 function categories() {
-  const shown = screen.queryByRole('group', { name: de['kz.whatExactly'] });
-  if (shown) return shown;
-  fireEvent.click(screen.getByRole('button', { name: de['kz.topic.mobility'] }));
-  return screen.getByRole('group', { name: de['kz.whatExactly'] });
+  return screen.getByRole('group', { name: de['group.traffic'] });
 }
 
 describe('category suggested from the photo (US-14)', () => {

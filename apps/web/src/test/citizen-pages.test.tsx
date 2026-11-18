@@ -128,8 +128,7 @@ describe('citizen web: report from the web', () => {
   it('requires a description for "Other" (US-08) and shows 112 / 110 when dangerous (US-09)', async () => {
     liveRoute();
     renderWithProviders(<NewReportForm />);
-    fireEvent.click(screen.getByRole('button', { name: de['kz.topic.mobility'] }));
-    fireEvent.click(within(screen.getByRole('group', { name: de['kz.whatExactly'] })).getByLabelText(de['category.traffic_other']));
+    fireEvent.click(within(screen.getByRole('group', { name: de['group.traffic'] })).getByLabelText(de['category.traffic_other']));
     expect(screen.getByLabelText(de['compose.descriptionRequired'])).toBeRequired();
     expect(screen.getByText(new RegExp(`^${de['kz.stillNeeded'].replace('{list}', '')}.*${de['kz.needDesc']}`))).toBeInTheDocument();
 

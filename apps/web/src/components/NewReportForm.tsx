@@ -22,7 +22,7 @@ import { currentFix, distanceM, LocationError, type Fix, type Point } from '@/li
 import { reportPath } from '@/lib/paths';
 import { ACCEPT_ATTRIBUTE, assessPhoto, composeDecision, type ChosenPhoto } from '@/lib/photo-check';
 import { coReport, postReport, uploadPhoto, type Posted, type ShownSuggestion } from '@/lib/post-report';
-import { categoriesOf, TOPICS, topicLabelKey, topicOf, type TopicId } from '@/lib/petition';
+import { topicLabelKey, topicOf } from '@/lib/petition';
 import { categoryToPreselect, duplicateSignature, findDuplicates, requestSuggestion, type DuplicateMatch } from '@/lib/report-assist';
 import { AlreadyReported } from './AlreadyReported';
 import { Confetti } from './kz/Confetti';
@@ -58,7 +58,6 @@ export function NewReportForm() {
   const [description, setDescription] = useState('');
   // The petition's title (app prototype). It becomes the description's first line, which the feed shows as the title.
   const [title, setTitle] = useState('');
-  const [topic, setTopic] = useState<TopicId | null>(null);
   const [dangerous, setDangerous] = useState(false);
   const [pin, setPin] = useState<Point | null>(null);
 
@@ -178,16 +177,7 @@ export function NewReportForm() {
   const suggestionShown = suggested !== null && suggested.category === category;
   /** Title on the first line, the citizen's reasons below (lib/petition.ts reads it back). */
   const fullDescription = [title.trim(), description.trim()].filter(Boolean).join('\n').slice(0, MAX_DESCRIPTION_LENGTH);
-  const shownTopic = topic ?? (category ? topicOf(category) : null);
-  const topicCategories = shownTopic ? categoriesOf(shownTopic, CATEGORIES) : [];
-  const offeredTopics = TOPICS.filter((x) => categoriesOf(x.id, CATEGORIES).length > 0);
-
-  function pickTopic(next: TopicId) {
-    setTopic(next);
-    const inTopic = categoriesOf(next, CATEGORIES);
-    if (inTopic.length === 1) setCategory(inTopic[0]!);
-    else if (!inTopic.includes(category)) setCategory('');
-  }
+  const shownTopic = category ? topicOf(category) : null;
 
   /** The first photo's key, uploading it now if the early upload has not happened. */
   async function ensureFirstKey(): Promise<ApiResult<string | null>> {
@@ -376,16 +366,10 @@ export function NewReportForm() {
           <input id={ids.title} type="text" maxLength={90} placeholder={t('kz.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)} required aria-required />
         </label>
 
-        {/* Topic, then the category within it (US-08); the AI's suggestion pre-selects one (US-14). */}
+        {/* The categories of v1 (US-08), grouped Traffic / Community; the AI's suggestion pre-selects one (US-14).
+            The prototype's topic follows from the category (ENG-26). */}
         <fieldset className="kz-group kz-fieldset">
-          <legend className="kz-field-label">{t('kz.topic')}</legend>
-          <div className="kz-chips">
-            {offeredTopics.map((x) => (
-              <button key={x.id} type="button" className="kz-choice" aria-pressed={shownTopic === x.id} onClick={() => pickTopic(x.id)}>
-                {t(topicLabelKey(x.id))}
-              </button>
-            ))}
-          </div>
+          <legend className="kz-field-label">{t('review.category')}</legend>
           <div aria-live="polite">
             {suggestionShown ? (
               <p className="notice info suggestion-note">
@@ -394,18 +378,23 @@ export function NewReportForm() {
               </p>
             ) : null}
           </div>
-          {shownTopic && topicCategories.length > 1 ? (
-            <fieldset className="kz-group kz-fieldset">
-              <legend className="kz-field-label">{t('kz.whatExactly')}</legend>
+          {(['traffic', 'community'] as const).map((group) => (
+            <fieldset key={group} className="kz-group kz-fieldset">
+              <legend className="kz-field-label">{t(`group.${group}` as MessageKey)}</legend>
               <div className="kz-chips">
-                {topicCategories.map((key) => (
-                  <label key={key} className="kz-choice kz-choice--radio">
-                    <input type="radio" name="category" value={key} checked={category === key} onChange={() => setCategory(key)} />
-                    {categoryLabel(t, key)}
+                {CATEGORIES.filter((c) => c.group === group).map((c) => (
+                  <label key={c.key} className="kz-choice kz-choice--radio">
+                    <input type="radio" name="category" value={c.key} checked={category === c.key} onChange={() => setCategory(c.key)} />
+                    {categoryLabel(t, c.key)}
                   </label>
                 ))}
               </div>
             </fieldset>
+          ))}
+          {shownTopic ? (
+            <p className="kz-note">
+              {t('kz.topic')}: {t(topicLabelKey(shownTopic))}
+            </p>
           ) : null}
         </fieldset>
 

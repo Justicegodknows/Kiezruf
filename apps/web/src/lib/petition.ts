@@ -35,8 +35,6 @@ export const CATEGORY_TOPIC: Record<string, TopicId> = {
 
 export const topicOf = (category: string): TopicId => CATEGORY_TOPIC[category] ?? 'mobility';
 export const topicLabelKey = (topic: TopicId) => `kz.topic.${topic}` as MessageKey;
-/** Categories a citizen can choose under a topic, in the shared order. */
-export const categoriesOf = (topic: TopicId, all: readonly { key: string }[]) => all.filter((c) => CATEGORY_TOPIC[c.key] === topic).map((c) => c.key);
 
 /**
  * The signature target: the next milestone above the count. Not the report's score or level threshold, which
