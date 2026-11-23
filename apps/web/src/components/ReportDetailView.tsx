@@ -141,7 +141,13 @@ export function ReportDetailView({ publicId }: { publicId: string }) {
                   <h2 id={titleId} className="kz-sheet__title">
                     {v.title}
                   </h2>
-                  {v.body ? <p className="kz-sheet__desc">{v.body}</p> : null}
+                  {v.body ? (
+                    <>
+                      {/* The demand is the author's text and nobody else changes it (user testing 2026-11-23). */}
+                      <p className="kz-section-label">{t('kz.askFor')}</p>
+                      <p className="kz-sheet__desc">{v.body}</p>
+                    </>
+                  ) : null}
                   <p className="kz-sheet__meta">{t('kz.started', { date: formatDateTime(locale, r.createdAt), id: r.publicId })}</p>
                 </div>
 
@@ -173,7 +179,21 @@ export function ReportDetailView({ publicId }: { publicId: string }) {
                   </section>
                 ) : null}
 
+                {/* What a signature does and what happens next (user testing 2026-11-23, H4). Only what the system
+                    really does: the office sees every petition from the start, signatures raise its place in the
+                    office's list, the goal is a milestone Kiezruf sets, and signers follow status changes. */}
+                <details className="kz-next">
+                  <summary>{t('kz.nextTitle')}</summary>
+                  <ol>
+                    <li>{t('kz.next1', { office: r.office ?? r.tenantName })}</li>
+                    <li>{t('kz.next2')}</li>
+                    <li>{t('kz.next3')}</li>
+                    <li>{t('kz.next4')}</li>
+                  </ol>
+                </details>
+
                 {relation.data?.mine ? <p className="kz-note">{t('kz.yours')}</p> : null}
+                <p className="kz-note">{t('kz.ideasNote')}</p>
                 <Comments publicId={publicId} />
               </div>
             </article>

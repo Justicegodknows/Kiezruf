@@ -47,19 +47,24 @@ export function signatureGoal(count: number): number {
 
 export type PressureLevel = 0 | 1 | 2 | 3 | 4;
 
-/** The prototype's "votes to go" heat (kzPressure): label level, colours of the badge and of the rising fill. */
+/**
+ * The prototype's "votes to go" heat (kzPressure): label level, colours of the badge and of the rising fill.
+ * Green, not the prototype's red "lava": in user testing (2026-11-23) red read as pressure ("like Booking.com")
+ * and the fill was hard to see. The text darkens from ink to green as the petition nears its goal; every colour
+ * keeps at least 4.5:1 against white, and white text keeps it on the fill.
+ */
 export function pressure(pct: number) {
   const level: PressureLevel = pct >= 100 ? 4 : pct >= 90 ? 3 : pct >= 75 ? 2 : pct >= 50 ? 1 : 0;
   const t = Math.max(0, Math.min(1, (pct - 40) / 60));
   const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
-  const text = `rgb(${mix(0, 176)}, ${mix(40, 12)}, ${mix(130, 20)})`;
+  const text = `rgb(${mix(42, 11)}, ${mix(58, 107)}, ${mix(99, 58)})`;
   const u = Math.max(0, Math.min(1, (pct - 30) / 70));
-  const lava = `${Math.round(226 * u)}, ${Math.round(92 - 50 * u)}, ${Math.round(170 - 154 * u)}`;
+  const leaf = `${Math.round(30 - 10 * u)}, ${Math.round(110 + 20 * u)}, ${Math.round(64 + 6 * u)}`;
   return {
     level,
-    color: level === 4 ? '#1E4BFF' : text,
-    fillBottom: 'rgba(0, 38, 102, 0.92)',
-    fillTop: `rgba(${lava}, 0.88)`,
+    color: level === 4 ? '#0B6B3A' : text,
+    fillBottom: 'rgba(7, 82, 44, 0.96)',
+    fillTop: `rgba(${leaf}, 0.94)`,
     wet: pct >= 50,
   };
 }

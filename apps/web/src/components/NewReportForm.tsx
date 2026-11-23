@@ -26,6 +26,7 @@ import { topicLabelKey, topicOf } from '@/lib/petition';
 import { categoryToPreselect, duplicateSignature, findDuplicates, requestSuggestion, type DuplicateMatch } from '@/lib/report-assist';
 import { AlreadyReported } from './AlreadyReported';
 import { Confetti } from './kz/Confetti';
+import { ShareButton } from './kz/ShareButton';
 import { KzIcon } from './kz/ui';
 import { DraftList } from './DraftList';
 import { ErrorText } from './ErrorText';
@@ -105,6 +106,9 @@ export function NewReportForm() {
   }, [signedIn, firstPostableId]);
 
   async function locate() {
+    // Close the phone's keyboard: a text field could keep focus while the location check runs (user testing
+    // 2026-11-23, "my keyboard was not going away").
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setLocating(true);
     setLocationError(null);
     setRoute(null);
@@ -303,12 +307,14 @@ export function NewReportForm() {
   }
 
   if (posted) {
+    const petitionTitle = title.trim() || categoryLabel(t, category);
     return (
       <SuccessScreen
         title={t('kz.live')}
-        body={t('kz.livePinned', { title: title.trim() || categoryLabel(t, category) })}
+        body={t('kz.livePinned', { title: petitionTitle })}
         publicId={posted.publicId}
         primary={{ href: '/', label: t('kz.seeMap') }}
+        share={{ path: reportPath({ publicId: posted.publicId, tenantName: route?.tenant?.name }), title: petitionTitle }}
       />
     );
   }
@@ -363,7 +369,24 @@ export function NewReportForm() {
         {/* Title */}
         <label className="kz-field" htmlFor={ids.title}>
           {t('kz.petTitle')}
-          <input id={ids.title} type="text" maxLength={90} placeholder={t('kz.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)} required aria-required />
+          <input
+            id={ids.title}
+            type="text"
+            maxLength={90}
+            enterKeyHint="done"
+            placeholder={t('kz.titlePh')}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              // "Done" on the phone's keyboard closes it instead of submitting the half-filled form.
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+            required
+            aria-required
+          />
         </label>
 
         {/* The categories of v1 (US-08), grouped Traffic / Community; the AI's suggestion pre-selects one (US-14).
@@ -509,8 +532,23 @@ export function NewReportForm() {
   );
 }
 
-/** "Your petition is live." (app prototype): the whole screen blue, with confetti. */
-function SuccessScreen({ title, body, publicId, primary }: { title: string; body: string; publicId: string; primary: { href: string; label: string } }) {
+/**
+ * "Your petition is live." (app prototype): the whole screen blue, with confetti. After publishing, sharing is the
+ * main action and the map a quiet link, and the screen says who sets the signature goal (user testing 2026-11-23).
+ */
+function SuccessScreen({
+  title,
+  body,
+  publicId,
+  primary,
+  share,
+}: {
+  title: string;
+  body: string;
+  publicId: string;
+  primary: { href: string; label: string };
+  share?: { path: string; title: string };
+}) {
   const { t } = useI18n();
   return (
     <section className="kz-success kz-success--page" aria-labelledby="posted-title">
@@ -525,12 +563,22 @@ function SuccessScreen({ title, body, publicId, primary }: { title: string; body
         <p>
           {t('posted.id')} <span className="kz-success__id">{publicId}</span>
         </p>
+        {share ? <p className="kz-success__goal">{t('kz.goalNote')}</p> : null}
       </div>
       <div className="kz-success__actions">
-        <Link href={primary.href} className="kz-cta kz-cta--light">
-          {primary.label}
-          <KzIcon name="arrow" size={18} stroke={2.4} />
-        </Link>
+        {share ? (
+          <>
+            <ShareButton path={share.path} title={share.title} className="kz-cta kz-cta--light" />
+            <Link href={primary.href} className="kz-link-button kz-link-button--plain">
+              {primary.label}
+            </Link>
+          </>
+        ) : (
+          <Link href={primary.href} className="kz-cta kz-cta--light">
+            {primary.label}
+            <KzIcon name="arrow" size={18} stroke={2.4} />
+          </Link>
+        )}
         <Link href="/my-reports" className="kz-link-button">
           {t('posted.toMyReports')}
         </Link>

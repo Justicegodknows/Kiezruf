@@ -1,5 +1,5 @@
 // The feed (landing page) and the first-visit splash lead staff to the console's sign-in (/console).
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BrowseShell } from '@/components/BrowseShell';
 import de from '@/i18n/de.json';
@@ -46,5 +46,20 @@ describe('landing page: the way to the staff console', () => {
     expect(await screen.findByRole('dialog', { name: 'Kiezruf' })).toBeInTheDocument();
     const links = screen.getAllByRole('link', { name: de['kz.consoleLong'] });
     expect(links.map((l) => l.getAttribute('href'))).toEqual(['/console', '/console']);
+  });
+});
+
+// User testing 2026-11-23 (participant 1): no email before any content, no topic filter before the feed.
+describe('first visit: content before an account', () => {
+  it('says what Kiezruf is and opens the feed without asking for an email or topics', async () => {
+    renderWithProviders(<BrowseShell>{null}</BrowseShell>);
+    const splash = await screen.findByRole('dialog', { name: 'Kiezruf' });
+    expect(splash).toHaveTextContent(de['kz.whatItIs']);
+    expect(splash).toHaveTextContent(de['kz.noAccountYet']);
+    expect(screen.queryByLabelText(/E-Mail/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: de['kz.start'] }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('kz-onboarded')).toBe('1');
+    expect(screen.getByRole('link', { name: de['kz.navNew'] })).toBeInTheDocument();
   });
 });
