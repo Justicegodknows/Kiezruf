@@ -1,15 +1,9 @@
 import type { Metadata } from 'next';
-import { AccountSettings } from '@/components/AccountSettings';
-import { PageHeading } from '@/components/PageHeading';
+import { AccountPage as Account } from '@/components/kz/Pages';
 import { MESSAGES } from '@/i18n';
 
-export const metadata: Metadata = { title: MESSAGES.de['account.title'] };
+export const metadata: Metadata = { title: MESSAGES.de['kz.yourAccount'] };
 
 export default function AccountPage() {
-  return (
-    <div className="page narrow">
-      <PageHeading title="account.title" />
-      <AccountSettings />
-    </div>
-  );
+  return <Account />;
 }

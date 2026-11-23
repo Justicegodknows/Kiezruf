@@ -49,6 +49,10 @@ describe('demo data', () => {
     expect(light).toMatchObject({ status: 'acknowledged', meTooCount: 20, publicNote: expect.stringContaining('Lichtsignalanlagen') });
     const detail = (await get(`/public/reports/${light.publicId}`)).json();
     expect(detail.photos).toHaveLength(1);
+    // The list carries the first photo for the feed's cards, and one 30 km request covers both Bezirke.
+    expect(light.photoUrl).toBe(detail.photos[0].url);
+    const berlin = (await get('/public/reports?lat=52.5186&lon=13.4083&radiusM=30000&limit=200')).json().reports;
+    expect(new Set(berlin.map((r: { tenantName: string }) => r.tenantName))).toEqual(new Set(['Neukölln', 'Spandau']));
     const key = detail.photos[0].url.replace('https://photos.test/public/', '');
     const meta = await sharp(t.storage.publicObjects.get(key)!).metadata();
     expect(meta).toMatchObject({ format: 'jpeg', width: 1200, height: 900 });

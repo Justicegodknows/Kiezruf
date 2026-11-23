@@ -37,5 +37,6 @@ A read is recorded as a fingerprint of the file's contents. When anyone changes 
 ## Other project rules
 
 - Product scope, stories and decisions come from [kiezruf-mvp-prototype.html](kiezruf-mvp-prototype.html). Engineering approach, Gherkin acceptance criteria and the Definition of Done come from the [engineering plan](https://claude.ai/artifact/HKL2joGnPhGD3yH7LspUmH).
+- The citizen frontend's look, screens, flow and wording come from [kiezruf-app-prototype.html](kiezruf-app-prototype.html) (the app prototype, added on `main` in `e738f10`): it is the frontend's single source of truth. Where it shows something the product plan or the API does not support yet, PROGRESS.md (ENG-26) records how the web maps it; change that mapping there, not ad hoc in a component. The staff console keeps the design system of ENG-23.
 - A story is done only when it meets the Definition of Done in the engineering plan.
 - Tenant isolation is never weakened: every staff query runs inside the caller's tenant scope, and citizen endpoints never return score or level (US-24, US-42).

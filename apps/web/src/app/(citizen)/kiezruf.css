@@ -1,0 +1,1838 @@
+/* Citizen frontend, after the app prototype (kiezruf-app-prototype.html, main e738f10): the frontend's single
+   source of truth since 2026-11-18. Everything is scoped to `.kz` (the citizen layout), so the staff console keeps
+   the design system of ENG-23. The tokens below replace that system's names inside citizen pages, so shared
+   components (dialogs, comments, errors) take the prototype's look without changes. Light only, like the prototype. */
+
+.kz {
+  color-scheme: light;
+  --bg: #f3f6fc;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --text: #0a1a3f;
+  --muted: #5b6b8c;
+  --line: #c5d2ec;
+  --line-soft: #e1e8f5;
+  --accent: #1e4bff;
+  --accent-text: #ffffff;
+  --accent-soft: #dce6ff;
+  --signal: #1e4bff;
+  --signal-hover: #1a3fe0;
+  --on-signal: #ffffff;
+  --danger: #c81e3a;
+  --on-danger: #ffffff;
+  --danger-soft: #fde8ec;
+  --info-soft: #eef3fd;
+  --focus: #1e4bff;
+  --radius: 14px;
+  --kz-ink-2: #2a3a63;
+  --kz-ink-3: #45557a;
+  --kz-tint: #e4ebf8;
+  --kz-tint-2: #eef3fd;
+  --kz-map: #d3dff6;
+  /* Signature progress (user testing 2026-11-23): green reads as progress, red read as pressure. */
+  --kz-track: #e6f4ea;
+  --kz-track-line: #b9dcc4;
+  --kz-go: #0b6b3a;
+  --kz-border: #d5dff2;
+  --kz-shadow: 0 8px 22px -16px rgba(10, 26, 63, 0.45);
+  --kz-shadow-lg: 0 30px 60px -20px rgba(10, 26, 63, 0.55);
+  --font: var(--font-kz-body), 'DM Sans', system-ui, sans-serif;
+  --font-head: var(--font-kz-head), 'Space Grotesk', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+}
+.kz main {
+  flex: 1;
+}
+.kz h1,
+.kz h2,
+.kz h3 {
+  font-family: var(--font-head);
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+/* Plain text links only: links styled as buttons, cards or tiles bring their own colours. */
+.kz a:where(:not([class])),
+.kz a:where(.card-link) {
+  color: var(--accent);
+}
+.kz a:where(:not([class])):hover {
+  color: var(--text);
+}
+.kz :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.kz input::placeholder,
+.kz textarea::placeholder {
+  color: #7a88a6;
+}
+
+/* Buttons and fields shared with older citizen components (sign-in dialog, comments, drafts). */
+.kz .btn {
+  min-height: 48px;
+  border-radius: 14px;
+  border: 2px solid var(--line-soft);
+  background: #fff;
+  font-family: var(--font-head);
+  font-weight: 600;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kz .btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.kz .btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.kz .btn.primary:hover {
+  background: var(--signal-hover);
+  border-color: var(--signal-hover);
+}
+.kz .btn.ghost {
+  border-color: transparent;
+  background: var(--kz-tint-2);
+  color: var(--accent);
+}
+.kz .btn.sm {
+  min-height: 36px;
+  border-radius: 999px;
+}
+.kz input[type='text'],
+.kz input[type='email'],
+.kz input[type='password'],
+.kz textarea,
+.kz select {
+  border: 2px solid var(--kz-border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.kz input[type='text'],
+.kz input[type='email'],
+.kz input[type='password'],
+.kz select {
+  min-height: 52px;
+  padding: 0 16px;
+}
+.kz textarea {
+  padding: 14px 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.kz input:focus,
+.kz textarea:focus,
+.kz select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.kz .notice {
+  border-radius: 16px;
+  border: 0;
+}
+.kz .notice.info {
+  background: var(--kz-tint-2);
+}
+
+@keyframes kz-pulse {
+  0% { transform: scale(0.7); opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes kz-pop {
+  0% { transform: translateY(48px) scale(0.94); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes kz-fade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes kz-screen {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes kz-drop {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes kz-fall {
+  0% { transform: translateY(-30px) rotate(0deg); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(760deg); opacity: 0; }
+}
+@keyframes kz-sway {
+  0% { transform: translateX(-16px); }
+  100% { transform: translateX(16px); }
+}
+@keyframes kz-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes kz-rumble-1 {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-0.6px, 0.3px); }
+  50% { transform: translate(0.6px, -0.3px); }
+  75% { transform: translate(-0.3px, -0.5px); }
+}
+@keyframes kz-rumble-2 {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(-1.2px, 0.6px) rotate(-0.4deg); }
+  50% { transform: translate(1.2px, -0.6px) rotate(0.4deg); }
+  75% { transform: translate(-0.6px, -1px) rotate(-0.2deg); }
+}
+@keyframes kz-rumble-3 {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-2px, 1px) rotate(-0.8deg); }
+  40% { transform: translate(2px, -1px) rotate(0.8deg); }
+  60% { transform: translate(-1.5px, -1.5px) rotate(-0.5deg); }
+  80% { transform: translate(1.5px, 1px) rotate(0.6deg); }
+}
+@keyframes kz-heat {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 58, 18, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(234, 58, 18, 0.22); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kz *,
+  .kz *::before,
+  .kz *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ---------- Top bars ---------- */
+.kz-bar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+}
+.kz-bar__title {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+.kz-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.kz-area {
+  position: relative;
+}
+.kz-area__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-head);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  cursor: pointer;
+}
+.kz-area__button:hover {
+  background: var(--kz-tint-2);
+}
+.kz-area__chev {
+  display: flex;
+  transition: transform 0.2s ease;
+}
+.kz-area__button[aria-expanded='true'] .kz-area__chev {
+  transform: rotate(180deg);
+}
+.kz-area__menu {
+  position: absolute;
+  left: -8px;
+  top: calc(100% + 10px);
+  width: 280px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  background: #fff;
+  border-radius: 22px;
+  border: 2px solid var(--line-soft);
+  box-shadow: 0 24px 48px -18px rgba(10, 26, 63, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: kz-drop 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top left;
+  z-index: 30;
+}
+.kz-area__heading {
+  padding: 8px 12px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.kz-area__option {
+  width: 100%;
+  height: 50px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.kz-area__option:hover,
+.kz-area__option[aria-selected='true'] {
+  background: var(--kz-tint-2);
+}
+.kz-area__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--kz-tint);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kz-area__option[aria-selected='true'] .kz-area__icon {
+  background: var(--accent);
+  color: #fff;
+}
+.kz-area__count {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.kz-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--text);
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+.kz a.kz-avatar:hover {
+  color: #fff;
+  background: var(--accent);
+}
+.kz-pill {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 2px solid var(--line-soft);
+  background: #fff;
+  color: var(--text);
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.kz-round {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--line-soft);
+  background: #fff;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* ---------- Feed: map card + petition list (phone); list beside a sticky map (wide screens) ---------- */
+.kz-feed {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'map' 'list';
+  background: #fff;
+  min-height: calc(100vh - 72px);
+}
+.kz-feed__map {
+  grid-area: map;
+  position: relative;
+  height: 230px;
+  background: var(--kz-map);
+}
+.kz-feed__list {
+  grid-area: list;
+  padding: 14px 12px 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.kz-feed__tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.kz-feed__topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kz-chip {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 2px solid var(--line-soft);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.kz-chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.kz-empty {
+  padding: 28px 20px;
+  border-radius: 20px;
+  background: var(--bg);
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+@media (min-width: 960px) {
+  .kz-feed {
+    grid-template-columns: minmax(380px, 520px) minmax(0, 1fr);
+    grid-template-areas: 'list map';
+    background: var(--bg);
+  }
+  .kz-feed__map {
+    position: sticky;
+    top: 72px;
+    height: calc(100vh - 72px);
+  }
+  .kz-feed__list {
+    padding: 16px 16px 120px;
+  }
+}
+.kz-feed__map .map-wrap {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+.kz-feed__map .map-wrap > .map {
+  position: absolute;
+  inset: 0;
+}
+
+/* Map pins: white rings, the open petition filled blue (prototype). */
+.kz .pin {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 3px solid var(--text);
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(10, 26, 63, 0.35);
+  cursor: pointer;
+}
+.kz .pin::after {
+  display: none;
+}
+.kz .pin.pin-selected {
+  width: 26px;
+  height: 26px;
+  border: 4px solid #fff;
+  background: var(--accent);
+  box-shadow: 0 4px 12px rgba(10, 26, 63, 0.4), 0 0 0 6px rgba(30, 75, 255, 0.2);
+}
+
+/* ---------- Petition card ---------- */
+.kz-card {
+  position: relative;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 2px solid var(--line-soft);
+  box-shadow: var(--kz-shadow);
+  transition: border-color 0.25s;
+}
+.kz-card:hover,
+.kz-card[data-selected='true'] {
+  border-color: var(--accent);
+}
+.kz-card__open {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.kz a.kz-card__open:hover {
+  color: inherit;
+}
+.kz-card__media {
+  position: relative;
+  height: 230px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.kz-card__media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kz-card__noimg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8da7e0;
+}
+.kz-card__tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 70px);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kz-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 38px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: calc(100% - 64px);
+  padding: 5px 11px 5px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 12px -6px rgba(10, 26, 63, 0.45);
+}
+.kz-badge[data-level='1'] { animation: kz-rumble-1 0.6s linear infinite; }
+.kz-badge[data-level='2'] { animation: kz-rumble-2 0.3s linear infinite; }
+.kz-badge[data-level='3'] { animation: kz-rumble-3 0.14s linear infinite, kz-heat 1s ease-in-out infinite; }
+/* The unfilled part is a pale green track, not white: user testing found the white-on-white bar hard to see. */
+.kz-card__progress {
+  position: relative;
+  z-index: 4;
+  margin-top: -26px;
+  overflow: hidden;
+  border-radius: 26px 26px 0 0;
+  background: var(--kz-track);
+  box-shadow: 0 -10px 20px -14px rgba(10, 26, 63, 0.45);
+  padding: 18px 18px 16px;
+  min-height: 112px;
+  display: flex;
+  align-items: stretch;
+}
+.kz-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.kz-card__row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+.kz-card__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  align-self: flex-start;
+  font-size: 17px;
+  line-height: 1.24;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.kz-card__nums {
+  flex-shrink: 0;
+  max-width: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  text-align: right;
+  gap: 10px;
+}
+.kz-pct {
+  font-family: var(--font-head);
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.kz-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kz-ink-3);
+  white-space: nowrap;
+}
+.kz-count strong {
+  color: var(--text);
+  font-weight: 800;
+}
+/* The same text, white, clipped to the rising fill (prototype: "wet" text under the water line). */
+.kz-card__wet {
+  position: absolute;
+  inset: 0;
+  padding: 18px 18px 16px;
+  display: flex;
+  pointer-events: none;
+}
+.kz-card__wet .kz-card__title,
+.kz-card__wet .kz-pct,
+.kz-card__wet .kz-count,
+.kz-card__wet .kz-count strong {
+  color: #fff;
+  text-shadow: 0 1px 5px rgba(0, 20, 60, 0.4);
+}
+.kz-card__wet .kz-count {
+  color: rgba(255, 255, 255, 0.88);
+}
+.kz-card__locate {
+  position: absolute;
+  right: 10px;
+  top: 186px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.kz-card__view {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 3px rgba(10, 26, 63, 0.6));
+}
+
+/* Grid view: photo tiles with the percentage. */
+.kz-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 600px) {
+  .kz-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 960px) {
+  .kz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.kz-tile {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--accent-soft);
+  color: #fff;
+  text-decoration: none;
+  border: 2px solid transparent;
+}
+.kz-tile:hover {
+  border-color: var(--accent);
+}
+.kz-tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kz-tile__shade {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 28px 10px 10px;
+  background: linear-gradient(180deg, transparent, rgba(0, 20, 60, 0.82));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kz-tile__title {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.kz-tile__pct {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Floating "New petition" button. */
+.kz-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  height: 56px;
+  min-width: 56px;
+  padding: 0 22px;
+  border-radius: 28px;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  box-shadow: 0 14px 30px -12px rgba(30, 75, 255, 0.7);
+  transition: padding 0.25s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kz a.kz-fab:hover {
+  color: #fff;
+  background: var(--signal-hover);
+}
+.kz-fab[data-compact='true'] {
+  padding: 0;
+}
+.kz-fab[data-compact='true'] .kz-fab__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Petition pop-up ---------- */
+.kz-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding: 44px 12px 18px;
+}
+.kz-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(232, 238, 251, 0.62);
+  backdrop-filter: blur(3px);
+  cursor: default;
+  animation: kz-fade 0.3s ease;
+}
+.kz-sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  min-height: 0;
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 28px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--kz-shadow-lg);
+  animation: kz-pop 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kz-sheet__panel--tint {
+  background: var(--bg);
+}
+.kz-sheet__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.kz-sheet__media {
+  position: relative;
+  height: 260px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.kz-sheet__media .kz-blur {
+  position: absolute;
+  inset: -24px;
+  width: calc(100% + 48px);
+  height: calc(100% + 48px);
+  object-fit: cover;
+  filter: blur(20px) saturate(1.1);
+}
+.kz-sheet__media .kz-sharp {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.kz-sheet__media .kz-badge {
+  bottom: 12px;
+  font-size: 13px;
+  padding: 6px 12px 6px 10px;
+}
+.kz-sheet__back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 4px 12px -6px rgba(10, 26, 63, 0.4);
+}
+.kz-dots {
+  position: absolute;
+  bottom: 48px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+.kz-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: #fff;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: width 0.3s ease;
+}
+.kz-dots button[aria-current='true'] {
+  width: 20px;
+  opacity: 1;
+}
+.kz-sheet__body {
+  padding: 16px 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.kz-sheet__title {
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+.kz-sheet__desc {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--kz-ink-2);
+  white-space: pre-line;
+}
+.kz-sheet__meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.kz-progress {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--kz-track-line);
+  background: var(--kz-track);
+  padding: 14px 16px;
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.kz-progress__nums {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kz-progress .kz-pct {
+  font-size: 30px;
+  font-weight: 700;
+}
+.kz-progress .kz-count {
+  font-size: 13px;
+  font-weight: 400;
+  white-space: normal;
+}
+.kz-progress[data-wet='true'] .kz-pct,
+.kz-progress[data-wet='true'] .kz-count,
+.kz-progress[data-wet='true'] .kz-count strong {
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 20, 60, 0.45);
+}
+.kz-reply {
+  border-radius: 16px;
+  background: var(--kz-tint-2);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kz-reply h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.kz-reply p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.kz-section-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.kz-sheet__foot {
+  padding: 10px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--line-soft);
+  background: inherit;
+}
+.kz-cta {
+  width: 100%;
+  height: 56px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: 17px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kz a.kz-cta:hover {
+  color: #fff;
+}
+.kz-cta:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.kz-cta:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.kz-cta--light {
+  background: #fff;
+  color: var(--text);
+}
+.kz a.kz-cta--light:hover {
+  color: var(--text);
+}
+.kz-signed {
+  height: 56px;
+  border-radius: 18px;
+  background: var(--kz-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.kz-tick {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kz-link-button {
+  border: 0;
+  background: none;
+  padding: 4px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+}
+.kz-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Confetti after signing (prototype). */
+.kz-confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 60;
+}
+.kz-confetti > span {
+  position: absolute;
+  top: -24px;
+  animation: kz-sway 1.4s ease-in-out infinite alternate;
+}
+.kz-confetti > span > span {
+  display: block;
+  animation: kz-fall 2.6s cubic-bezier(0.3, 0.55, 0.45, 1) both;
+}
+
+/* ---------- Splash and onboarding (first visit) ---------- */
+.kz-onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  background: #dce5f7;
+  overflow-y: auto;
+}
+.kz-onboard__screen {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--accent);
+  color: #fff;
+  animation: kz-screen 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+@media (min-width: 600px) {
+  .kz-onboard {
+    align-items: center;
+    padding: 24px;
+  }
+  .kz-onboard__screen {
+    min-height: min(844px, calc(100vh - 48px));
+    border-radius: 36px;
+    box-shadow: 0 30px 80px -30px rgba(10, 26, 63, 0.45);
+  }
+}
+.kz-onboard__rings {
+  position: absolute;
+  right: -120px;
+  top: 90px;
+  width: 360px;
+  height: 360px;
+  pointer-events: none;
+}
+.kz-onboard__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+.kz-onboard__skip {
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px;
+}
+.kz-onboard__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 17px;
+}
+.kz-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kz-logo--sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.kz-onboard__splash {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 28px;
+}
+.kz .kz-onboard__name {
+  margin: 0;
+  color: #fff;
+  font-size: 64px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+.kz-onboard__tagline {
+  margin: 0;
+  max-width: 30ch;
+  font-size: 16px;
+  line-height: 1.55;
+  color: #dce6ff;
+}
+.kz-onboard__what {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #fff;
+}
+.kz-onboard__foot {
+  padding: 20px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kz-onboard__hero {
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.kz .kz-onboard__hero h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 52px;
+  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+.kz-onboard__hero p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #dce6ff;
+}
+.kz-onboard__form {
+  margin-top: auto;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 28px 28px 0 0;
+  padding: 22px 20px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.kz-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.kz-field input,
+.kz-field textarea {
+  width: 100%;
+  font-weight: 400;
+}
+.kz-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.kz-onboard__topics {
+  flex: 1;
+  padding: 8px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.kz .kz-onboard__topics h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 40px;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.kz-topics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.kz-topic {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  padding: 14px;
+  border-radius: 20px;
+  border: 2px solid var(--line-soft);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -14px rgba(10, 26, 63, 0.45);
+}
+.kz-topic__icon {
+  color: var(--accent);
+  display: flex;
+}
+.kz-topic[aria-pressed='true'] {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+.kz-topic[aria-pressed='true'] .kz-topic__icon {
+  color: #fff;
+}
+.kz-topic__check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kz-onboard__note {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: #dce6ff;
+}
+
+/* ---------- Pages with a back button: account, new petition, lists ---------- */
+.kz-page {
+  min-height: calc(100vh - 72px);
+  background: linear-gradient(180deg, #f3f6fc 0%, #e6edfb 55%, #ccdaf7 100%);
+}
+.kz-page__inner {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 20px 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.kz-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.kz-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.kz-me {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.kz-me__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-size: 24px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.kz-me__name {
+  font-family: var(--font-head);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+.kz-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--line-soft);
+}
+.kz-segmented button {
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kz-segmented button[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+}
+.kz-panel {
+  background: #fff;
+  border-radius: 20px;
+  padding: 16px;
+  border: 2px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kz-row-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--line-soft);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.kz a.kz-row-link:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.kz-sticky-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 -20px;
+  padding: 12px 20px 22px;
+  background: #f3f6fc;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* New petition */
+.kz-create {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.kz-drop {
+  position: relative;
+  min-height: 172px;
+  border: 2px dashed #a9c1f2;
+  border-radius: 20px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: center;
+  padding: 18px 24px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.kz-drop:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kz-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.kz-drop__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--kz-tint);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kz-drop__sub {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.kz-shots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kz-shot {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--accent-soft);
+  border: 3px solid transparent;
+}
+.kz-shot[data-ok='false'] {
+  border-color: var(--danger);
+}
+.kz-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kz-shot__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(10, 26, 63, 0.85);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.kz-shot__state {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  right: 6px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kz-shot__state[data-ok='true'] {
+  color: var(--accent);
+}
+.kz-shot__state[data-ok='false'] {
+  color: var(--danger);
+}
+.kz-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kz-choice {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 2px solid var(--line-soft);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kz-choice[aria-pressed='true'],
+.kz-choice:has(input:checked) {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+.kz-choice--radio {
+  display: inline-flex;
+  align-items: center;
+}
+.kz-choice--radio input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.kz-choice--radio:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kz-verify {
+  background: #fff;
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 2px solid var(--line-soft);
+}
+.kz-verify[data-ok='true'] {
+  border-color: var(--accent);
+}
+.kz-verify__head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.kz-verify__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--kz-tint);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kz-verify__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.kz-soft-button {
+  height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--kz-tint);
+  color: var(--accent);
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kz-status-box {
+  min-height: 48px;
+  border-radius: 14px;
+  background: var(--kz-tint);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.kz-status-box .kz-sub {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.kz-blink {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: kz-blink 1s ease-in-out infinite;
+}
+.kz-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+.kz-switch input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+
+/* Success: the whole screen blue (prototype). */
+.kz-success {
+  min-height: calc(100vh - 0px);
+  display: flex;
+  flex-direction: column;
+  padding: 40px 28px 32px;
+  gap: 18px;
+  background: var(--accent);
+  color: #fff;
+  animation: kz-screen 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kz-success__inner {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+}
+.kz-success__icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  background: #fff;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kz .kz-success h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 46px;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  font-weight: 700;
+}
+.kz-success p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.55;
+  color: #dce6ff;
+}
+.kz-success__id {
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: #fff;
+}
+.kz-success__actions {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kz-success .kz-link-button {
+  color: #dce6ff;
+}
+.kz-success .kz-link-button--plain {
+  text-decoration: underline;
+}
+.kz-success__goal {
+  font-size: 14px;
+}
+
+/* "What happens next" in the petition pop-up (user testing 2026-11-23: H4, people did not know what a signature does). */
+.kz-next {
+  border-radius: 16px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface);
+  padding: 4px 16px;
+}
+.kz-next summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--text);
+}
+.kz-next ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  line-height: 1.5;
+  color: var(--kz-ink-2);
+}
+.kz-section-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.kz-map-locate {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  border: 0;
+  box-shadow: 0 6px 16px -8px rgba(10, 26, 63, 0.5);
+}
+.kz-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.kz-field-label {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.kz-verify__title {
+  margin: 0;
+  font-family: var(--font);
+  letter-spacing: 0;
+}
+.kz-verify details > .kz-field-label {
+  color: var(--accent);
+}
+/* The success screen covers the whole window, like the prototype's. */
+.kz-success--page {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  overflow-y: auto;
+}
+/* Long German topic names ("Barrierefreiheit") wrap inside the tile. */
+.kz-topic > span:last-child {
+  max-width: 100%;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+}
+.kz-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.kz-pill--quiet {
+  border-color: transparent;
+  background: var(--kz-tint-2);
+  color: var(--accent);
+  padding: 0 14px;
+}
+.kz a.kz-pill--quiet:hover {
+  background: var(--kz-tint);
+  color: var(--text);
+}
+.kz .kz-onboard__console {
+  align-self: center;
+  padding: 6px;
+  color: #dce6ff;
+  font-size: 14px;
+  text-underline-offset: 3px;
+}
+.kz .kz-onboard__console:hover {
+  color: #fff;
+}

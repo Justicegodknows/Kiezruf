@@ -14,16 +14,72 @@ import { categoryLabel, statusLabel } from './labels';
 
 export const MAP_STYLE_URL = process.env.NEXT_PUBLIC_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
 
+/**
+ * Recolours the base map to the app prototype's blues (kiezruf-app-prototype.html): pale blue land, white streets,
+ * blue water, muted labels, no points of interest. Layer names differ between styles, so this goes by layer type and
+ * a few name parts, and skips what does not apply.
+ */
+export function tintToPrototype(map: Pick<MapLibreMap, 'getStyle' | 'setPaintProperty' | 'setLayoutProperty'>): void {
+  const layers = map.getStyle()?.layers ?? [];
+  const set = (id: string, prop: string, value: unknown) => {
+    try {
+      map.setPaintProperty(id, prop as never, value as never);
+    } catch {
+      // A property this layer does not have.
+    }
+  };
+  for (const layer of layers) {
+    const id = layer.id;
+    const name = id.toLowerCase();
+    if (layer.type === 'background') set(id, 'background-color', '#E4EBF8');
+    else if (layer.type === 'fill' && name.includes('water')) set(id, 'fill-color', '#B9CCF5');
+    else if (layer.type === 'fill' && /park|wood|grass|forest|green|cemetery|pitch/.test(name)) set(id, 'fill-color', '#D3E2FA');
+    else if (layer.type === 'fill' && name.includes('building')) set(id, 'fill-color', '#D5DFF2');
+    else if (layer.type === 'fill-extrusion') set(id, 'fill-extrusion-color', '#D5DFF2');
+    else if (layer.type === 'fill') set(id, 'fill-color', '#E1E9F8');
+    else if (layer.type === 'line' && /water|river|canal|stream/.test(name)) set(id, 'line-color', '#B9CCF5');
+    else if (layer.type === 'line' && /rail|transit/.test(name)) set(id, 'line-color', '#C3D3F3');
+    else if (layer.type === 'line' && /boundary|admin/.test(name)) set(id, 'line-color', '#8DA7E0');
+    else if (layer.type === 'line') set(id, 'line-color', '#FFFFFF');
+    else if (layer.type === 'symbol') {
+      if (/poi|shield|aerodrome|airport|housenumber/.test(name)) {
+        try {
+          map.setLayoutProperty(id, 'visibility', 'none');
+        } catch {
+          // Not a layer we can hide.
+        }
+      } else {
+        set(id, 'text-color', '#45557A');
+        set(id, 'text-halo-color', '#F3F6FC');
+      }
+    }
+  }
+}
+
+/** South-west and north-east corners around the reports, as [lon, lat]; null without reports. */
+export function reportBounds(reports: readonly Pick<PublicReport, 'lat' | 'lon'>[]): [[number, number], [number, number]] | null {
+  if (reports.length === 0) return null;
+  const lons = reports.map((r) => r.lon);
+  const lats = reports.map((r) => r.lat);
+  return [
+    [Math.min(...lons), Math.min(...lats)],
+    [Math.max(...lons), Math.max(...lats)],
+  ];
+}
+
 export function ReportMap({
   reports,
   selectedId,
   center,
   onSelect,
   onMoved,
+  fitKey,
 }: {
   reports: PublicReport[];
   selectedId: string | null;
   center: Point;
+  /** When it changes (another area or topic filter), the view fits the reports again. */
+  fitKey?: string;
   onSelect: (report: PublicReport) => void;
   onMoved: (center: Point) => void;
 }) {
@@ -36,6 +92,8 @@ export function ReportMap({
   const [failed, setFailed] = useState(false);
   const onMovedRef = useRef(onMoved);
   const onSelectRef = useRef(onSelect);
+  /** The first view fits the reports once; after that, or once the citizen moved the map, it is theirs. */
+  const viewSettled = useRef(false);
 
   useEffect(() => {
     onMovedRef.current = onMoved;
@@ -59,6 +117,7 @@ export function ReportMap({
         map.on('moveend', (event) => {
           // Only moves the citizen made, not the ones this component started.
           if (!('originalEvent' in event) || !event.originalEvent) return;
+          viewSettled.current = true;
           const c = map!.getCenter();
           onMovedRef.current({ lat: c.lat, lon: c.lng });
         });
@@ -66,6 +125,7 @@ export function ReportMap({
         let loaded = false;
         map.on('load', () => {
           loaded = true;
+          tintToPrototype(map!);
         });
         map.on('error', () => {
           if (!loaded) setFailed(true);
@@ -108,8 +168,24 @@ export function ReportMap({
   }, [reports, selectedId, ready, t]);
 
   useEffect(() => {
+    viewSettled.current = false;
+  }, [fitKey]);
+
+  // First view: zoom to all reports, so the pins are in sight whatever the screen size (demo, 2026-11-18).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || viewSettled.current || selectedId) return;
+    const bounds = reportBounds(reports);
+    if (!bounds) return;
+    viewSettled.current = true;
+    map.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 0 });
+  }, [reports, selectedId, ready, fitKey]);
+
+  useEffect(() => {
     const report = reports.find((r) => r.publicId === selectedId);
-    if (report) mapRef.current?.easeTo({ center: [report.lon, report.lat] });
+    if (!report) return;
+    viewSettled.current = true;
+    mapRef.current?.easeTo({ center: [report.lon, report.lat] });
   }, [selectedId, reports, ready]);
 
   return (

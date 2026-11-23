@@ -6,11 +6,12 @@
 // and verify. Only an `aal2` session reaches the console; the TOTP check is good for 12 hours. All Supabase calls
 // run on the server (/api/auth/*), so the session stays in httpOnly cookies.
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ErrorText } from '@/components/ErrorText';
 import { useI18n } from '@/i18n/I18nProvider';
 import { api } from '@/lib/api-client';
+import { hardNavigate } from '@/lib/hard-navigate';
 import { safeConsoleNext } from '@/lib/console-paths';
 import { fetchStaffSession, STAFF_SESSION_KEY } from '../StaffProvider';
 
@@ -28,7 +29,6 @@ export function groupSecret(secret: string): string {
 
 export function SignInPage() {
   const { t } = useI18n();
-  const router = useRouter();
   const params = useSearchParams();
   const queryClient = useQueryClient();
   const next = safeConsoleNext(params.get('next'));
@@ -70,7 +70,7 @@ export function SignInPage() {
         if (cancelled) return;
         if (session.signedIn) {
           queryClient.setQueryData(STAFF_SESSION_KEY, session);
-          router.replace(next);
+          hardNavigate(next);
         } else if (session.reason === 'mfa_required') {
           void startMfa(true);
         } else if (session.reason === 'not_staff') {
@@ -81,7 +81,7 @@ export function SignInPage() {
     return () => {
       cancelled = true;
     };
-  }, [next, queryClient, router, startMfa]);
+  }, [next, queryClient, startMfa]);
 
   // Each step change (also back to the email step after an error) moves focus to the heading, so focus never
   // drops to the page body and screen-reader users hear what changed (WCAG 2.4.3). Not on the first render.
@@ -120,7 +120,7 @@ export function SignInPage() {
       return fail(session?.reason === 'not_staff' ? 'not_staff' : 'unavailable');
     }
     queryClient.setQueryData(STAFF_SESSION_KEY, session);
-    router.replace(next);
+    hardNavigate(next);
   }
 
   function restart() {

@@ -88,7 +88,7 @@ describe('citizen web: report from the web', () => {
     liveRoute();
     mockGeolocation({ lat: 52.48, lon: 13.43, accuracy: 180 });
     renderWithProviders(<NewReportForm />);
-    fireEvent.click(screen.getByRole('button', { name: de['compose.locate'] }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.useLoc'] }));
     expect(await screen.findByRole('alert')).toHaveTextContent(de['error.accuracy_too_low']);
   });
 
@@ -96,7 +96,7 @@ describe('citizen web: report from the web', () => {
     liveRoute();
     mockGeolocation({ lat: 52.48, lon: 13.43, accuracy: 15 });
     renderWithProviders(<NewReportForm />);
-    fireEvent.click(screen.getByRole('button', { name: de['compose.locate'] }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.useLoc'] }));
     expect(await screen.findByText(/Ihre Meldung geht an: Ordnungsamt Neukölln \(Neukölln\)/)).toBeInTheDocument();
   });
 
@@ -108,7 +108,7 @@ describe('citizen web: report from the web', () => {
     });
     mockGeolocation({ lat: 52.52, lon: 13.4, accuracy: 15 });
     renderWithProviders(<NewReportForm />);
-    fireEvent.click(screen.getByRole('button', { name: de['compose.locate'] }));
+    fireEvent.click(screen.getByRole('button', { name: de['kz.useLoc'] }));
     expect(await screen.findByRole('heading', { name: de['notLive.title'] })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: de['notLive.notifyMe'] })).toBeInTheDocument();
   });
@@ -117,21 +117,20 @@ describe('citizen web: report from the web', () => {
     liveRoute();
     exif.next = [{ capturedAt: null, lat: null, lon: null }];
     renderWithProviders(<NewReportForm />);
-    const input = screen.getByLabelText(de['compose.choosePhotos']);
+    const input = screen.getByLabelText(de['kz.takePhoto'], { exact: false });
     fireEvent.change(input, { target: { files: [new File(['x'], 'desktop.jpg', { type: 'image/jpeg' })] } });
     expect(await screen.findByText(/Ort oder Aufnahmezeit fehlen in der Datei: nur als Entwurf/)).toBeInTheDocument();
     expect(screen.getByText(/Mindestens ein Foto erfüllt die Vor-Ort-Regeln nicht/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: de['review.post'] })).toBeDisabled();
-    expect(screen.getByRole('button', { name: de['review.saveDraft'] })).toBeEnabled();
+    expect(screen.getByRole('button', { name: de['kz.publish'] })).toBeDisabled();
+    expect(screen.getByRole('button', { name: de['kz.saveDraft'] })).toBeEnabled();
   });
 
   it('requires a description for "Other" (US-08) and shows 112 / 110 when dangerous (US-09)', async () => {
     liveRoute();
     renderWithProviders(<NewReportForm />);
-    const traffic = screen.getByRole('group', { name: de['group.traffic'] });
-    fireEvent.click(within(traffic).getByLabelText(de['category.traffic_other']));
+    fireEvent.click(within(screen.getByRole('group', { name: de['group.traffic'] })).getByLabelText(de['category.traffic_other']));
     expect(screen.getByLabelText(de['compose.descriptionRequired'])).toBeRequired();
-    expect(screen.getByText(de['review.missingDescription'])).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`^${de['kz.stillNeeded'].replace('{list}', '')}.*${de['kz.needDesc']}`))).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('switch', { name: de['compose.dangerous'] }));
     const banner = await screen.findByRole('alert');
@@ -145,7 +144,7 @@ describe('citizen web: report from the web', () => {
     exif.next = [ok, ok, ok, ok];
     renderWithProviders(<NewReportForm />);
     const files = [1, 2, 3, 4].map((n) => new File(['x'], `p${n}.jpg`, { type: 'image/jpeg' }));
-    fireEvent.change(screen.getByLabelText(de['compose.choosePhotos']), { target: { files } });
+    fireEvent.change(screen.getByLabelText(de['kz.takePhoto'], { exact: false }), { target: { files } });
     await waitFor(() => expect(screen.getAllByRole('button', { name: /Foto \d entfernen/ })).toHaveLength(3));
     expect(screen.getByRole('alert')).toHaveTextContent('Höchstens 3 Fotos');
   });
